@@ -103,40 +103,10 @@ export default function Configuracion() {
         setComprasCuotas(cuotasData)
 
       } catch (err) {
-        setError(err.message)
-        console.error('Error cargando datos:', err)
-        
-        // Datos de ejemplo como fallback
-        setPagosFijos([
-          { id: '1', nombre: 'Netflix', monto: 12.99, metodo: 'Tarjeta', categoria: 'Entretenimiento', frecuencia: 'mensual', activo: true, fechaInicio: '2025-10-01' },
-          { id: '2', nombre: 'Gimnasio', monto: 45.00, metodo: 'Transferencia', categoria: 'Salud', frecuencia: 'mensual', activo: true, fechaInicio: '2025-10-01' },
-          { id: '3', nombre: 'Alquiler', monto: 750.00, metodo: 'Transferencia', categoria: 'Alquiler', frecuencia: 'mensual', activo: true, fechaInicio: '2025-10-01' }
-        ])
-        
-        setComprasCuotas([
-          { 
-            id: '1', 
-            concepto: 'iPhone 15 Pro', 
-            montoTotal: 1199.00, 
-            cuotasTotales: 12,
-            cuotasPagadas: 3,
-            montoPrimeraCuota: 150.00,
-            montoUltimaCuota: 49.00,
-            tipoCuotas: 'decreciente',
-            fechaInicio: '2025-09-01',
-            metodo: 'Tarjeta',
-            categoria: 'Tecnología',
-            activo: true,
-            frecuenciaPago: 'mensual',
-            historialCuotas: [
-              { numero: 1, monto: 150.00, pagada: true, fecha: '2025-09-01' },
-              { numero: 2, monto: 140.00, pagada: true, fecha: '2025-10-01' },
-              { numero: 3, monto: 130.00, pagada: true, fecha: '2025-11-01' },
-              { numero: 4, monto: 120.00, pagada: false, fecha: '2025-12-01' },
-              { numero: 5, monto: 110.00, pagada: false, fecha: '2026-01-01' }
-            ]
-          }
-        ])
+        setError(err.message);
+        console.error('Error cargando datos:', err);
+        setPagosFijos([]);
+        setComprasCuotas([]);
       } finally {
         setLoading(false)
       }
@@ -451,7 +421,7 @@ export default function Configuracion() {
             </div>
             <p className="text-slate-300 mb-4">{error}</p>
             <p className="text-slate-400 text-sm mb-6">
-              Mostrando datos de ejemplo. Asegúrate de que tus endpoints API estén configurados correctamente.
+              No se muestran datos de demostración. Comprueba la conexión y vuelve a intentarlo.
             </p>
             <button
               onClick={() => window.location.reload()}
