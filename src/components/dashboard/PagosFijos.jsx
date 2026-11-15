@@ -9,41 +9,21 @@ export default function PagosFijos() {
   useEffect(() => {
     const fetchPagosFijos = async () => {
       try {
-        setLoading(true)
-        const response = await fetch('/api/pagos-fijos')
-        
-        if (response.ok) {
-          const data = await response.json()
-          const pagosActivos = data.filter(pago => pago.activo !== false)
-          setPagosFijos(pagosActivos)
-        } else {
-          // Fallback a localStorage
-          const datosGuardados = localStorage.getItem('pagosFijos')
-          if (datosGuardados) {
-            const parsedData = JSON.parse(datosGuardados)
-            const pagosActivos = parsedData.filter(p => p.activo !== false)
-            setPagosFijos(pagosActivos)
-          }
-        }
+        setLoading(true);
+        const response = await fetch('/api/pagos-fijos');
+        if (!response.ok) throw new Error('No se pudieron cargar los pagos fijos.');
+        const data = await response.json();
+        if (!Array.isArray(data)) throw new Error('Respuesta de pagos fijos no válida.');
+        setPagosFijos(data.filter((pago) => pago.activo !== false));
       } catch (err) {
-        console.error('Error cargando pagos fijos:', err)
-        const datosGuardados = localStorage.getItem('pagosFijos')
-        if (datosGuardados) {
-          try {
-            const parsedData = JSON.parse(datosGuardados)
-            const pagosActivos = parsedData.filter(p => p.activo !== false)
-            setPagosFijos(pagosActivos)
-          } catch (parseErr) {
-            console.error('Error parsing localStorage:', parseErr)
-          }
-        }
+        console.error('Error cargando pagos fijos:', err);
+        setPagosFijos([]);
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
-    }
-
-    fetchPagosFijos()
-  }, [])
+    };
+    fetchPagosFijos();
+  }, []);
 
   // Calcular total
   const total = pagosFijos.reduce((sum, pago) => {
