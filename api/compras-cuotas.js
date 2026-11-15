@@ -1,23 +1,18 @@
-import { Client } from '@notionhq/client'
-
-const notion = new Client({ 
-  auth: process.env.NOTION_TOKEN 
-})
+import { getNotionClient, queryAllDatabasePages } from "../server/notion.js";
 
 export default async function handler(req, res) {
   if (req.method === 'GET') {
     try {
       const databaseId = process.env.NOTION_COMPRAS_CUOTAS_DATABASE_ID
       
-      const response = await notion.databases.query({
-        database_id: databaseId,
+      const notionPages = await queryAllDatabasePages(databaseId, {
         sorts: [
           { property: 'Activo', direction: 'descending' },
           { property: 'Fecha Inicio', direction: 'ascending' }
         ]
       })
 
-      const comprasCuotas = response.results.map(page => {
+      const comprasCuotas = notionPages.map(page => {
         // Parsear historial de cuotas desde JSON string
         const historialText = page.properties['Historial Cuotas']?.rich_text[0]?.plain_text || '[]'
         let historialCuotas = []
@@ -68,7 +63,7 @@ export default async function handler(req, res) {
         historialCuotas 
       } = req.body
       
-      const response = await notion.pages.create({
+      const response = await getNotionClient().pages.create({
         parent: { 
           database_id: process.env.NOTION_COMPRAS_CUOTAS_DATABASE_ID 
         },
@@ -139,7 +134,7 @@ export default async function handler(req, res) {
         properties.Activo = { checkbox: activo }
       }
 
-      const response = await notion.pages.update({
+      const response = await getNotionClient().pages.update({
         page_id: id,
         properties
       })
@@ -158,7 +153,7 @@ export default async function handler(req, res) {
     try {
       const { id } = req.body
       
-      const response = await notion.pages.update({
+      const response = await getNotionClient().pages.update({
         page_id: id,
         archived: true
       })
