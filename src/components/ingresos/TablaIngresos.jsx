@@ -41,34 +41,25 @@ export default function TablaIngresos() {
   const [filtroCuenta, setFiltroCuenta] = useState('');
   const [filtroCategoria, setFiltroCategoria] = useState('');
 
-  // Fetch de datos desde Notion API
+  // Load real data only. Failed requests never populate demo figures.
   useEffect(() => {
     const fetchIngresos = async () => {
       try {
+        setLoading(true);
+        setError(null);
         const res = await fetch('/api/ingresos');
-        if (!res.ok) throw new Error('Error cargando ingresos');
+        if (!res.ok) throw new Error('No se pudieron cargar los ingresos.');
         const data = await res.json();
+        if (!Array.isArray(data)) throw new Error('La respuesta de ingresos no tiene el formato esperado.');
         setIngresosMensuales(data);
       } catch (err) {
         setError(err.message);
         console.error('Error fetching ingresos:', err);
-        
-        // Datos de ejemplo como fallback
-        setIngresosMensuales([
-          { id: 1, fecha: '2025-10-01', concepto: 'Salario mensual', metodo: 'Transferencia', categoria: 'Sueldo', cuenta: 'BBVA', monto: 2500 },
-          { id: 2, fecha: '2025-10-05', concepto: 'Trabajo freelance', metodo: 'PayPal', categoria: 'Freelance', cuenta: 'PayPal', monto: 450 },
-          { id: 3, fecha: '2025-10-10', concepto: 'Venta de artículos', metodo: 'Bizum', categoria: 'Ventas', cuenta: 'Revolut', monto: 120 },
-          { id: 4, fecha: '2025-10-15', concepto: 'Consultoría', metodo: 'Transferencia', categoria: 'Freelance', cuenta: 'BBVA', monto: 800 },
-          { id: 5, fecha: '2025-10-20', concepto: 'Propinas', metodo: 'Efectivo', categoria: 'Extras', cuenta: 'Efectivo', monto: 85 },
-          { id: 6, fecha: '2025-09-01', concepto: 'Salario mensual', metodo: 'Transferencia', categoria: 'Sueldo', cuenta: 'BBVA', monto: 2400 },
-          { id: 7, fecha: '2025-09-10', concepto: 'Inversiones', metodo: 'Transferencia', categoria: 'Inversiones', cuenta: 'BBVA', monto: 300 },
-          { id: 8, fecha: '2025-09-15', concepto: 'Reembolso', metodo: 'Tarjeta', categoria: 'Reembolsos', cuenta: 'Santander', monto: 150 },
-        ]);
+        setIngresosMensuales([]);
       } finally {
         setLoading(false);
       }
     };
-
     fetchIngresos();
   }, []);
 
@@ -585,7 +576,7 @@ export default function TablaIngresos() {
             </div>
             <p className="text-slate-300 mb-4">{error}</p>
             <p className="text-slate-400 text-sm mb-6">
-              Mostrando datos de ejemplo. Asegúrate de que tu endpoint /api/ingresos esté configurado correctamente.
+              No se muestran importes hasta recuperar los datos reales. Comprueba la conexión y vuelve a intentarlo.
             </p>
             <button
               onClick={() => window.location.reload()}
