@@ -33,188 +33,71 @@ export default function DineroDisponible() {
 
   // ========== CARGAR TODOS LOS DATOS ==========
   useEffect(() => {
+    let cancelled = false;
     const fetchDatosFinancieros = async () => {
       try {
         setLoading(true);
+        setError(null);
         const mesActual = obtenerMesActual();
         setMesFiltro(mesActual);
         const hoy = new Date();
         hoy.setHours(0, 0, 0, 0);
-        
-        console.log('Cargando datos para el mes:', mesActual);
-
-        // 1. Cargar ingresos del mes actual
-        let totalIngresos = 0;
-        try {
-          const resIngresos = await fetch('/api/ingresos');
-          if (resIngresos.ok) {
-            const ingresosData = await resIngresos.json();
-            
-            // Filtrar ingresos del mes actual
-            const ingresosMesActual = ingresosData.filter(ingreso => {
-              if (!ingreso.fecha) return false;
-              try {
-                const fechaIngreso = new Date(ingreso.fecha);
-                const mesIngreso = `${fechaIngreso.getFullYear()}-${String(fechaIngreso.getMonth() + 1).padStart(2, '0')}`;
-                return mesIngreso === mesActual;
-              } catch {
-                return false;
-              }
-            });
-
-            // Sumar todos los ingresos del mes actual
-            totalIngresos = ingresosMesActual.reduce((sum, ingreso) => {
-              const monto = parseFloat(ingreso.monto) || 0;
-              return sum + monto;
-            }, 0);
-          }
-        } catch (err) {
-          console.warn('Error cargando ingresos:', err);
-          totalIngresos = 1800; // Valor por defecto
-        }
-
-        // 2. Cargar gastos normales del mes actual
-        let totalGastosNormales = 0;
-        try {
-          const resGastos = await fetch('/api/gastos');
-          if (resGastos.ok) {
-            const gastosData = await resGastos.json();
-            
-            // Filtrar gastos del mes actual
-            const gastosMesActual = gastosData.filter(gasto => {
-              if (!gasto.fecha) return false;
-              try {
-                const fechaGasto = new Date(gasto.fecha);
-                const mesGasto = `${fechaGasto.getFullYear()}-${String(fechaGasto.getMonth() + 1).padStart(2, '0')}`;
-                return mesGasto === mesActual;
-              } catch {
-                return false;
-              }
-            });
-
-            // Sumar todos los gastos normales del mes actual
-            totalGastosNormales = gastosMesActual.reduce((sum, gasto) => {
-              const monto = parseFloat(gasto.monto) || 0;
-              return sum + monto;
-            }, 0);
-          }
-        } catch (err) {
-          console.warn('Error cargando gastos normales:', err);
-          totalGastosNormales = 72; // Valor por defecto (50+20+2)
-        }
-
-        // 3. Cargar pagos fijos activos
-        let totalPagosFijos = 0;
-        try {
-          const resPagosFijos = await fetch('/api/pagos-fijos');
-          if (resPagosFijos.ok) {
-            const pagosFijosData = await resPagosFijos.json();
-            
-            // Filtrar solo pagos fijos activos
-            const pagosActivos = pagosFijosData.filter(pago => {
-              const activo = pago.activo === true || pago.activo === 'true' || pago.activo === undefined;
-              return activo;
-            });
-
-            // Sumar montos de todos los pagos fijos activos
-            totalPagosFijos = pagosActivos.reduce((sum, pago) => {
-              const monto = parseFloat(pago.monto) || 0;
-              return sum + monto;
-            }, 0);
-          }
-        } catch (err) {
-          console.warn('Error cargando pagos fijos:', err);
-          totalPagosFijos = 750; // Valor por defecto
-        }
-
-        // 4. Cargar compras a cuotas y calcular cuotas pagadas del mes actual
-        let totalCuotasPagadasMes = 0;
-        try {
-          const resCuotas = await fetch('/api/compras-cuotas');
-          if (resCuotas.ok) {
-            const comprasCuotasData = await resCuotas.json();
-            
-            // Filtrar solo compras a cuotas activas
-            const comprasActivas = comprasCuotasData.filter(compra => {
-              const activo = compra.activo === true || compra.activo === 'true' || compra.activo === undefined;
-              return activo;
-            });
-
-            // Para cada compra activa, sumar las cuotas pagadas en el mes actual
-            comprasActivas.forEach(compra => {
-              if (compra.historialCuotas && Array.isArray(compra.historialCuotas)) {
-                compra.historialCuotas.forEach(cuota => {
-                  // Solo considerar cuotas pagadas
-                  if (cuota.pagada && cuota.fecha) {
-                    try {
-                      const fechaCuota = new Date(cuota.fecha);
-                      fechaCuota.setHours(0, 0, 0, 0);
-                      
-                      const mesCuota = `${fechaCuota.getFullYear()}-${String(fechaCuota.getMonth() + 1).padStart(2, '0')}`;
-                      
-                      // Solo incluir si la fecha es hoy o pasada y del mes actual
-                      if (fechaCuota <= hoy && mesCuota === mesActual) {
-                        const monto = parseFloat(cuota.monto) || 0;
-                        totalCuotasPagadasMes += monto;
-                      }
-                    } catch (err) {
-                      console.warn('Error procesando fecha de cuota:', err);
-                    }
-                  }
-                });
-              }
-            });
-          }
-        } catch (err) {
-          console.warn('Error cargando compras a cuotas:', err);
-          totalCuotasPagadasMes = 47.98; // Valor por defecto (cuota 1 de Shein + cuota 3 de Aliexpress 1 + cuota 1 de Aliexpress 3 + cuota 1 de Aliexpress 2)
-        }
-
-        // 5. Calcular total de gastos (normales + fijos + cuotas)
-        const totalGastosCalculado = totalGastosNormales + totalPagosFijos + totalCuotasPagadasMes;
-        
-        // 6. Calcular dinero disponible
-        const nuevoDisponible = totalIngresos - totalGastosCalculado;
-
-        // 7. Actualizar estados
-        setIngresoMensual(totalIngresos);
-        setGastosNormales(totalGastosNormales);
-        setGastosFijos(totalPagosFijos);
-        setGastosCuotas(totalCuotasPagadasMes);
-        setTotalGastos(totalGastosCalculado);
-        setDisponible(nuevoDisponible);
-
-        console.log('Resumen calculado:', {
-          ingresos: totalIngresos,
-          gastosNormales: totalGastosNormales,
-          gastosFijos: totalPagosFijos,
-          gastosCuotas: totalCuotasPagadasMes,
-          totalGastos: totalGastosCalculado,
-          disponible: nuevoDisponible,
-          mes: mesActual
+        const responses = await Promise.all([
+          fetch('/api/ingresos'), fetch('/api/gastos'),
+          fetch('/api/pagos-fijos'), fetch('/api/compras-cuotas')
+        ]);
+        const names = ['ingresos', 'gastos', 'pagos fijos', 'cuotas'];
+        responses.forEach((r, i) => { if (!r.ok) throw new Error(`No se pudieron cargar ${names[i]}.`); });
+        const [ingresosData, gastosData, pagosFijosData, comprasCuotasData] = await Promise.all(responses.map(r => r.json()));
+        const inMonth = (value) => {
+          if (!value) return false;
+          const date = new Date(`${String(value).slice(0,10)}T00:00:00`);
+          return !Number.isNaN(date.getTime()) && `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}` === mesActual;
+        };
+        const cents = (items, getAmount) => items.reduce(
+          (sum, item) => sum + Math.round(((Number(getAmount(item)) || 0) + Number.EPSILON) * 100), 0
+        );
+        const incomes = cents(ingresosData.filter(x => inMonth(x.fecha)), x => x.monto) / 100;
+        const normalExpenses = cents(gastosData.filter(x => inMonth(x.fecha)), x => x.monto) / 100;
+        // Active fixed payments are forecast commitments, not posted bank movements.
+        const activeFixed = pagosFijosData.filter(x => x.activo !== false);
+        const fixedForecast = cents(activeFixed, x => x.monto) / 100;
+        const paidInstallments = [];
+        comprasCuotasData.filter(x => x.activo !== false).forEach(plan => {
+          if (!Array.isArray(plan.historialCuotas)) return;
+          plan.historialCuotas.forEach(item => {
+            if (!item.pagada || !inMonth(item.fecha)) return;
+            const date = new Date(`${String(item.fecha).slice(0,10)}T00:00:00`);
+            if (date <= hoy) paidInstallments.push(item);
+          });
         });
-
+        const installments = cents(paidInstallments, x => x.monto) / 100;
+        const expenses = Math.round((normalExpenses + fixedForecast + installments + Number.EPSILON) * 100) / 100;
+        const availableAmount = Math.round((incomes - expenses + Number.EPSILON) * 100) / 100;
+        if (cancelled) return;
+        setIngresoMensual(incomes);
+        setGastosNormales(normalExpenses);
+        setGastosFijos(fixedForecast);
+        setGastosCuotas(installments);
+        setTotalGastos(expenses);
+        setDisponible(availableAmount);
       } catch (err) {
-        setError(err.message);
-        console.error('Error general cargando datos financieros:', err);
-        
-        // Usar valores por defecto en caso de error
-        setIngresoMensual(1800);
-        setGastosNormales(72);
-        setGastosFijos(750);
-        setGastosCuotas(47.98);
-        setTotalGastos(869.98);
-        setDisponible(930.02);
+        console.error('Error cargando datos financieros:', err);
+        if (cancelled) return;
+        setError(err.message || 'No se pudieron cargar los datos financieros.');
+        setIngresoMensual(0);
+        setGastosNormales(0);
+        setGastosFijos(0);
+        setGastosCuotas(0);
+        setTotalGastos(0);
+        setDisponible(0);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
-
     fetchDatosFinancieros();
-    
-    // Recargar datos cada 60 segundos para actualizaciones
-    const intervalo = setInterval(fetchDatosFinancieros, 60000);
-    return () => clearInterval(intervalo);
+    const interval = setInterval(fetchDatosFinancieros, 60000);
+    return () => { cancelled = true; clearInterval(interval); };
   }, []);
 
   // ========== CÁLCULOS DERIVADOS ==========
@@ -279,7 +162,7 @@ export default function DineroDisponible() {
               <Wallet className="h-5 w-5 text-emerald-400" />
             </div>
             <div>
-              <div>Dinero Disponible</div>
+              <div>Disponible estimado</div>
               <div className="text-xs text-emerald-300 font-normal">
                 {mesFiltro ? formatearMesTexto(mesFiltro) : 'Mes actual'}
               </div>
@@ -302,7 +185,7 @@ export default function DineroDisponible() {
             €{disponible.toFixed(2)}
           </p>
           <p className="text-sm text-emerald-300">
-            Para gastos variables y ahorro
+            Estimación tras gastos y compromisos del mes
           </p>
         </div>
 
@@ -378,7 +261,7 @@ export default function DineroDisponible() {
                   <Repeat className="h-4 w-4 text-amber-400" />
                 </div>
                 <div>
-                  <span className="text-sm text-slate-300">Gastos fijos</span>
+                  <span className="text-sm text-slate-300">Pagos fijos previstos</span>
                 </div>
               </div>
               <div className="text-right">
@@ -425,7 +308,7 @@ export default function DineroDisponible() {
                   <PieChart className="h-4 w-4 text-red-400" />
                 </div>
                 <div>
-                  <span className="text-sm text-slate-300">Total gastos</span>
+                  <span className="text-sm text-slate-300">Gastos y compromisos</span>
                 </div>
               </div>
               <div className="text-right">
