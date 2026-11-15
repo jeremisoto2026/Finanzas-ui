@@ -339,89 +339,10 @@ export default function GraficoIngresos({ modo = 'mesActual' }) {
 
       } catch (err) {
         console.error('Error fetching datos:', err);
-        // Datos de ejemplo como fallback
-        setIngresos([
-          { id: 1, fecha: '2025-10-01', concepto: 'Salario mensual', metodo: 'Transferencia', categoria: 'Sueldo', cuenta: 'BBVA', monto: 2500 },
-          { id: 2, fecha: '2025-10-05', concepto: 'Trabajo freelance', metodo: 'PayPal', categoria: 'Freelance', cuenta: 'PayPal', monto: 450 },
-          { id: 3, fecha: '2025-10-10', concepto: 'Venta de artículos', metodo: 'Bizum', categoria: 'Ventas', cuenta: 'Revolut', monto: 120 },
-          { id: 4, fecha: '2025-10-15', concepto: 'Consultoría proyecto', metodo: 'Transferencia', categoria: 'Consultoría', cuenta: 'BBVA', monto: 800 },
-          { id: 5, fecha: '2025-10-20', concepto: 'Propinas restaurante', metodo: 'Efectivo', categoria: 'Propinas', cuenta: 'Efectivo', monto: 85 },
-          { id: 6, fecha: '2025-10-25', concepto: 'Dividendos inversiones', metodo: 'Transferencia', categoria: 'Inversiones', cuenta: 'BBVA', monto: 300 },
-          { id: 7, fecha: '2025-10-28', concepto: 'Bonus trimestral', metodo: 'Transferencia', categoria: 'Bonus', cuenta: 'BBVA', monto: 500 },
-          { id: 8, fecha: '2025-10-30', concepto: 'Alquiler local', metodo: 'Transferencia', categoria: 'Alquiler', cuenta: 'BBVA', monto: 700 },
-        ]);
-        
-        // Gastos normales de ejemplo
-        setGastos([
-          { id: 1, fecha: '2025-10-02', concepto: 'Compra supermercado', metodo: 'Tarjeta', categoria: 'Alimentación', cuenta: 'BBVA', monto: 120 },
-          { id: 2, fecha: '2025-10-03', concepto: 'Gasolina', metodo: 'Tarjeta', categoria: 'Transporte', cuenta: 'BBVA', monto: 60 },
-          { id: 3, fecha: '2025-10-05', concepto: 'Cena restaurante', metodo: 'Efectivo', categoria: 'Restaurante', cuenta: 'Efectivo', monto: 45 },
-          { id: 4, fecha: '2025-10-10', concepto: 'Netflix', metodo: 'Tarjeta', categoria: 'Entretenimiento', cuenta: 'BBVA', monto: 15 },
-          { id: 5, fecha: '2025-10-12', concepto: 'Ropa', metodo: 'Tarjeta', categoria: 'Ropa', cuenta: 'BBVA', monto: 80 },
-          { id: 6, fecha: '2025-10-15', concepto: 'Farmacia', metodo: 'Efectivo', categoria: 'Salud', cuenta: 'Efectivo', monto: 25 },
-          { id: 7, fecha: '2025-10-20', concepto: 'Regalo cumpleaños', metodo: 'Tarjeta', categoria: 'Regalos', cuenta: 'BBVA', monto: 40 },
-          { id: 8, fecha: '2025-10-25', concepto: 'Transporte público', metodo: 'Efectivo', categoria: 'Transporte', cuenta: 'Efectivo', monto: 30 },
-        ]);
-        
-        // Pagos fijos de ejemplo (YA PAGADOS)
-        setPagosFijos([
-          { 
-            id: '1', 
-            nombre: 'Alquiler Enero', 
-            monto: 750.00, 
-            metodo: 'Transferencia', 
-            categoria: 'Vivienda', 
-            frecuencia: 'mensual', 
-            activo: true, 
-            fechaInicio: '2025-10-01',
-            fechaRealPago: '2025-10-01',
-            cuenta: 'BBVA'
-          }
-        ]);
-        
-        // Compras a cuotas de ejemplo (CUOTAS YA PAGADAS)
-        setComprasCuotas([
-          { 
-            id: '1', 
-            concepto: 'Aliexpress 1', 
-            montoTotal: 33.74,
-            cuotasTotales: 4,
-            cuotasPagadas: 3,
-            montoPrimeraCuota: 10.00,
-            montoUltimaCuota: 7.46,
-            fechaInicio: '2025-10-01',
-            metodo: 'Tarjeta',
-            categoria: 'Tecnología',
-            activo: true,
-            frecuenciaPago: 'mensual',
-            cuenta: 'BBVA',
-            historialCuotas: [
-              { numero: 1, monto: 10.00, pagada: true, fecha: '2025-10-01' },
-              { numero: 2, monto: 8.64, pagada: true, fecha: '2025-10-01' },
-              { numero: 3, monto: 7.64, pagada: true, fecha: '2025-10-01' },
-              { numero: 4, monto: 7.46, pagada: false, fecha: '2025-11-01' }
-            ]
-          },
-          { 
-            id: '2', 
-            concepto: 'Shein', 
-            montoTotal: 50.74,
-            cuotasTotales: 4,
-            cuotasPagadas: 1,
-            fechaInicio: '2025-10-01',
-            metodo: 'Tarjeta',
-            categoria: 'Otros',
-            activo: true,
-            frecuenciaPago: 'mensual',
-            cuenta: 'BBVA',
-            historialCuotas: [
-              { numero: 1, monto: 12.69, pagada: true, fecha: '2025-10-01' },
-              { numero: 2, monto: 12.69, pagada: false, fecha: '2025-11-01' },
-              { numero: 3, monto: 12.68, pagada: false, fecha: '2025-12-01' },
-              { numero: 4, monto: 12.68, pagada: false, fecha: '2026-01-01' }
-            ]
-          }
-        ]);
+        setIngresos([]);
+        setGastos([]);
+        setPagosFijos([]);
+        setComprasCuotas([]);
       } finally {
         setLoading(false);
       }
