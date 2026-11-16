@@ -426,52 +426,6 @@ export default function Configuracion() {
     }
   }
 
-  const abrirDialogoPagoCuota = async (compraId, cuotaNumero) => {
-    const confirmar = confirm('Esta acción marca la cuota como pagada en el plan, pero no crea un cargo en tu cuenta. Para cuadrar el saldo, debe existir también un movimiento de gasto. ¿Confirmas que ya se pagó?')
-    if (!confirmar) return
-
-    try {
-      const compra = comprasCuotas.find(c => c.id === compraId)
-      if (!compra) return
-      
-      const historialActualizado = compra.historialCuotas.map(cuota => {
-        if (cuota.numero === cuotaNumero && !cuota.pagada) {
-          return { ...cuota, pagada: true, fechaPago: localDateInputValue() }
-        }
-        return cuota
-      })
-      
-      const nuevasCuotasPagadas = historialActualizado.filter(c => c.pagada).length
-      
-      const res = await fetch('/api/compras-cuotas', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: compraId,
-          cuotasPagadas: nuevasCuotasPagadas,
-          historialCuotas: historialActualizado
-        })
-      })
-      
-      if (res.ok) {
-        setComprasCuotas(comprasCuotas.map(compra => {
-          if (compra.id === compraId) {
-            return {
-              ...compra,
-              cuotasPagadas: nuevasCuotasPagadas,
-              historialCuotas: historialActualizado
-            }
-          }
-          return compra
-        }))
-        alert('Cuota marcada como pagada')
-      }
-    } catch (error) {
-      console.error('Error marcando cuota como pagada:', error)
-      alert('Error al marcar la cuota como pagada')
-    }
-  }
-
   const abrirDialogoPagoCuota = (compra, cuota) => {
     const cuentaPredeterminada = cuentasDisponibles.find((cuenta) => cuenta.name === 'Revolut') || cuentasDisponibles[0]
     setMensajeCuotas(null)
