@@ -10,7 +10,7 @@ export default async function handler(req, res) {
     if (req.method === 'GET') {
       const { data, error } = await supabase
         .from('transactions')
-        .select('id, amount, occurred_on, description, payment_method, categories(name), accounts(name)')
+        .select('id, account_id, amount, occurred_on, description, payment_method, categories(name), accounts(name)')
         .eq('kind', 'expense')
         .eq('status', 'posted')
         .order('occurred_on', { ascending: false })
