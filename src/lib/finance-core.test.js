@@ -19,7 +19,7 @@ test('sums money using cents', () => {
   assert.equal(sumMoney([{ amount: 0.1 }, { amount: 0.2 }, { amount: 0.7 }], (item) => item.amount), 1)
 })
 
-test('only posted transactions affect account balances', () => {
+test('reconciles the confirmed Revolut movements to 0.83 euros', () => {
   const balance = calculateAccountBalance({
     accountId: 'revolut',
     openingBalance: 284,
@@ -27,12 +27,28 @@ test('only posted transactions affect account balances', () => {
       { accountId: 'revolut', type: 'income', amount: 740, status: 'posted' },
       { accountId: 'revolut', type: 'expense', amount: 785, status: 'posted' },
       { accountId: 'revolut', type: 'expense', amount: 9.5, status: 'posted' },
-      { accountId: 'revolut', type: 'expense', amount: 200, status: 'pending' },
+      { accountId: 'revolut', type: 'expense', amount: 200, status: 'posted' },
+      { accountId: 'revolut', type: 'expense', amount: 26.91, status: 'posted' },
+      { accountId: 'revolut', type: 'expense', amount: 1.76, status: 'posted' },
       { accountId: 'bbva', type: 'expense', amount: 50, status: 'posted' },
     ],
   })
 
-  assert.equal(balance, 229.5)
+  assert.equal(balance, 0.83)
+})
+
+test('pending and void transactions do not affect account balances', () => {
+  const balance = calculateAccountBalance({
+    accountId: 'revolut',
+    openingBalance: 100,
+    transactions: [
+      { accountId: 'revolut', type: 'expense', amount: 20, status: 'pending' },
+      { accountId: 'revolut', type: 'expense', amount: 30, status: 'void' },
+      { accountId: 'revolut', type: 'expense', amount: 5, status: 'posted' },
+    ],
+  })
+
+  assert.equal(balance, 95)
 })
 
 test('available balance subtracts only active reservations', () => {
