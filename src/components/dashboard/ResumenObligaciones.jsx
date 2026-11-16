@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { BanknotesIcon, CalendarDaysIcon, CreditCardIcon, ArrowPathIcon, ScaleIcon, WalletIcon } from '@heroicons/react/24/outline'
+import { BanknotesIcon, CalendarDaysIcon, CreditCardIcon, ScaleIcon } from '@heroicons/react/24/outline'
 import { sumMoney, sumMonthlyEquivalent } from '@/lib/finance-core'
 
 const euro = (value) => new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(Number(value || 0))
@@ -46,7 +46,14 @@ export default function ResumenObligaciones() {
     const activeFixed = data.fixed.filter((item) => item.activo !== false)
     const activeDebts = data.debts.filter((item) => !['settled', 'written_off'].includes(item.status))
     const replenishments = data.replenishments.filter((item) => Number(item.outstandingAmount || 0) > 0)
-    const upcoming = pendingInstallments.filter((item) => item.fecha).sort((a, b) => a.fecha.localeCompare(b.fecha)).slice(0, 3)
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const todayKey = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0')
+    const upcoming = pendingInstallments
+      .filter((item) => item.fecha && item.fecha.slice(0, 10) >= todayKey)
+      .sort((a, b) => a.fecha.localeCompare(b.fecha))
+      .slice(0, 3)
+    const overdue = pendingInstallments.filter((item) => item.fecha && item.fecha.slice(0, 10) < todayKey)
     return {
       pendingInstallments,
       pendingInstallmentAmount: sumMoney(pendingInstallments, (item) => item.monto || 0),
@@ -58,6 +65,7 @@ export default function ResumenObligaciones() {
       replenishments,
       replenishmentTotal: sumMoney(replenishments, (item) => item.outstandingAmount || 0),
       upcoming,
+      overdue,
     }
   }, [data])
 
@@ -67,23 +75,23 @@ export default function ResumenObligaciones() {
       value: euro(summary.pendingInstallmentAmount),
       detail: summary.pendingInstallments.length + ' cuotas por pagar',
       icon: CreditCardIcon,
-      tone: 'text-violet-300',
-      secondary: summary.unlinkedPaid.length > 0 ? summary.unlinkedPaid.length + ' pagadas sin gasto vinculado' : 'Pagos enlazados con su movimiento real',
+      tone: 'violet',
+      secondary: summary.unlinkedPaid.length > 0 ? summary.unlinkedPaid.length + ' pagadas sin gasto vinculado' : 'Pagos vinculados a sus movimientos',
     },
     {
       title: 'Pagos fijos',
       value: euro(summary.fixedMonthly) + ' / mes',
       detail: summary.activeFixed.length + ' compromisos activos',
       icon: CalendarDaysIcon,
-      tone: 'text-sky-300',
-      secondary: 'Equivalente mensual planificado',
+      tone: 'sky',
+      secondary: 'Coste mensual equivalente previsto',
     },
     {
       title: 'Deudas y préstamos',
       value: euro(summary.receivable + summary.payable),
       detail: 'Te deben: ' + euro(summary.receivable),
       icon: ScaleIcon,
-      tone: 'text-emerald-300',
+      tone: 'emerald',
       secondary: 'Debes: ' + euro(summary.payable),
     },
     {
@@ -91,13 +99,13 @@ export default function ResumenObligaciones() {
       value: euro(summary.replenishmentTotal),
       detail: summary.replenishments.length + ' reposiciones abiertas',
       icon: BanknotesIcon,
-      tone: 'text-amber-300',
+      tone: 'amber',
       secondary: 'No se suma al saldo hasta registrar el ingreso',
     },
   ]
 
   if (data.loading) {
-    return <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">{[1, 2, 3, 4].map((item) => <div key={item} className="h-32 animate-pulse rounded-xl border border-slate-800 bg-slate-900/60" />)}</div>
+    return <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">{[1, 2, 3, 4].map((item) => <div key={item} className="h-32 animate-pulse rounded-2xl border border-slate-800 bg-slate-900/60" />)}</div>
   }
 
   if (data.error) {
@@ -105,52 +113,66 @@ export default function ResumenObligaciones() {
   }
 
   return (
-    <section aria-label="Resumen de obligaciones y próximos pagos" className="space-y-4">
-      <div className="flex flex-wrap items-end justify-between gap-2">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-400">Planificación y obligaciones</p>
-          <h2 className="mt-1 text-lg font-semibold text-white">Lo que tienes pendiente</h2>
-        </div>
-        <p className="text-xs text-slate-500">Separado del saldo bancario real</p>
-      </div>
+    <section aria-label="Resumen de cuotas, pagos fijos, deudas y reposiciones" className="space-y-4">
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {cards.map((card) => {
           const Icon = card.icon
+          const toneClasses = {
+            violet: 'bg-violet-500/10 text-violet-300',
+            sky: 'bg-sky-500/10 text-sky-300',
+            emerald: 'bg-emerald-500/10 text-emerald-300',
+            amber: 'bg-amber-500/10 text-amber-300',
+          }
           return (
-            <article key={card.title} className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
+            <article key={card.title} className="group rounded-2xl border border-slate-800 bg-slate-900/65 p-4 shadow-sm transition-colors hover:border-slate-700 hover:bg-slate-900/90">
               <div className="flex items-center justify-between gap-2">
                 <p className="text-sm font-medium text-slate-300">{card.title}</p>
-                <Icon className={`h-5 w-5 ${card.tone}`} />
+                <span className={'rounded-lg p-2 ' + toneClasses[card.tone]}>
+                  <Icon className="h-4 w-4" />
+                </span>
               </div>
-              <p className="mt-3 text-2xl font-bold tracking-tight text-white">{card.value}</p>
+              <p className="mt-4 text-xl font-semibold tracking-tight tabular-nums text-white">{card.value}</p>
               <p className="mt-1 text-xs text-slate-400">{card.detail}</p>
-              <p className="mt-2 border-t border-slate-800 pt-2 text-xs text-slate-500">{card.secondary}</p>
+              <p className="mt-3 border-t border-slate-800 pt-3 text-[11px] leading-5 text-slate-500">{card.secondary}</p>
             </article>
           )
         })}
       </div>
-      <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
-        <div className="mb-3 flex items-center gap-2">
-          <CalendarDaysIcon className="h-4 w-4 text-slate-400" />
-          <h3 className="text-sm font-semibold text-slate-200">Próximas cuotas previstas</h3>
+
+      <div className="rounded-2xl border border-slate-800 bg-slate-900/45 p-4 sm:p-5">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <CalendarDaysIcon className="h-4 w-4 text-emerald-400" />
+            <h3 className="text-sm font-semibold text-white">Calendario de cuotas</h3>
+          </div>
+          <span className="text-xs text-slate-500">Próximos vencimientos</span>
         </div>
+
         {summary.upcoming.length === 0 ? (
-          <p className="text-sm text-slate-500">No hay cuotas pendientes con fecha programada.</p>
+          <p className="py-2 text-sm text-slate-500">No hay cuotas futuras pendientes con fecha programada.</p>
         ) : (
           <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
             {summary.upcoming.map((item) => (
-              <div key={item.installmentId || item.planName + item.numero} className="flex items-center justify-between gap-3 rounded-lg bg-slate-950/60 px-3 py-2">
+              <div key={item.installmentId || item.planName + item.numero} className="flex items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-950/55 px-3 py-3">
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium text-slate-200">{item.planName} · Cuota {item.numero}</p>
-                  <p className="text-xs text-slate-500">{new Date(item.fecha + 'T00:00:00').toLocaleDateString('es-ES')}</p>
+                  <p className="mt-1 text-xs text-slate-500">{new Date(item.fecha + 'T00:00:00').toLocaleDateString('es-ES')}</p>
                 </div>
-                <span className="shrink-0 text-sm font-semibold text-white">{euro(item.monto)}</span>
+                <span className="shrink-0 text-sm font-semibold tabular-nums text-white">{euro(item.monto)}</span>
               </div>
             ))}
           </div>
         )}
+
+        {summary.overdue.length > 0 && (
+          <p className="mt-3 rounded-lg border border-amber-800/40 bg-amber-950/20 px-3 py-2 text-xs leading-5 text-amber-200">
+            Hay {summary.overdue.length} cuota(s) vencida(s) pendientes de registrar como pagadas.
+          </p>
+        )}
         {summary.unlinkedPaid.length > 0 && (
-          <p className="mt-3 text-xs leading-5 text-amber-300">{summary.unlinkedPaid.length} cuota(s) constan como pagadas, pero necesitan vincular su gasto. No se han descontado automáticamente.</p>
+          <p className="mt-3 rounded-lg border border-amber-800/40 bg-amber-950/20 px-3 py-2 text-xs leading-5 text-amber-200">
+            {summary.unlinkedPaid.length} cuota(s) figuran como pagadas, pero no tienen un gasto real vinculado. No se han descontado del saldo bancario.
+          </p>
         )}
       </div>
     </section>
