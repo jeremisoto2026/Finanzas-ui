@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { addMonthsClamped, sumMonthlyEquivalent } from '@/lib/finance-core'
+import { addMonthsClamped, sumMoney, sumMonthlyEquivalent } from '@/lib/finance-core'
 import { 
   Settings, 
   Plus,
@@ -394,7 +394,7 @@ export default function Configuracion() {
     }))
   )
   const cuotasPendientes = todasLasCuotas.filter(cuota => !cuota.pagada)
-  const totalCuotasPendientes = cuotasPendientes.reduce((sum, cuota) => sum + Number(cuota.monto || 0), 0)
+  const totalCuotasPendientes = sumMoney(cuotasPendientes, (cuota) => cuota.monto || 0)
   const totalCuotasPagadas = todasLasCuotas.filter(cuota => cuota.pagada).length
   const cuotasPagadasSinMovimiento = todasLasCuotas.filter(cuota => cuota.pagada && !cuota.transactionId).length
   const totalCuotasTotales = todasLasCuotas.length
@@ -404,14 +404,16 @@ export default function Configuracion() {
   const fechaProximoMes = new Date(fechaActual.getFullYear(), fechaActual.getMonth() + 1, 1)
   const mesProximo = `${fechaProximoMes.getFullYear()}-${String(fechaProximoMes.getMonth() + 1).padStart(2, '0')}`
   const mesProximoTexto = fechaProximoMes.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })
-  const totalCuotasProximoMes = cuotasPendientes
-    .filter(cuota => String(cuota.fecha || '').slice(0, 7) === mesProximo)
-    .reduce((sum, cuota) => sum + Number(cuota.monto || 0), 0)
+  const totalCuotasProximoMes = sumMoney(
+    cuotasPendientes.filter((cuota) => String(cuota.fecha || '').slice(0, 7) === mesProximo),
+    (cuota) => cuota.monto || 0
+  )
 
   const mesesPresupuesto = [...new Set(presupuestos.map(item => item.month))].sort((a, b) => b.localeCompare(a))
-  const totalPresupuestoMesProximo = presupuestos
-    .filter(item => item.month === mesProximo)
-    .reduce((sum, item) => sum + Number(item.amount || 0), 0)
+  const totalPresupuestoMesProximo = sumMoney(
+    presupuestos.filter((item) => item.month === mesProximo),
+    (item) => item.amount || 0
+  )
 
   const formatearPeriodo = (periodo) => {
     if (!periodo) return 'Periodo sin fecha'
