@@ -38,7 +38,7 @@ export default async function handler(req, res) {
         notification_enabled: Boolean(body.notificacion),
         notes: String(body.notas || '').trim() || null,
         status: 'active',
-      }).select('id, name, amount, payment_method, frequency, next_due_on, status, notification_enabled, categories(name), accounts(name)').single()
+      }).select('id, name, amount, payment_method, frequency, next_due_on, status, notification_enabled, notes, categories(name), accounts(name)').single()
 
       if (error) throw error
       return res.status(201).json(fixedPaymentForUi(data))
