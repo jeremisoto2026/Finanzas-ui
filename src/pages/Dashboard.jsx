@@ -1,4 +1,4 @@
-import { CalendarDays, ChartNoAxesCombined } from 'lucide-react'
+import { CalendarDays, BarChart3 } from 'lucide-react'
 import GraficoGastos from '@/components/dashboard/GraficoGastos'
 import GraficoIngresos from '@/components/dashboard/GraficoIngresos'
 import DineroDisponible from '@/components/dashboard/DineroDisponible'
