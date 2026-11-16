@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Wallet, RefreshCw, AlertCircle, Landmark } from 'lucide-react'
 
+const formatDate = (value) => value ? new Date(`${String(value).slice(0, 10)}T00:00:00`).toLocaleDateString('es-ES') : null
+
 const formatMoney = (amount, currency = 'EUR') => new Intl.NumberFormat('es-ES', {
   style: 'currency',
   currency,
@@ -78,13 +80,20 @@ export default function DineroDisponible() {
                     <Landmark className="h-4 w-4 text-slate-500" />
                     {account.name}
                   </div>
-                  <span className="font-semibold text-white">{formatMoney(account.balance, account.currencyCode)}</span>
+                  <div className="text-right">
+                    <span className="font-semibold text-white">{formatMoney(account.balance, account.currencyCode)}</span>
+                    <p className="mt-1 max-w-48 text-xs text-slate-500">
+                      {account.lastMovementOn
+                        ? `Último movimiento: ${formatDate(account.lastMovementOn)}`
+                        : `Sin movimientos desde el saldo inicial ${formatDate(account.openingBalanceDate) || 'registrado'}`}
+                    </p>
+                  </div>
                 </div>
               ))}
             </div>
 
             <div className="rounded-lg border border-slate-700/70 bg-slate-950/40 p-3 text-xs leading-relaxed text-slate-400">
-              Este saldo no suma los 344,39 € que te deben, los 136 € pendientes de reponer ni otros importes previstos o reservados. Esos conceptos se muestran por separado para no confundirlos con efectivo real.
+              Este saldo no suma los 344,39 € que te deben, los 136 € pendientes de reponer ni otros importes previstos o reservados. BBVA y efectivo conservan el saldo de apertura del 11/11/2026, sin movimientos posteriores registrados; Revolut incluye movimientos hasta el 16/11/2026.
             </div>
           </>
         )}
