@@ -3,7 +3,8 @@ import {
   ChartBarIcon,
   ArrowUpCircleIcon,
   Cog6ToothIcon,
-  BanknotesIcon
+  BanknotesIcon,
+  ClipboardDocumentCheckIcon
 } from '@heroicons/react/24/outline'
 
 const items = [
@@ -11,7 +12,8 @@ const items = [
   { name: 'Gastos', icon: ChartBarIcon },
   { name: 'Ingresos', icon: ArrowUpCircleIcon },
   { name: 'Configuración', icon: Cog6ToothIcon },
-  { name: 'Deudas', icon: BanknotesIcon }
+  { name: 'Deudas', icon: BanknotesIcon },
+  { name: 'Compromisos', icon: ClipboardDocumentCheckIcon }
 ]
 
 export default function Sidebar({
