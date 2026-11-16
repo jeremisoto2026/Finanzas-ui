@@ -1,6 +1,7 @@
+import { lazy, Suspense } from 'react'
 import { CalendarDays, BarChart3 } from 'lucide-react'
-import GraficoGastos from '@/components/dashboard/GraficoGastos'
-import GraficoIngresos from '@/components/dashboard/GraficoIngresos'
+const GraficoGastos = lazy(() => import('@/components/dashboard/GraficoGastos'))
+const GraficoIngresos = lazy(() => import('@/components/dashboard/GraficoIngresos'))
 import DineroDisponible from '@/components/dashboard/DineroDisponible'
 import ResumenObligaciones from '@/components/dashboard/ResumenObligaciones'
 
@@ -60,8 +61,8 @@ export default function Dashboard() {
           </p>
         </div>
         <div className="grid grid-cols-1 items-stretch gap-5 xl:grid-cols-2">
-          <GraficoIngresos />
-          <GraficoGastos />
+          <Suspense fallback={<div className="h-80 animate-pulse rounded-2xl border border-slate-800 bg-slate-900/60" />}><GraficoIngresos /></Suspense>
+          <Suspense fallback={<div className="h-80 animate-pulse rounded-2xl border border-slate-800 bg-slate-900/60" />}><GraficoGastos /></Suspense>
         </div>
       </section>
     </div>
