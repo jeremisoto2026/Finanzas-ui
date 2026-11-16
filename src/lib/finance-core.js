@@ -236,3 +236,33 @@ export function distributeInstallmentAmounts(totalAmount, installmentCount, firs
 
   return amounts.map(fromCents);
 }
+
+
+/** Returns YYYY-MM for a date-only or ISO timestamp without timezone conversion. */
+export function monthKeyFromDate(value) {
+  const match = /^(\\d{4})-(\\d{2})-\\d{2}/.exec(String(value || '').trim());
+  if (!match) return null;
+  const month = Number(match[2]);
+  return month >= 1 && month <= 12 ? `${match[1]}-${match[2]}` : null;
+}
+
+/** Parses a YYYY-MM-DD value as a local calendar date (not UTC midnight). */
+export function parseDateOnlyLocal(value) {
+  const text = String(value || '').slice(0, 10);
+  const match = /^(\\d{4})-(\\d{2})-(\\d{2})$/.exec(text);
+  if (!match) return null;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const checkDays = month >= 1 && month <= 12 ? new Date(year, month, 0).getDate() : 0;
+  if (day < 1 || day > checkDays) return null;
+  return new Date(year, month - 1, day);
+}
+
+/** Formats the current local calendar date for date inputs. */
+export function localDateInputValue(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
