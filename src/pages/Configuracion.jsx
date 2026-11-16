@@ -46,6 +46,7 @@ export default function Configuracion() {
   // Estados de pagos fijos y compras a cuotas
   const [pagosFijos, setPagosFijos] = useState([])
   const [comprasCuotas, setComprasCuotas] = useState([])
+  const [presupuestos, setPresupuestos] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
@@ -101,6 +102,12 @@ export default function Configuracion() {
         if (!resCuotas.ok) throw new Error('Error cargando compras a cuotas')
         const cuotasData = await resCuotas.json()
         setComprasCuotas(cuotasData)
+
+        // Cargar presupuestos familiares y variables
+        const resPresupuestos = await fetch('/api/presupuestos')
+        if (!resPresupuestos.ok) throw new Error('Error cargando presupuestos')
+        const presupuestosData = await resPresupuestos.json()
+        setPresupuestos(presupuestosData)
 
       } catch (err) {
         setError(err.message);
@@ -293,7 +300,7 @@ export default function Configuracion() {
       
       const historialActualizado = compra.historialCuotas.map(cuota => {
         if (cuota.numero === cuotaNumero && !cuota.pagada) {
-          return { ...cuota, pagada: true }
+          return { ...cuota, pagada: true, fechaPago: new Date().toISOString().slice(0, 10) }
         }
         return cuota
       })
@@ -368,25 +375,48 @@ export default function Configuracion() {
     }
   }
 
-  // ========== CÁLCULOS ==========
+  // ========== CÁLCULOS FINANCIEROS ==========
 
-  // Calcular estadísticas
   const totalPagosMensuales = pagosFijos
     .filter(p => p.activo && p.frecuencia === 'mensual')
-    .reduce((sum, p) => sum + p.monto, 0)
+    .reduce((sum, p) => sum + Number(p.monto || 0), 0)
 
-  // Estadísticas de cuotas
   const totalCuotasActivas = comprasCuotas.filter(c => c.activo).length
-  const totalCuotasMensuales = comprasCuotas
-    .filter(c => c.activo)
-    .reduce((sum, c) => {
-      const proximaCuota = c.historialCuotas?.find(cuota => !cuota.pagada)
-      return sum + (proximaCuota ? proximaCuota.monto : 0)
-    }, 0)
-
-  const totalCuotasPagadas = comprasCuotas.reduce((sum, c) => sum + (c.cuotasPagadas || 0), 0)
-  const totalCuotasTotales = comprasCuotas.reduce((sum, c) => sum + (c.cuotasTotales || 0), 0)
+  const todasLasCuotas = comprasCuotas.flatMap(compra =>
+    (compra.historialCuotas || []).map(cuota => ({
+      ...cuota,
+      concepto: compra.concepto,
+    }))
+  )
+  const cuotasPendientes = todasLasCuotas.filter(cuota => !cuota.pagada)
+  const totalCuotasPendientes = cuotasPendientes.reduce((sum, cuota) => sum + Number(cuota.monto || 0), 0)
+  const totalCuotasPagadas = todasLasCuotas.filter(cuota => cuota.pagada).length
+  const totalCuotasTotales = todasLasCuotas.length
   const porcentajeCuotasPagadas = totalCuotasTotales > 0 ? (totalCuotasPagadas / totalCuotasTotales) * 100 : 0
+
+  const fechaActual = new Date()
+  const fechaProximoMes = new Date(fechaActual.getFullYear(), fechaActual.getMonth() + 1, 1)
+  const mesProximo = `${fechaProximoMes.getFullYear()}-${String(fechaProximoMes.getMonth() + 1).padStart(2, '0')}`
+  const mesProximoTexto = fechaProximoMes.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })
+  const totalCuotasProximoMes = cuotasPendientes
+    .filter(cuota => String(cuota.fecha || '').slice(0, 7) === mesProximo)
+    .reduce((sum, cuota) => sum + Number(cuota.monto || 0), 0)
+
+  const mesesPresupuesto = [...new Set(presupuestos.map(item => item.month))].sort((a, b) => b.localeCompare(a))
+  const totalPresupuestoMesProximo = presupuestos
+    .filter(item => item.month === mesProximo)
+    .reduce((sum, item) => sum + Number(item.amount || 0), 0)
+
+  const formatearPeriodo = (periodo) => {
+    if (!periodo) return 'Periodo sin fecha'
+    const [year, month] = periodo.split('-').map(Number)
+    return new Date(year, month - 1, 1).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })
+  }
+
+  const formatearMesCuota = (fecha) => {
+    if (!fecha) return 'Fecha pendiente'
+    return formatearPeriodo(String(fecha).slice(0, 7))
+  }
 
   // Función para resetear datos (ahora solo para datos locales)
   const resetearDatos = () => {
@@ -454,30 +484,26 @@ export default function Configuracion() {
           </div>
           
           {/* RESUMEN RÁPIDO */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
             <div className="text-center p-3 bg-slate-900/50 border border-slate-800 rounded-xl">
               <div className="text-xs text-slate-400">Pagos fijos</div>
-              <div className="text-lg font-bold text-amber-400">
-                {pagosFijos.filter(p => p.activo).length}
-              </div>
+              <div className="text-lg font-bold text-amber-400">{pagosFijos.filter(p => p.activo).length}</div>
             </div>
             <div className="text-center p-3 bg-slate-900/50 border border-slate-800 rounded-xl">
-              <div className="text-xs text-slate-400">Gastos fijos/mes</div>
-              <div className="text-lg font-bold text-red-400">
-                €{totalPagosMensuales.toFixed(2)}
-              </div>
+              <div className="text-xs text-slate-400">Compromisos / mes</div>
+              <div className="text-lg font-bold text-red-400">€{totalPagosMensuales.toFixed(2)}</div>
             </div>
             <div className="text-center p-3 bg-slate-900/50 border border-slate-800 rounded-xl">
-              <div className="text-xs text-slate-400">Cuotas activas</div>
-              <div className="text-lg font-bold text-purple-400">
-                {totalCuotasActivas}
-              </div>
+              <div className="text-xs text-slate-400">Cuotas pendientes</div>
+              <div className="text-lg font-bold text-purple-400">€{totalCuotasPendientes.toFixed(2)}</div>
             </div>
             <div className="text-center p-3 bg-slate-900/50 border border-slate-800 rounded-xl">
-              <div className="text-xs text-slate-400">Cuotas/mes</div>
-              <div className="text-lg font-bold text-red-400">
-                €{totalCuotasMensuales.toFixed(2)}
-              </div>
+              <div className="text-xs text-slate-400">Cuotas de {mesProximoTexto}</div>
+              <div className="text-lg font-bold text-rose-400">€{totalCuotasProximoMes.toFixed(2)}</div>
+            </div>
+            <div className="text-center p-3 bg-slate-900/50 border border-slate-800 rounded-xl">
+              <div className="text-xs text-slate-400">Presupuesto variable próximo mes</div>
+              <div className="text-lg font-bold text-sky-400">€{totalPresupuestoMesProximo.toFixed(2)}</div>
             </div>
           </div>
         </div>
@@ -987,6 +1013,45 @@ export default function Configuracion() {
         )}
       </div>
 
+      {/* PRESUPUESTOS VARIABLES: SON PLANIFICACIÓN, NO PAGOS CONFIRMADOS */}
+      <div className="mb-8 overflow-hidden rounded-xl border border-slate-800 bg-slate-900/50">
+        <div className="flex items-center justify-between border-b border-slate-800 px-6 py-4">
+          <div>
+            <div className="flex items-center gap-3">
+              <Wallet className="h-5 w-5 text-sky-400" />
+              <span className="font-semibold text-white">Presupuestos familiares</span>
+            </div>
+            <p className="mt-1 text-xs text-slate-500">Mercado y ocio son límites de planificación; no se contabilizan como gastos pagados hasta registrar el movimiento real.</p>
+          </div>
+          <span className="text-sm font-semibold text-sky-300">€{totalPresupuestoMesProximo.toFixed(2)} · {mesProximoTexto}</span>
+        </div>
+        {presupuestos.length === 0 ? (
+          <p className="px-6 py-6 text-sm text-slate-500">No hay presupuestos registrados.</p>
+        ) : (
+          <div className="grid grid-cols-1 gap-4 p-5 md:grid-cols-2">
+            {mesesPresupuesto.map((mes) => (
+              <div key={mes} className="rounded-lg border border-slate-800 bg-slate-950/40 p-4">
+                <h3 className="mb-3 font-medium capitalize text-white">{formatearPeriodo(mes)}</h3>
+                <div className="space-y-3">
+                  {presupuestos.filter(item => item.month === mes).map((item) => (
+                    <div key={item.id} className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-sm text-slate-200">{item.category}</p>
+                        {item.notes && <p className="mt-1 text-xs text-slate-500">{item.notes}</p>}
+                      </div>
+                      <span className="whitespace-nowrap text-sm font-semibold text-sky-300">€{item.amount.toFixed(2)}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-3 border-t border-slate-800 pt-3 text-right text-sm font-semibold text-white">
+                  Total planificado: €{presupuestos.filter(item => item.month === mes).reduce((sum,item) => sum + item.amount,0).toFixed(2)}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       {/* LISTA DE COMPRAS A CUOTAS */}
       <div className="mb-8 bg-slate-900/50 border border-slate-800 rounded-xl overflow-hidden">
         <div className="px-6 py-4 flex items-center justify-between">
@@ -1017,26 +1082,20 @@ export default function Configuracion() {
             <div className="mb-6 p-4 bg-slate-800/30 rounded-lg">
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="text-center">
-                  <div className="text-xs text-slate-400 mb-1">Total compras</div>
+                  <div className="text-xs text-slate-400 mb-1">Planes registrados</div>
                   <div className="text-xl font-bold text-purple-400">{comprasCuotas.length}</div>
                 </div>
                 <div className="text-center">
                   <div className="text-xs text-slate-400 mb-1">Cuotas pagadas</div>
-                  <div className="text-xl font-bold text-emerald-400">
-                    {totalCuotasPagadas} / {totalCuotasTotales}
-                  </div>
+                  <div className="text-xl font-bold text-emerald-400">{totalCuotasPagadas} / {totalCuotasTotales}</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-xs text-slate-400 mb-1">Progreso</div>
-                  <div className="text-xl font-bold text-amber-400">
-                    {porcentajeCuotasPagadas.toFixed(0)}%
-                  </div>
+                  <div className="text-xs text-slate-400 mb-1">Pendiente total</div>
+                  <div className="text-xl font-bold text-rose-400">€{totalCuotasPendientes.toFixed(2)}</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-xs text-slate-400 mb-1">Cuotas/mes</div>
-                  <div className="text-xl font-bold text-red-400">
-                    €{totalCuotasMensuales.toFixed(2)}
-                  </div>
+                  <div className="text-xs text-slate-400 mb-1">Pendiente en {mesProximoTexto}</div>
+                  <div className="text-xl font-bold text-amber-400">€{totalCuotasProximoMes.toFixed(2)}</div>
                 </div>
               </div>
               <div className="mt-3">
@@ -1109,9 +1168,27 @@ export default function Configuracion() {
                                 Total: €{compra.montoTotal.toFixed(2)}
                               </span>
                               <span className="text-slate-500">
-                                Restan: {cuotasRestantes} cuotas
+                                Restan: {cuotasRestantes} cuotas · €{(compra.historialCuotas || []).filter(c => !c.pagada).reduce((sum,c) => sum + Number(c.monto || 0),0).toFixed(2)}
                               </span>
                             </div>
+                            <div className="mt-4 rounded-lg border border-slate-700/70 bg-slate-950/40 p-3">
+                              <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Historial completo de cuotas</div>
+                              <div className="space-y-2">
+                                {(compra.historialCuotas || []).map((cuota) => (
+                                  <div key={cuota.numero} className="flex items-center justify-between gap-3 text-xs">
+                                    <div className="min-w-0">
+                                      <span className="text-slate-200">Cuota {cuota.numero} de {compra.cuotasTotales}</span>
+                                      <span className="ml-2 capitalize text-slate-500">{formatearMesCuota(cuota.fecha)}</span>
+                                    </div>
+                                    <div className="flex shrink-0 items-center gap-2">
+                                      <span className={cuota.pagada ? 'text-emerald-300' : 'text-amber-300'}>{cuota.pagada ? 'Pagada' : 'Pendiente'}</span>
+                                      <span className="font-semibold text-white">€{Number(cuota.monto || 0).toFixed(2)}</span>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+
                           </div>
                         </div>
 
