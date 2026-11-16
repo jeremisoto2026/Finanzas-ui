@@ -9,6 +9,7 @@ import {
 } from 'recharts'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { motion } from 'framer-motion'
+import { sumMoney, sumMoneyBy } from '@/lib/finance-core'
 import { TrendingUp, Wallet, Landmark, RefreshCw, AlertCircle } from 'lucide-react'
 
 const PALETTE = ['#10b981', '#0ea5e9', '#8b5cf6', '#f59e0b', '#ec4899', '#14b8a6', '#64748b']
@@ -21,12 +22,15 @@ const euro = (value, currency = 'EUR') => new Intl.NumberFormat('es-ES', {
 const monthKey = (value) => String(value || '').slice(0, 7)
 
 const monthLabel = (value) => {
-  if (!/^\\d{4}-\\d{2}$/.test(value)) return value
-  const [year, month] = value.split('-').map(Number)
-  return new Date(year, month - 1, 1).toLocaleDateString('es-ES', {
+  const parts = String(value || '').split('-').map(Number)
+  if (parts.length !== 2 || !Number.isInteger(parts[0]) || !Number.isInteger(parts[1]) || parts[1] < 1 || parts[1] > 12) {
+    return value
+  }
+  const label = new Date(parts[0], parts[1] - 1, 1).toLocaleDateString('es-ES', {
     month: 'long',
     year: 'numeric',
-  }).replace(/^\\w/, (letter) => letter.toUpperCase())
+  })
+  return label.charAt(0).toLocaleUpperCase('es-ES') + label.slice(1)
 }
 
 const colorFor = (name) => {
@@ -110,19 +114,20 @@ export default function GraficoIngresos({ modo = 'mesActual' }) {
   }, [ingresos, modo, filtroMes, mesActual])
 
   const datosGrafico = useMemo(() => {
-    const grouped = new Map()
-    for (const ingreso of ingresosFiltrados) {
-      const category = ingreso.categoria || 'Otros'
+    const validIncome = ingresosFiltrados.filter((ingreso) => {
       const amount = Number(ingreso.monto)
-      if (!Number.isFinite(amount) || amount <= 0) continue
-      grouped.set(category, (grouped.get(category) || 0) + amount)
-    }
-
-    const total = [...grouped.values()].reduce((sum, amount) => sum + amount, 0)
-    const data = [...grouped.entries()]
+      return Number.isFinite(amount) && amount > 0
+    })
+    const grouped = sumMoneyBy(
+      validIncome,
+      (ingreso) => ingreso.categoria || 'Otros',
+      (ingreso) => ingreso.monto
+    )
+    const total = sumMoney(Object.values(grouped))
+    const data = Object.entries(grouped)
       .map(([name, value]) => ({
         name,
-        value: Number(value.toFixed(2)),
+        value,
         color: colorFor(name),
         percentage: total > 0 ? (value / total) * 100 : 0,
       }))
