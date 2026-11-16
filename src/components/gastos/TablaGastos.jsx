@@ -36,7 +36,7 @@ import {
 } from 'lucide-react';
 
 export default function TablaGastos() {
-  // Estados para los datos de Notion
+  // Movimientos de gasto contabilizados procedentes del libro mayor.
   const [gastosMensuales, setGastosMensuales] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -52,55 +52,37 @@ export default function TablaGastos() {
     metodo: 'Tarjeta'
   });
 
-  // Nuevos estados para pagos fijos y cuotas
-  const [pagosFijos, setPagosFijos] = useState([]);
-  const [comprasCuotas, setComprasCuotas] = useState([]);
-
   // Estados de filtros
   const [filtroMes, setFiltroMes] = useState('');
   const [filtroMetodo, setFiltroMetodo] = useState('');
   const [filtroCategoria, setFiltroCategoria] = useState('');
 
-  // ========== CARGAR TODOS LOS DATOS ==========
+  // Cargar únicamente gastos contabilizados. Los compromisos se muestran en Configuración.
   useEffect(() => {
-    const fetchTodosLosDatos = async () => {
+    let cancelled = false
+
+    async function fetchGastos() {
       try {
-        setLoading(true);
-        
-        // 1. Cargar gastos normales
-        const resGastos = await fetch('/api/gastos');
-        if (!resGastos.ok) throw new Error('Error cargando gastos');
-        const gastosData = await resGastos.json();
-        setGastosMensuales(gastosData);
-
-        // 2. Cargar pagos fijos
-        const resPagos = await fetch('/api/pagos-fijos');
-        if (resPagos.ok) {
-          const pagosData = await resPagos.json();
-          setPagosFijos(pagosData.filter(p => p.activo === true));
-        }
-
-        // 3. Cargar compras a cuotas
-        const resCuotas = await fetch('/api/compras-cuotas');
-        if (resCuotas.ok) {
-          const cuotasData = await resCuotas.json();
-          setComprasCuotas(cuotasData.filter(c => c.activo === true));
-        }
-
+        setLoading(true)
+        setError(null)
+        const response = await fetch('/api/gastos', { cache: 'no-store' })
+        if (!response.ok) throw new Error('No se pudieron cargar los gastos.')
+        const data = await response.json()
+        if (!Array.isArray(data)) throw new Error('La respuesta de gastos no tiene el formato esperado.')
+        if (!cancelled) setGastosMensuales(data)
       } catch (err) {
-        setError(err.message);
-        console.error('Error fetching datos:', err);
-        setGastosMensuales([]);
-        setPagosFijos([]);
-        setComprasCuotas([]);
+        if (!cancelled) {
+          setError(err.message || 'Error al cargar los gastos.')
+          setGastosMensuales([])
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false)
       }
-    };
+    }
 
-    fetchTodosLosDatos();
-  }, []);
-
+    fetchGastos()
+    return () => { cancelled = true }
+  }, [])
   const guardarGasto = async (event) => {
     event.preventDefault();
     const amount = Number(nuevoGasto.monto);
@@ -138,102 +120,15 @@ export default function TablaGastos() {
     }
   };
 
-  // ========== FUNCIONES DE TRANSFORMACIÓN - SOLO HISTÓRICOS ==========
-
-  // 1. Transformar pagos fijos YA EFECTUADOS en gastos
-  const transformarPagosFijosAGastos = useMemo(() => {
-    const hoy = new Date();
-    hoy.setHours(0, 0, 0, 0); // Normalizar a inicio del día
-    
-    return pagosFijos.map(pago => {
-      // Usar fechaRealPago si existe, sino fechaInicio
-      const fechaPagoStr = pago.fechaRealPago; // No contar un próximo vencimiento como gasto pagado.
-      if (!fechaPagoStr) return null;
-      
-      const fechaPago = new Date(fechaPagoStr);
-      fechaPago.setHours(0, 0, 0, 0);
-      
-      // SOLO incluir si la fecha de pago es HOY o PASADA
-      if (fechaPago > hoy) {
-        return null; // Pago futuro, no mostrar
-      }
-      
-      const fechaStr = fechaPagoStr;
-      const mesGasto = `${fechaPago.getFullYear()}-${String(fechaPago.getMonth() + 1).padStart(2, '0')}`;
-      
-      return {
-        id: `pago-fijo-${pago.id}`,
-        fecha: fechaStr,
-        concepto: `${pago.nombre} (Pago Fijo)`,
-        metodo: pago.metodo,
-        categoria: pago.categoria,
-        cuenta: 'Cuenta Principal',
-        monto: parseFloat(pago.monto),
-        origen: 'pago_fijo',
-        frecuencia: pago.frecuencia,
-        esHistorico: true
-      };
-    }).filter(Boolean);
-  }, [pagosFijos]);
-
-  // 2. Transformar CUOTAS YA PAGADAS en gastos
-  const transformarCuotasAGastos = useMemo(() => {
-    const hoy = new Date();
-    hoy.setHours(0, 0, 0, 0);
-    
-    const gastosCuotas = [];
-    
-    comprasCuotas.forEach(compra => {
-      // Verificar que tenga historial de cuotas
-      if (!compra.historialCuotas || compra.historialCuotas.length === 0) {
-        return;
-      }
-      
-      // Filtrar SOLO cuotas PAGADAS con fecha HOY o PASADA
-      compra.historialCuotas.forEach(cuota => {
-        if (!cuota.pagada) return; // Solo cuotas pagadas
-        if (!cuota.fechaPago) return; // Solo contar cuotas con fecha real de pago confirmada.
-        
-        const fechaCuota = new Date(cuota.fechaPago);
-        fechaCuota.setHours(0, 0, 0, 0);
-        
-        // Solo incluir si la fecha es hoy o pasada
-        if (fechaCuota <= hoy) {
-          const cuotasPagadas = compra.cuotasPagadas || compra.historialCuotas.filter(c => c.pagada).length;
-          
-          gastosCuotas.push({
-            id: `cuota-${compra.id}-${cuota.numero}`,
-            fecha: cuota.fechaPago,
-            concepto: `${compra.concepto}`,
-            metodo: compra.metodo,
-            categoria: compra.categoria,
-            cuenta: 'Financiación',
-            monto: parseFloat(cuota.monto.toFixed(2)),
-            origen: 'cuota',
-            cuotaNumero: cuota.numero,
-            totalCuotas: compra.cuotasTotales,
-            cuotasPagadas: cuotasPagadas,
-            infoCuota: `Cuota ${cuota.numero} de ${compra.cuotasTotales}`,
-            infoProgreso: `${cuotasPagadas}/${compra.cuotasTotales} pagadas`,
-            esHistorico: true
-          });
-        }
-      });
-    });
-    
-    return gastosCuotas;
-  }, [comprasCuotas]);
-
-  // 3. Meses disponibles únicamente a partir de movimientos reales contabilizados.
+  // Los meses disponibles proceden únicamente de movimientos reales contabilizados.
   const obtenerMesesDisponibles = useMemo(() => {
-    const months = new Set();
+    const months = new Set()
     gastosMensuales.forEach((gasto) => {
-      const value = String(gasto.fecha || '').slice(0, 7);
-      if (/^\d{4}-\d{2}$/.test(value)) months.add(value);
-    });
-    return Array.from(months).sort((a, b) => b.localeCompare(a));
-  }, [gastosMensuales]);
-
+      const value = String(gasto.fecha || '').slice(0, 7)
+      if (/^[0-9]{4}-[0-9]{2}$/.test(value)) months.add(value)
+    })
+    return Array.from(months).sort((a, b) => b.localeCompare(a))
+  }, [gastosMensuales])
   // 4. Función para formatear mes a texto
   const formatearMesTexto = (mesFormato) => {
     if (!mesFormato) return '';
