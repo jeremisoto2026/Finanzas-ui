@@ -165,7 +165,7 @@ export default function PagosFijos() {
                 <div className="flex items-center gap-2">
                   <span className="capitalize">{pago.frecuencia || 'mensual'}</span>
                   <span className="text-slate-700">·</span>
-                  <span>{pago.metodo || 'Transferencia'}</span>
+                  <span>{pago.metodo || 'Método pendiente de confirmar'}</span>
                   {pago.fechaInicio && (
                     <>
                       <span className="text-slate-700">·</span>
@@ -177,8 +177,9 @@ export default function PagosFijos() {
                   )}
                 </div>
                 <div>
-                  {porcentaje}% del total · {pago.categoria || 'Alquiler'}
+                  {porcentaje}% del total · {pago.categoria || 'Otros'}
                 </div>
+                {pago.notas && <div className="max-w-xl whitespace-normal text-xs leading-relaxed text-slate-500">{pago.notas}</div>}
               </div>
             </div>
           )
@@ -187,7 +188,7 @@ export default function PagosFijos() {
         <div className="pt-4 border-t border-slate-800">
           <div className="flex justify-between items-center p-3 bg-slate-800/30 rounded-lg">
             <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-slate-300">Total fijos</span>
+              <span className="text-sm font-medium text-slate-300">Total mensual hogar/familia</span>
               <span className="text-xs text-slate-500 bg-slate-900 px-2 py-0.5 rounded">
                 {pagosActivos.length} servicios
               </span>
