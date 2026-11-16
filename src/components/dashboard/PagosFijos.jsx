@@ -1,5 +1,5 @@
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
-import { Home, Smartphone, Film, Wifi, Car, ShoppingBag, Wallet, Calendar, Clock } from 'lucide-react'
+import { Home, Smartphone, Film, Wifi, Car, ShoppingBag, Wallet, Calendar, Clock, CreditCard } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 export default function PagosFijos() {
