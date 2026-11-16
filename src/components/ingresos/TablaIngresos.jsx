@@ -2,6 +2,9 @@ import { useState, useMemo, useEffect } from 'react';
 import { localDateInputValue, monthKeyFromDate, parseDateOnlyLocal, sumMoney, sumMoneyBy } from '@/lib/finance-core';
 
 // ICONOS LUCIDE REACT para ingresos (paleta verde unificada)
+const normalizeIncomeCategory = (value) => String(value || '').trim().normalize('NFD').replace(/\\p{Diacritic}/gu, '').toLocaleLowerCase('es-ES')
+const FIXED_INCOME_CATEGORIES = new Set(['sueldo', 'pension', 'alquiler recibido', 'subsidio', 'nomina'])
+
 import { 
   Download, 
   Filter,
@@ -223,18 +226,11 @@ export default function TablaIngresos() {
       categorias[categoria].porcentaje = (categorias[categoria].total / total) * 100;
       
       // Determinar tipo de ingreso (FIJO vs VARIABLE)
-      const categoriasFijas = ['Sueldo', 'Pensión', 'Alquiler recibido', 'Subsidio', 'Nómina'];
-      const categoriasVariables = ['Freelance', 'Ventas', 'Inversiones', 'Propinas', 'Extras', 'Reembolsos', 'Consultoría'];
-      
-      if (categoriasFijas.includes(categoria)) {
-        categorias[categoria].tipo = 'fijo';
-      } else if (categoriasVariables.includes(categoria)) {
-        categorias[categoria].tipo = 'variable';
-      } else {
-        // La repetición en un mes no demuestra que sea un ingreso fijo.
-        // Solo las categorías explícitamente identificadas se clasifican como fijas.
-        categorias[categoria].tipo = 'variable';
-      }
+      // La categoría fija se identifica sin depender de mayúsculas o tildes.
+      // La repetición en un mismo mes nunca convierte automáticamente un ingreso en fijo.
+      categorias[categoria].tipo = FIXED_INCOME_CATEGORIES.has(normalizeIncomeCategory(categoria))
+        ? 'fijo'
+        : 'variable';
     });
     
     return categorias;
@@ -411,34 +407,24 @@ export default function TablaIngresos() {
 
   // 10. Meta de ingresos y progreso (mantenemos esta funcionalidad única)
   const metaIngresos = useMemo(() => {
-    // Calcular promedio de los últimos 3 meses para establecer una meta realista
+    // El promedio solo utiliza meses con ingresos reales registrados.
     const meses = obtenerMesesDisponibles.slice(0, 3);
-    const totalesPorMes = {};
-    
-    ingresosMensuales.forEach(ingreso => {
-      if (ingreso.fecha) {
-        const mes = monthKeyFromDate(ingreso.fecha);
-        if (!mes) return;
-        
-        if (meses.includes(mes)) {
-          totalesPorMes[mes] = (totalesPorMes[mes] || 0) + ingreso.monto;
-        }
-      }
-    });
-    
-    const valores = Object.values(totalesPorMes);
-    const promedioUltimosMeses = valores.length > 0 
-      ? valores.reduce((a, b) => a + b, 0) / valores.length 
-      : 0;
-    
+    const movimientosRecientes = ingresosMensuales.filter((ingreso) => meses.includes(monthKeyFromDate(ingreso.fecha)));
+    const totalesPorMes = sumMoneyBy(
+      movimientosRecientes,
+      (ingreso) => monthKeyFromDate(ingreso.fecha),
+      (ingreso) => ingreso.monto || 0
+    );
+    const valores = meses.map((mes) => totalesPorMes[mes]).filter((value) => value !== undefined);
+    const promedioUltimosMeses = valores.length > 0 ? sumMoney(valores) / valores.length : 0;
     const meta = promedioUltimosMeses * 1.1;
-    const progreso = total > 0 ? (total / meta) * 100 : 0;
-    
+    const progreso = meta > 0 ? (total / meta) * 100 : 0;
+
     return {
-      meta: Math.round(meta),
+      meta: Math.round(meta * 100) / 100,
       progreso: Math.min(progreso, 100),
-      alcanzada: total >= meta,
-      diferencia: total - meta
+      alcanzada: meta > 0 && total >= meta,
+      diferencia: total - meta,
     };
   }, [ingresosMensuales, total, obtenerMesesDisponibles]);
 
@@ -506,39 +492,32 @@ export default function TablaIngresos() {
 
   // 12. Tendencias mensuales mejoradas (igual que TablaGastos)
   const tendenciaMensual = useMemo(() => {
-    if (obtenerMesesDisponibles.length < 2) return { 
-      cambio: 0, 
-      mensaje: 'Datos insuficientes',
-      tendencia: 'neutral'
-    };
-    
+    if (obtenerMesesDisponibles.length < 2) {
+      return { cambio: 0, mensaje: 'Datos insuficientes', tendencia: 'neutral' };
+    }
+
     const meses = obtenerMesesDisponibles.slice(0, 2);
-    const totalesPorMes = {};
+    const movimientos = ingresosMensuales.filter((ingreso) => meses.includes(monthKeyFromDate(ingreso.fecha)));
+    const totalesPorMes = sumMoneyBy(
+      movimientos,
+      (ingreso) => monthKeyFromDate(ingreso.fecha),
+      (ingreso) => ingreso.monto || 0
+    );
     const categoriasPorMes = {};
-    
-    // Calcular total y categorías por mes
-    ingresosMensuales.forEach(ingreso => {
-      if (ingreso.fecha) {
-        const mes = monthKeyFromDate(ingreso.fecha);
-        if (!mes) return;
-        
-        if (meses.includes(mes)) {
-          totalesPorMes[mes] = (totalesPorMes[mes] || 0) + ingreso.monto;
-          
-          if (!categoriasPorMes[mes]) {
-            categoriasPorMes[mes] = {};
-          }
-          categoriasPorMes[mes][ingreso.categoria] = 
-            (categoriasPorMes[mes][ingreso.categoria] || 0) + ingreso.monto;
-        }
-      }
+    movimientos.forEach((ingreso) => {
+      const mes = monthKeyFromDate(ingreso.fecha);
+      const categoria = ingreso.categoria || 'Otros';
+      if (!categoriasPorMes[mes]) categoriasPorMes[mes] = {};
+      categoriasPorMes[mes][categoria] = sumMoney([
+        categoriasPorMes[mes][categoria] || 0,
+        ingreso.monto || 0,
+      ]);
     });
-    
-    // Comparar los dos meses
+
     const [mesActualKey, mesAnteriorKey] = meses;
     const actual = totalesPorMes[mesActualKey] || 0;
     const anterior = totalesPorMes[mesAnteriorKey] || 0;
-    
+
     if (anterior === 0) return { 
       cambio: 0, 
       mensaje: 'Sin datos previos',
