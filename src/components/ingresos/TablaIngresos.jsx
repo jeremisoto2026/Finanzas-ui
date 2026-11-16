@@ -236,12 +236,9 @@ export default function TablaIngresos() {
       } else if (categoriasVariables.includes(categoria)) {
         categorias[categoria].tipo = 'variable';
       } else {
-        // Si no está en las listas, determinar por frecuencia
-        if (categorias[categoria].count >= 2) {
-          categorias[categoria].tipo = 'fijo';
-        } else {
-          categorias[categoria].tipo = 'variable';
-        }
+        // La repetición en un mes no demuestra que sea un ingreso fijo.
+        // Solo las categorías explícitamente identificadas se clasifican como fijas.
+        categorias[categoria].tipo = 'variable';
       }
     });
     
