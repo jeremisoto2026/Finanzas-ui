@@ -34,7 +34,7 @@ async function readPlans(supabase) {
   const ids = plans.map((plan) => plan.id)
   const { data: items, error: itemsError } = await supabase
     .from('installments')
-    .select('id, plan_id, installment_number, amount, due_on, paid_on, status, notes, due_date_precision')
+    .select('id, plan_id, installment_number, amount, due_on, paid_on, status, transaction_id, notes, due_date_precision')
     .in('plan_id', ids)
     .order('installment_number', { ascending: true })
   if (itemsError) throw itemsError
