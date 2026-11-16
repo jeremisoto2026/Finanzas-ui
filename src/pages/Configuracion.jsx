@@ -1302,7 +1302,7 @@ export default function Configuracion() {
               <Wallet className="h-5 w-5 text-sky-400" />
               <span className="font-semibold text-white">Presupuestos familiares</span>
             </div>
-            <p className="mt-1 text-xs text-slate-500">Mercado y ocio son límites de planificación; no se contabilizan como gastos pagados hasta registrar el movimiento real.</p>
+            <p className="mt-1 max-w-2xl text-xs leading-5 text-slate-400">El importe que queda se aparta del dinero libre. Cuando registras un gasto real de esa categoría, el saldo baja y la reserva pendiente se reduce por el mismo importe; así no se cuenta dos veces.</p>
           </div>
           <div className="flex items-center gap-3"><span className="text-sm font-semibold text-sky-300">€{totalPresupuestoMesProximo.toFixed(2)} · {mesProximoTexto}</span><button onClick={abrirNuevoPresupuesto} className="rounded-lg bg-sky-600 px-3 py-2 text-xs font-semibold text-white hover:bg-sky-500">Nuevo presupuesto</button></div>
         </div>
@@ -1314,15 +1314,35 @@ export default function Configuracion() {
               <div key={mes} className="rounded-lg border border-slate-800 bg-slate-950/40 p-4">
                 <h3 className="mb-3 font-medium capitalize text-white">{formatearPeriodo(mes)}</h3>
                 <div className="space-y-3">
-                  {presupuestos.filter(item => item.month === mes).map((item) => (
-                    <div key={item.id} className="flex items-start justify-between gap-3">
-                      <div className="min-w-0"><p className="text-sm text-slate-200">{item.category}</p>{item.notes && <p className="mt-1 text-xs text-slate-500">{item.notes}</p>}</div>
-                      <div className="flex items-center gap-2"><span className="whitespace-nowrap text-sm font-semibold text-sky-300">€{item.amount.toFixed(2)}</span><button onClick={() => editarPresupuesto(item)} className="rounded-lg bg-slate-800 p-1.5 text-sky-300 hover:bg-slate-700" title="Editar"><Settings className="h-4 w-4" /></button><button onClick={() => eliminarPresupuesto(item)} className="rounded-lg bg-rose-950/30 p-1.5 text-rose-300 hover:bg-rose-900/40" title="Eliminar"><Trash2 className="h-4 w-4" /></button></div>
-                    </div>
-                  ))}
+                  {presupuestos.filter((item) => item.month === mes).map((item) => {
+                    const gastoReal = sumMoney(
+                      gastosRegistrados.filter((gasto) =>
+                        gasto.categoria === item.category && String(gasto.fecha || '').slice(0, 7) === item.month
+                      ),
+                      (gasto) => gasto.monto || 0
+                    )
+                    const pendienteApartar = Math.max(0, Number(item.amount || 0) - gastoReal)
+                    return (
+                      <div key={item.id} className="flex items-start justify-between gap-3 rounded-xl border border-slate-800 bg-slate-900/40 p-3">
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-slate-200">{item.category}</p>
+                          {item.notes && <p className="mt-1 text-xs text-slate-500">{item.notes}</p>}
+                          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs">
+                            <span className="text-slate-400">Gastado: <strong className="font-semibold text-white">€{gastoReal.toFixed(2)}</strong></span>
+                            <span className="text-amber-300">Pendiente de apartar: <strong className="font-semibold">€{pendienteApartar.toFixed(2)}</strong></span>
+                          </div>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-2">
+                          <span className="whitespace-nowrap text-sm font-semibold text-emerald-300">€{item.amount.toFixed(2)}</span>
+                          <button onClick={() => editarPresupuesto(item)} className="rounded-lg bg-slate-800 p-1.5 text-sky-300 hover:bg-slate-700" title="Editar presupuesto" aria-label="Editar presupuesto"><Settings className="h-4 w-4" /></button>
+                          <button onClick={() => eliminarPresupuesto(item)} className="rounded-lg bg-rose-950/30 p-1.5 text-rose-300 hover:bg-rose-900/40" title="Eliminar presupuesto" aria-label="Eliminar presupuesto"><Trash2 className="h-4 w-4" /></button>
+                        </div>
+                      </div>
+                    )
+                  })}
                 </div>
                 <div className="mt-3 border-t border-slate-800 pt-3 text-right text-sm font-semibold text-white">
-                  Total planificado: €{sumMoney(presupuestos.filter((item) => item.month === mes), (item) => item.amount || 0).toFixed(2)}
+                  <span>Total planificado: €{sumMoney(presupuestos.filter((item) => item.month === mes), (item) => item.amount || 0).toFixed(2)}</span><span className="ml-3 text-amber-300">Por apartar: €{sumMoney(presupuestos.filter((item) => item.month === mes), (item) => { const spent = sumMoney(gastosRegistrados.filter((gasto) => gasto.categoria === item.category && String(gasto.fecha || "").slice(0, 7) === item.month), (gasto) => gasto.monto || 0); return Math.max(0, item.amount - spent) }).toFixed(2)}</span>
                 </div>
               </div>
             ))}
