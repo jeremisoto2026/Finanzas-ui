@@ -3,6 +3,7 @@ import GraficoGastos from '@/components/dashboard/GraficoGastos'
 import GraficoIngresos from '@/components/dashboard/GraficoIngresos'
 import DineroDisponible from '@/components/dashboard/DineroDisponible'
 import PagosFijos from '@/components/dashboard/PagosFijos'
+import ResumenObligaciones from '@/components/dashboard/ResumenObligaciones'
 
 const today = new Date()
 const dateLabel = today.toLocaleDateString('es-ES', {
@@ -46,6 +47,8 @@ export default function Dashboard() {
         <DineroDisponible />
         <PagosFijos />
       </section>
+
+      <ResumenObligaciones />
 
       <section aria-label="Evolución financiera" className="grid grid-cols-1 gap-5 xl:grid-cols-2">
         <GraficoIngresos />
