@@ -1,5 +1,5 @@
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
-import { Home, Smartphone, Film, Wifi, Car, ShoppingBag, Wallet, CheckCircle, Calendar } from 'lucide-react'
+import { Home, Smartphone, Film, Wifi, Car, ShoppingBag, Wallet, Calendar, Clock } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 export default function PagosFijos() {
@@ -35,6 +35,9 @@ export default function PagosFijos() {
   const getIcon = (nombre) => {
     const iconMap = {
       'Alquiler': Home,
+      'Alquiler Jeremi': Home,
+      'Alquiler papá': Home,
+      'Scalapay habitual': CreditCard,
       'Teléfono': Smartphone,
       'Netflix': Film,
       'Internet': Wifi,
@@ -134,7 +137,7 @@ export default function PagosFijos() {
       </CardHeader>
 
       <CardContent className="space-y-4">
-        {pagosActivos.slice(0, 6).map((pago) => {
+        {pagosActivos.map((pago) => {
           const Icon = getIcon(pago.nombre)
           const montoFormateado = (typeof pago.monto === 'number' ? pago.monto : parseFloat(pago.monto || 0)).toFixed(2)
           const porcentaje = total > 0 ? Math.round((parseFloat(pago.monto) / total) * 100) : 0
@@ -151,7 +154,6 @@ export default function PagosFijos() {
                   <span className="text-sm font-medium text-white">{pago.nombre}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <CheckCircle className="h-3 w-3 text-green-400" />
                   <span className="text-sm font-semibold text-slate-300">
                     €{montoFormateado}
                   </span>
@@ -169,7 +171,7 @@ export default function PagosFijos() {
                       <span className="text-slate-700">·</span>
                       <span className="flex items-center gap-1">
                         <Calendar className="h-2.5 w-2.5" />
-                        {formatearFecha(pago.fechaInicio)}
+                        Próximo vencimiento: {formatearFecha(pago.fechaInicio)}
                       </span>
                     </>
                   )}
@@ -181,14 +183,6 @@ export default function PagosFijos() {
             </div>
           )
         })}
-
-        {pagosActivos.length > 6 && (
-          <div className="text-center py-2">
-            <span className="text-xs text-slate-500">
-              +{pagosActivos.length - 6} pagos más
-            </span>
-          </div>
-        )}
 
         <div className="pt-4 border-t border-slate-800">
           <div className="flex justify-between items-center p-3 bg-slate-800/30 rounded-lg">
@@ -211,11 +205,11 @@ export default function PagosFijos() {
           <div className="mt-3 text-xs text-slate-500 flex items-center justify-between">
             <div className="flex items-center gap-1">
               <Calendar className="h-3 w-3" />
-              <span>Mes actual: 2026-01</span>
+              <span>Compromisos recurrentes previstos</span>
             </div>
             <div className="flex items-center gap-1">
-              <CheckCircle className="h-3 w-3 text-green-400" />
-              <span>{pagosActivos.length} pagados este mes</span>
+              <Clock className="h-3 w-3 text-amber-400" />
+              <span>No implica que ya estén pagados</span>
             </div>
           </div>
         </div>
