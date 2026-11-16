@@ -43,7 +43,7 @@ import {
 } from 'lucide-react'
 
 export default function Configuracion() {
-  // Estados para Notion
+  // Estados de pagos fijos y compras a cuotas
   const [pagosFijos, setPagosFijos] = useState([])
   const [comprasCuotas, setComprasCuotas] = useState([])
   const [loading, setLoading] = useState(true)
@@ -84,7 +84,7 @@ export default function Configuracion() {
     frecuenciaPago: 'mensual'
   })
 
-  // ========== CARGAR DATOS DESDE NOTION ==========
+  // ========== CARGAR DATOS DESDE SUPABASE ==========
   useEffect(() => {
     const cargarDatos = async () => {
       try {
@@ -930,6 +930,7 @@ export default function Configuracion() {
                       <tr key={pago.id} className="hover:bg-slate-800/30">
                         <td className="px-4 py-3 whitespace-nowrap">
                           <div className="text-sm font-medium text-white">{pago.nombre}</div>
+                          {pago.notas && <p className="mt-1 max-w-md whitespace-normal text-xs text-slate-500">{pago.notas}</p>}
                           <div className="flex items-center gap-2 text-xs text-slate-500">
                             <span className="capitalize">{pago.frecuencia}</span>
                             <span>•</span>
