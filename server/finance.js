@@ -47,6 +47,7 @@ export function fixedPaymentForUi(row) {
     fechaInicio: dateOnly(row.next_due_on) || '',
     activo: row.status === 'active',
     notificacion: Boolean(row.notification_enabled),
+    notas: row.notes || '',
   }
 }
 
@@ -60,6 +61,8 @@ export function installmentPlanForUi(plan, installments = []) {
       pagada: item.status === 'paid',
       fecha: dateOnly(item.due_on),
       fechaPago: dateOnly(item.paid_on),
+      fechaPrecision: item.due_date_precision || 'day',
+      notas: item.notes || '',
     }))
 
   return {
@@ -72,6 +75,8 @@ export function installmentPlanForUi(plan, installments = []) {
     montoUltimaCuota: history[history.length - 1]?.monto || 0,
     tipoCuotas: history.length > 1 && history[0].monto !== history[history.length - 1].monto ? 'decrecientes' : 'fijas',
     fechaInicio: dateOnly(plan.start_on) || '',
+    fechaInicioPrecision: plan.start_date_precision || 'day',
+    notas: plan.notes || '',
     metodo: plan.payment_method || '',
     categoria: plan.categories?.name || '',
     frecuenciaPago: frequencyFromDb(plan.frequency),
