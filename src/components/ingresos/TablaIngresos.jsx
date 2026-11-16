@@ -36,7 +36,7 @@ import {
 } from 'lucide-react';
 
 const normalizeIncomeCategory = (value) => String(value || '').trim().normalize('NFD').replace(/\p{Diacritic}/gu, '').toLocaleLowerCase('es-ES')
-const FIXED_INCOME_CATEGORIES = new Set(['sueldo', 'pension', 'alquiler recibido', 'subsidio', 'nomina', 'trabajo / reparto'])
+const FIXED_INCOME_CATEGORIES = new Set(['sueldo', 'pension', 'alquiler recibido', 'subsidio', 'nomina'])
 
 export default function TablaIngresos() {
   // Estados para los ingresos registrados en Supabase
@@ -167,7 +167,6 @@ export default function TablaIngresos() {
       setFormError('')
     } catch (err) {
       setFormError(err.message || 'No se pudo anular el ingreso.')
-      setDeleteTarget(null)
     } finally {
       setSaving(false)
     }
@@ -794,6 +793,7 @@ export default function TablaIngresos() {
               <p className="truncate text-sm font-medium text-slate-200">{deleteTarget.concepto}</p>
               <p className="mt-1 text-lg font-semibold tabular-nums text-emerald-300">{new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(deleteTarget.monto)}</p>
             </div>
+            {formError && <p role="alert" className="mt-3 rounded-lg border border-rose-800/50 bg-rose-950/30 p-3 text-sm text-rose-200">{formError}</p>}
             <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               <button type="button" disabled={saving} onClick={() => setDeleteTarget(null)} className="rounded-xl border border-slate-700 px-4 py-2.5 text-sm text-slate-300 hover:bg-slate-800 disabled:opacity-50">Conservar ingreso</button>
               <button type="button" disabled={saving} onClick={confirmarEliminarIngreso} className="rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-rose-500 disabled:opacity-50">{saving ? 'Anulando…' : 'Sí, anular ingreso'}</button>
