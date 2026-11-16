@@ -147,3 +147,92 @@ export function sumMoneyBy(items, getKey, getAmount = (item) => item.amount) {
     [...groups.entries()].map(([key, amounts]) => [key, sumMoney(amounts)])
   );
 }
+
+
+/** Adds whole days to a date-only value without local-time or DST drift. */
+export function addDaysClamped(dateValue, daysToAdd) {
+  const value = String(dateValue || '').slice(0, 10);
+  const match = /^\d{4}-\d{2}-\d{2}$/.test(value) ? value.split('-').map(Number) : null;
+  if (!match || !Number.isInteger(daysToAdd)) {
+    throw new TypeError('Se esperaba una fecha YYYY-MM-DD y un desplazamiento entero de días.');
+  }
+  const [year, month, day] = match;
+  const checkMonthDays = month >= 1 && month <= 12 ? new Date(Date.UTC(year, month, 0)).getUTCDate() : 0;
+  if (day < 1 || day > checkMonthDays) throw new RangeError('La fecha no es válida.');
+  const date = new Date(Date.UTC(year, month - 1, day + daysToAdd));
+  return date.toISOString().slice(0, 10);
+}
+
+/** Returns the correct due date for a given installment frequency. */
+export function addInstallmentDate(dateValue, frequency, occurrence) {
+  if (!Number.isInteger(occurrence) || occurrence < 0) {
+    throw new RangeError('La cuota debe ser un número entero igual o mayor que cero.');
+  }
+  const normalized = String(frequency || 'monthly')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '');
+  if (['weekly', 'semanal'].includes(normalized)) return addDaysClamped(dateValue, occurrence * 7);
+  if (['biweekly', 'quincenal'].includes(normalized)) return addDaysClamped(dateValue, occurrence * 14);
+  if (['quarterly', 'trimestral'].includes(normalized)) return addMonthsClamped(dateValue, occurrence * 3);
+  if (['monthly', 'mensual', 'mensualidad'].includes(normalized)) return addMonthsClamped(dateValue, occurrence);
+  throw new RangeError('La frecuencia del plan de cuotas no está admitida.');
+}
+
+/**
+ * Distributes an amount across positive installments using integer cents.
+ * Optional first and last installments are fixed; all remaining cents are
+ * spread evenly, assigning leftover cents to the earliest flexible installments.
+ */
+export function distributeInstallmentAmounts(totalAmount, installmentCount, firstAmount = null, lastAmount = null) {
+  const totalCents = toCents(totalAmount);
+  if (totalCents <= 0 || !Number.isInteger(installmentCount) || installmentCount < 1) {
+    throw new RangeError('El importe total y el número de cuotas deben ser válidos.');
+  }
+
+  const amounts = Array(installmentCount).fill(null);
+  if (installmentCount === 1) {
+    const provided = [firstAmount, lastAmount]
+      .filter((value) => value !== null && value !== undefined && String(value).trim() !== '')
+      .map((value) => toCents(value));
+    if (provided.some((value) => value !== totalCents)) {
+      throw new RangeError('Una única cuota debe coincidir con el importe total.');
+    }
+    return [fromCents(totalCents)];
+  }
+
+  if (firstAmount !== null && firstAmount !== undefined && String(firstAmount).trim() !== '') {
+    amounts[0] = toCents(firstAmount);
+  }
+  if (lastAmount !== null && lastAmount !== undefined && String(lastAmount).trim() !== '') {
+    amounts[installmentCount - 1] = toCents(lastAmount);
+  }
+
+  const fixedCents = amounts.reduce((sum, value) => sum + (value ?? 0), 0);
+  if (fixedCents > totalCents) throw new RangeError('La primera y última cuota superan el importe total.');
+  const flexibleIndexes = amounts.flatMap((value, index) => value === null ? [index] : []);
+  const remainingCents = totalCents - fixedCents;
+
+  if (flexibleIndexes.length === 0 && remainingCents !== 0) {
+    throw new RangeError('La suma de la primera y última cuota no coincide con el importe total.');
+  }
+  if (flexibleIndexes.length > 0 && remainingCents < flexibleIndexes.length) {
+    throw new RangeError('El importe es demasiado pequeño para repartirlo en todas las cuotas.');
+  }
+
+  const baseCents = flexibleIndexes.length ? Math.floor(remainingCents / flexibleIndexes.length) : 0;
+  const extraCents = flexibleIndexes.length ? remainingCents % flexibleIndexes.length : 0;
+  flexibleIndexes.forEach((index, position) => {
+    amounts[index] = baseCents + (position < extraCents ? 1 : 0);
+  });
+
+  if (amounts.some((value) => !Number.isSafeInteger(value) || value <= 0)) {
+    throw new RangeError('Cada cuota debe tener un importe mayor que cero.');
+  }
+  if (amounts.reduce((sum, value) => sum + value, 0) !== totalCents) {
+    throw new Error('No se pudo cuadrar la suma de las cuotas.');
+  }
+
+  return amounts.map(fromCents);
+}
