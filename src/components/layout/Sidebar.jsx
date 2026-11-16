@@ -12,7 +12,7 @@ const items = [
   { name: 'Dashboard', icon: HomeIcon },
   { name: 'Gastos', icon: ChartBarIcon },
   { name: 'Ingresos', icon: ArrowUpCircleIcon },
-  { name: 'Configuración', icon: Cog6ToothIcon },
+  { name: 'Gestión financiera', icon: BanknotesIcon },
   { name: 'Deudas', icon: BanknotesIcon },
   { name: 'Compromisos', icon: ClipboardDocumentCheckIcon },
 ]
