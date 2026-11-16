@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { sumMonthlyEquivalent } from '@/lib/finance-core'
 import { 
   Settings, 
   Plus,
@@ -378,9 +379,11 @@ export default function Configuracion() {
 
   // ========== CÁLCULOS FINANCIEROS ==========
 
-  const totalPagosMensuales = pagosFijos
-    .filter(p => p.activo && p.frecuencia === 'mensual')
-    .reduce((sum, p) => sum + Number(p.monto || 0), 0)
+  const totalPagosMensuales = sumMonthlyEquivalent(
+    pagosFijos.filter((pago) => pago.activo),
+    (pago) => pago.monto,
+    (pago) => pago.frecuencia || 'mensual'
+  )
 
   const totalCuotasActivas = comprasCuotas.filter(c => c.activo).length
   const todasLasCuotas = comprasCuotas.flatMap(compra =>
