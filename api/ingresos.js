@@ -17,7 +17,7 @@ export default async function handler(req, res) {
     if (req.method === 'GET') {
       const { data, error } = await supabase
         .from('transactions')
-        .select('id, amount, occurred_on, description, payment_method, categories(name), accounts(name)')
+        .select('id, account_id, amount, occurred_on, description, payment_method, categories(name), accounts(name)')
         .eq('user_id', user.id)
         .eq('kind', 'income')
         .eq('status', 'posted')
@@ -48,7 +48,7 @@ export default async function handler(req, res) {
         description,
         payment_method: body.metodo || null,
         idempotency_key: body.idempotencyKey || null,
-      }).select('id, amount, occurred_on, description, payment_method, categories(name), accounts(name)').single()
+      }).select('id, account_id, amount, occurred_on, description, payment_method, categories(name), accounts(name)').single()
       if (error) throw error
       return res.status(201).json(transactionForUi(data))
     }
@@ -78,7 +78,7 @@ export default async function handler(req, res) {
       if (!Object.keys(patch).length) return res.status(400).json({ error: 'No hay cambios para guardar.' })
       const { data, error } = await supabase.from('transactions').update(patch)
         .eq('id', body.id).eq('user_id', user.id).eq('kind', 'income').eq('status', 'posted')
-        .select('id, amount, occurred_on, description, payment_method, categories(name), accounts(name)').maybeSingle()
+        .select('id, account_id, amount, occurred_on, description, payment_method, categories(name), accounts(name)').maybeSingle()
       if (error) throw error
       if (!data) return res.status(404).json({ error: 'No se encontró el ingreso.' })
       return res.status(200).json(transactionForUi(data))
