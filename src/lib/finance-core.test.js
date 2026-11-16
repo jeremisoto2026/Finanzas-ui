@@ -80,5 +80,13 @@ test('suma importes recurrentes sin mezclar frecuencias', () => {
     { amount: 300, frequency: 'monthly' },
     { amount: 120, frequency: 'yearly' },
     { amount: 60, frequency: 'biweekly' },
-  ]), 885)
+  ]), 825)
+})
+
+
+test('adds months without overflowing the end of short months', () => {
+  assert.equal(addMonthsClamped('2027-01-31', 1), '2027-02-28')
+  assert.equal(addMonthsClamped('2028-01-31', 1), '2028-02-29')
+  assert.equal(addMonthsClamped('2027-03-31', -1), '2027-02-28')
+  assert.throws(() => addMonthsClamped('bad-date', 1), /fecha YYYY-MM-DD/)
 })
