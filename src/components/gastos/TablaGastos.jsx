@@ -223,60 +223,15 @@ export default function TablaGastos() {
     return gastosCuotas;
   }, [comprasCuotas]);
 
-  // 3. Obtener meses únicos de TODOS los datos HISTÓRICOS
+  // 3. Meses disponibles únicamente a partir de movimientos reales contabilizados.
   const obtenerMesesDisponibles = useMemo(() => {
-    const mesesSet = new Set();
-    
-    // Agregar meses de gastos normales
-    gastosMensuales.forEach(gasto => {
-      if (gasto.fecha) {
-        try {
-          const fecha = new Date(gasto.fecha);
-          if (!isNaN(fecha.getTime())) {
-            const año = fecha.getFullYear();
-            const mes = fecha.getMonth() + 1;
-            const mesFormateado = `${año}-${mes.toString().padStart(2, '0')}`;
-            mesesSet.add(mesFormateado);
-          }
-        } catch (error) {
-          console.error('Error procesando fecha:', gasto.fecha, error);
-        }
-      }
+    const months = new Set();
+    gastosMensuales.forEach((gasto) => {
+      const value = String(gasto.fecha || '').slice(0, 7);
+      if (/^\\d{4}-\\d{2}$/.test(value)) months.add(value);
     });
-    
-    // Agregar meses de pagos fijos históricos
-    transformarPagosFijosAGastos.forEach(gasto => {
-      if (gasto.fecha) {
-        try {
-          const fecha = new Date(gasto.fecha);
-          const año = fecha.getFullYear();
-          const mes = fecha.getMonth() + 1;
-          const mesFormateado = `${año}-${mes.toString().padStart(2, '0')}`;
-          mesesSet.add(mesFormateado);
-        } catch (error) {
-          console.error('Error procesando fecha pago fijo:', gasto.fecha, error);
-        }
-      }
-    });
-    
-    // Agregar meses de cuotas históricas
-    transformarCuotasAGastos.forEach(gasto => {
-      if (gasto.fecha) {
-        try {
-          const fecha = new Date(gasto.fecha);
-          const año = fecha.getFullYear();
-          const mes = fecha.getMonth() + 1;
-          const mesFormateado = `${año}-${mes.toString().padStart(2, '0')}`;
-          mesesSet.add(mesFormateado);
-        } catch (error) {
-          console.error('Error procesando fecha cuota:', gasto.fecha, error);
-        }
-      }
-    });
-    
-    const mesesArray = Array.from(mesesSet);
-    return mesesArray.sort((a, b) => b.localeCompare(a));
-  }, [gastosMensuales, transformarPagosFijosAGastos, transformarCuotasAGastos]);
+    return Array.from(months).sort((a, b) => b.localeCompare(a));
+  }, [gastosMensuales]);
 
   // 4. Función para formatear mes a texto
   const formatearMesTexto = (mesFormato) => {
@@ -292,13 +247,12 @@ export default function TablaGastos() {
   // ========== COMBINAR Y FILTRAR DATOS ==========
 
   // Combinar TODOS los gastos HISTÓRICOS
-  const todosLosGastos = useMemo(() => {
-    return [
-      ...gastosMensuales.map(g => ({ ...g, origen: 'normal' })),
-      ...transformarPagosFijosAGastos,
-      ...transformarCuotasAGastos
-    ];
-  }, [gastosMensuales, transformarPagosFijosAGastos, transformarCuotasAGastos]);
+  // El histórico de gastos sale únicamente del libro mayor (movimientos contabilizados).
+  // Pagos fijos y cuotas son compromisos/estados; no se convierten en cargos de caja.
+  const todosLosGastos = useMemo(() => (
+    gastosMensuales.map((gasto) => ({ ...gasto, origen: 'normal' }))
+  ), [gastosMensuales]);
+}, [gastosMensuales, transformarPagosFijosAGastos, transformarCuotasAGastos]);
 
   // Filtrar gastos combinados
   const gastosFiltrados = useMemo(() => {
@@ -380,7 +334,7 @@ export default function TablaGastos() {
         <div className="text-center">
           <RefreshCw className="h-12 w-12 text-red-400 animate-spin mx-auto mb-4" />
           <p className="text-slate-400 text-lg">Cargando datos financieros...</p>
-          <p className="text-slate-500 text-sm mt-2">Gastos, pagos fijos y cuotas</p>
+          <p className="text-slate-500 text-sm mt-2">Movimientos reales registrados en tus cuentas</p>
         </div>
       </div>
     );
@@ -447,7 +401,7 @@ export default function TablaGastos() {
             
             {/* NOTA IMPORTANTE */}
             <div className="mt-3 text-sm text-amber-400 bg-amber-900/20 px-3 py-2 rounded-lg">
-              💡 Mostrando solo gastos <strong>ya efectuados</strong> (históricos)
+              Los gastos mostrados son movimientos reales contabilizados. Los pagos fijos y las cuotas pendientes se consultan en Configuración y no se descuentan aquí hasta registrar el cargo en la cuenta.
             </div>
           </div>
           
@@ -754,7 +708,7 @@ export default function TablaGastos() {
             {/* FOOTER CON INFORMACIÓN DETALLADA */}
             <div className="px-6 py-3 border-t border-slate-800 bg-slate-900/50">
               <div className="text-xs text-slate-400">
-                💡 Mostrando solo gastos <strong>ya efectuados</strong>. Pagos futuros no se incluyen.
+                Este historial solo incluye cargos contabilizados en el libro de cuentas. Los vencimientos y cuotas previstas no se consideran gastos reales.
               </div>
             </div>
           </div>
