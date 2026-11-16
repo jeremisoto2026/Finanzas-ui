@@ -2,9 +2,6 @@ import { useState, useMemo, useEffect } from 'react';
 import { localDateInputValue, monthKeyFromDate, parseDateOnlyLocal, sumMoney, sumMoneyBy } from '@/lib/finance-core';
 
 // ICONOS LUCIDE REACT para ingresos (paleta verde unificada)
-const normalizeIncomeCategory = (value) => String(value || '').trim().normalize('NFD').replace(/\\p{Diacritic}/gu, '').toLocaleLowerCase('es-ES')
-const FIXED_INCOME_CATEGORIES = new Set(['sueldo', 'pension', 'alquiler recibido', 'subsidio', 'nomina'])
-
 import { 
   Download, 
   Filter,
@@ -35,6 +32,9 @@ import {
   Save,
   X
 } from 'lucide-react';
+
+const normalizeIncomeCategory = (value) => String(value || '').trim().normalize('NFD').replace(/\p{Diacritic}/gu, '').toLocaleLowerCase('es-ES')
+const FIXED_INCOME_CATEGORIES = new Set(['sueldo', 'pension', 'alquiler recibido', 'subsidio', 'nomina'])
 
 export default function TablaIngresos() {
   // Estados para los ingresos registrados en Supabase
