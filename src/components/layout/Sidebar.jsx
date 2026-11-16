@@ -5,7 +5,7 @@ import {
   Cog6ToothIcon,
   BanknotesIcon,
   ClipboardDocumentCheckIcon,
-  WalletIcon,
+
 } from '@heroicons/react/24/outline'
 
 const items = [
@@ -26,7 +26,7 @@ export default function Sidebar({ mobile = false, activePage, setActivePage }) {
     >
       <div className="flex items-center gap-3 px-2 pb-7">
         <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-emerald-500/20 bg-emerald-500/10">
-          <WalletIcon className="h-5 w-5 text-emerald-400" />
+          <BanknotesIcon className="h-5 w-5 text-emerald-400" />
         </div>
         <div className="min-w-0">
           <h2 className="text-base font-semibold tracking-tight text-white">Finanzas</h2>
