@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Wallet, RefreshCw, AlertCircle, Landmark } from 'lucide-react'
-import { sumMoneyBy } from '@/lib/finance-core'
+import { sumMoney, sumMoneyBy } from '@/lib/finance-core'
 
 const formatDate = (value) => value ? new Date(String(value).slice(0, 10) + 'T00:00:00').toLocaleDateString('es-ES') : null
 
@@ -14,6 +14,7 @@ export default function DineroDisponible() {
   const [accounts, setAccounts] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [budgetReserve, setBudgetReserve] = useState({ loading: true, month: '', planned: 0, spent: 0, remaining: 0 })
 
   useEffect(() => {
     let cancelled = false
@@ -37,6 +38,42 @@ export default function DineroDisponible() {
     }
 
     loadAccounts()
+    return () => { cancelled = true }
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    const loadBudgetReserve = async () => {
+      try {
+        const [budgetsResponse, expensesResponse] = await Promise.all([
+          fetch('/api/presupuestos', { cache: 'no-store' }),
+          fetch('/api/gastos', { cache: 'no-store' }),
+        ])
+        if (!budgetsResponse.ok || !expensesResponse.ok) throw new Error('No se pudo calcular el dinero apartado.')
+        const [budgets, expenses] = await Promise.all([budgetsResponse.json(), expensesResponse.json()])
+        const currentMonth = new Intl.DateTimeFormat('sv-SE', {
+          timeZone: 'Europe/Madrid', year: 'numeric', month: '2-digit',
+        }).format(new Date()).slice(0, 7)
+        const eligibleBudgets = (Array.isArray(budgets) ? budgets : [])
+          .filter((item) => item.month >= currentMonth)
+        const targetMonth = eligibleBudgets.map((item) => item.month).sort()[0] || ''
+        const monthBudgets = eligibleBudgets.filter((item) => item.month === targetMonth)
+        const spendForBudget = (budget) => sumMoney(
+          (Array.isArray(expenses) ? expenses : []).filter((expense) =>
+            expense.categoria === budget.category && String(expense.fecha || '').slice(0, 7) === targetMonth
+          ),
+          (expense) => expense.monto || 0
+        )
+        const planned = sumMoney(monthBudgets, (item) => item.amount || 0)
+        const spent = sumMoney(monthBudgets, spendForBudget)
+        const remaining = sumMoney(monthBudgets, (item) => Math.max(0, Number(item.amount || 0) - spendForBudget(item)))
+        if (!cancelled) setBudgetReserve({ loading: false, month: targetMonth, planned, spent, remaining })
+      } catch (reserveError) {
+        if (!cancelled) setBudgetReserve({ loading: false, month: '', planned: 0, spent: 0, remaining: 0 })
+        console.error('No se pudo calcular la reserva del presupuesto:', reserveError)
+      }
+    }
+    loadBudgetReserve()
     return () => { cancelled = true }
   }, [])
 
@@ -136,6 +173,20 @@ export default function DineroDisponible() {
               </div>
             </div>
 
+            {budgetReserve.month && (
+              <div className="grid gap-3 border-t border-slate-800/80 pt-4 sm:grid-cols-2">
+                <div className="rounded-xl border border-amber-500/20 bg-amber-500/[0.06] p-4">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.13em] text-amber-300/80">Apartado · {new Date(budgetReserve.month + '-01T00:00:00').toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}</p>
+                  <p className="mt-2 text-2xl font-semibold tabular-nums text-white">{formatMoney(budgetReserve.remaining)}</p>
+                  <p className="mt-1 text-xs text-slate-400">De {formatMoney(budgetReserve.planned)} planificados · {formatMoney(budgetReserve.spent)} gastados</p>
+                </div>
+                <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/[0.06] p-4">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.13em] text-emerald-300/80">Dinero libre tras reservas</p>
+                  <p className="mt-2 text-2xl font-semibold tabular-nums text-white">{formatMoney(Number(totalsByCurrency.EUR || 0) - budgetReserve.remaining)}</p>
+                  <p className="mt-1 text-xs text-slate-400">Saldo EUR menos lo que aún queda por apartar</p>
+                </div>
+              </div>
+            )}
             <div className="flex items-start gap-2 border-t border-slate-800/80 pt-3 text-xs leading-5 text-slate-500">
               <Landmark className="mt-0.5 h-4 w-4 shrink-0 text-slate-600" />
               <p>
