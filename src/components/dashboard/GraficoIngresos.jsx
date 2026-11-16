@@ -10,7 +10,7 @@ import {
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { motion } from 'framer-motion'
 import { sumMoney, sumMoneyBy } from '@/lib/finance-core'
-import { TrendingUp, Wallet, Landmark, RefreshCw, AlertCircle } from 'lucide-react'
+import { TrendingUp, RefreshCw, AlertCircle } from 'lucide-react'
 
 const PALETTE = ['#10b981', '#0ea5e9', '#8b5cf6', '#f59e0b', '#ec4899', '#14b8a6', '#64748b']
 
@@ -41,10 +41,8 @@ const colorFor = (name) => {
 
 export default function GraficoIngresos({ modo = 'mesActual' }) {
   const [ingresos, setIngresos] = useState([])
-  const [accounts, setAccounts] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [accountsError, setAccountsError] = useState('')
   const [filtroMes, setFiltroMes] = useState('')
 
   useEffect(() => {
@@ -53,38 +51,18 @@ export default function GraficoIngresos({ modo = 'mesActual' }) {
     async function loadData() {
       setLoading(true)
       setError('')
-      setAccountsError('')
 
       try {
-        const [incomeResponse, accountsResponse] = await Promise.all([
-          fetch('/api/ingresos', { cache: 'no-store' }),
-          fetch('/api/cuentas', { cache: 'no-store' }),
-        ])
-
-        if (!incomeResponse.ok) throw new Error('No se pudieron cargar los ingresos.')
-        const incomeData = await incomeResponse.json()
+        const response = await fetch('/api/ingresos', { cache: 'no-store' })
+        if (!response.ok) throw new Error('No se pudieron cargar los ingresos.')
+        const incomeData = await response.json()
         if (!Array.isArray(incomeData)) throw new Error('La respuesta de ingresos no es válida.')
 
-        let accountData = []
-        let accountError = ''
-        if (accountsResponse.ok) {
-          const parsedAccounts = await accountsResponse.json()
-          if (Array.isArray(parsedAccounts)) accountData = parsedAccounts
-          else accountError = 'El formato de los saldos de cuenta no es válido.'
-        } else {
-          accountError = 'No se pudieron consultar los saldos reales de las cuentas.'
-        }
-
-        if (!cancelled) {
-          setIngresos(incomeData)
-          setAccounts(accountData)
-          setAccountsError(accountError)
-        }
+        if (!cancelled) setIngresos(incomeData)
       } catch (err) {
         if (!cancelled) {
-          setError(err.message || 'Error al cargar los datos financieros.')
+          setError(err.message || 'Error al cargar los ingresos.')
           setIngresos([])
-          setAccounts([])
         }
       } finally {
         if (!cancelled) setLoading(false)
@@ -102,7 +80,7 @@ export default function GraficoIngresos({ modo = 'mesActual' }) {
 
   const mesActual = useMemo(() => {
     const now = new Date()
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+    return String(now.getFullYear()) + '-' + String(now.getMonth() + 1).padStart(2, '0')
   }, [])
 
   const ingresosFiltrados = useMemo(() => {
@@ -136,14 +114,6 @@ export default function GraficoIngresos({ modo = 'mesActual' }) {
     return { data, total }
   }, [ingresosFiltrados])
 
-  const accountTotalsByCurrency = useMemo(() => (
-    sumMoneyBy(
-      accounts,
-      (account) => account.currencyCode || 'EUR',
-      (account) => account.balance || 0
-    )
-  ), [accounts])
-
   const periodoTexto = modo === 'filtrados'
     ? (filtroMes ? monthLabel(filtroMes) : 'Todos los periodos')
     : monthLabel(mesActual)
@@ -165,7 +135,7 @@ export default function GraficoIngresos({ modo = 'mesActual' }) {
       <Card className="border border-slate-800 bg-slate-900/80">
         <CardContent className="flex min-h-64 items-center justify-center gap-3 text-slate-400">
           <RefreshCw className="h-5 w-5 animate-spin text-emerald-400" />
-          Cargando ingresos y saldos…
+          Cargando distribución de ingresos…
         </CardContent>
       </Card>
     )
@@ -243,50 +213,6 @@ export default function GraficoIngresos({ modo = 'mesActual' }) {
             </div>
           </>
         )}
-
-        <div className="border-t border-slate-800 pt-4">
-          <div className="mb-3 flex items-center gap-2">
-            <Wallet className="h-4 w-4 text-sky-400" />
-            <h3 className="text-sm font-semibold text-slate-200">Saldo real por cuenta</h3>
-            <span className="ml-auto text-[11px] text-slate-500">Según movimientos registrados</span>
-          </div>
-
-          {accountsError && <p className="mb-3 rounded-lg border border-amber-800/50 bg-amber-950/20 p-2 text-xs text-amber-200">{accountsError}</p>}
-
-          {accounts.length === 0 ? (
-            <p className="text-xs text-slate-500">No hay saldos de cuenta disponibles.</p>
-          ) : (
-            <div className="space-y-2">
-              {accounts.map((account) => (
-                <div key={account.id} className="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-950/50 px-3 py-2.5">
-                  <div className="flex min-w-0 items-center gap-2">
-                    <Landmark className="h-4 w-4 shrink-0 text-slate-500" />
-                    <span className="truncate text-sm text-slate-300">{account.name}</span>
-                  </div>
-                  <span className={`font-semibold tabular-nums ${Number(account.balance) < 0 ? 'text-rose-300' : 'text-white'}`}>
-                    {euro(account.balance, account.currencyCode || 'EUR')}
-                  </span>
-                </div>
-              ))}
-              <div className="rounded-lg bg-slate-800/60 px-3 py-3">
-                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Totales por moneda</p>
-                <div className="space-y-1.5">
-                  {Object.entries(accountTotalsByCurrency).map(([currency, amount]) => (
-                    <div key={currency} className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-slate-300">Total {currency}</span>
-                      <span className="text-base font-semibold tabular-nums text-emerald-300">
-                        {euro(amount, currency)}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-          <p className="mt-3 text-[11px] leading-relaxed text-slate-500">
-            Los saldos proceden del libro de movimientos y de los saldos iniciales. Préstamos por cobrar, reservas y gastos previstos se muestran por separado y no se suman al dinero disponible.
-          </p>
-        </div>
       </CardContent>
     </Card>
   )
