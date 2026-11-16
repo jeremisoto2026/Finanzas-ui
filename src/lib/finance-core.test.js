@@ -11,6 +11,9 @@ import {
   sumMonthlyEquivalent,
   addMonthsClamped,
   sumMoneyBy,
+  addDaysClamped,
+  addInstallmentDate,
+  distributeInstallmentAmounts,
 } from './finance-core.js'
 
 test('converts euro amounts to integer cents without float drift', () => {
@@ -105,4 +108,30 @@ test('groups category totals without floating-point drift', () => {
     Comida: 0.3,
     Transporte: 0.7,
   })
+})
+
+
+test('calculates weekly, fortnightly and quarterly installment dates', () => {
+  assert.equal(addInstallmentDate('2026-11-16', 'semanal', 2), '2026-11-30')
+  assert.equal(addInstallmentDate('2026-11-16', 'quincenal', 2), '2026-12-14')
+  assert.equal(addInstallmentDate('2026-11-16', 'trimestral', 2), '2027-05-16')
+  assert.equal(addInstallmentDate('2026-01-31', 'mensual', 1), '2026-02-28')
+  assert.equal(addDaysClamped('2026-12-31', 1), '2027-01-01')
+  assert.throws(() => addInstallmentDate('2026-11-16', 'personalizado', 1), /frecuencia/)
+})
+
+test('distributes installment totals exactly in cents', () => {
+  const amounts = distributeInstallmentAmounts(100, 3)
+  assert.deepEqual(amounts, [33.34, 33.33, 33.33])
+  assert.equal(sumMoney(amounts), 100)
+  const custom = distributeInstallmentAmounts(100, 3, 40, 20)
+  assert.deepEqual(custom, [40, 40, 20])
+  assert.equal(sumMoney(custom), 100)
+  assert.deepEqual(distributeInstallmentAmounts(0.05, 3), [0.02, 0.02, 0.01])
+})
+
+test('rejects installment schedules that cannot reconcile to the total', () => {
+  assert.throws(() => distributeInstallmentAmounts(100, 2, 70, 40), /superan/)
+  assert.throws(() => distributeInstallmentAmounts(100, 2, 40, 40), /no coincide/)
+  assert.throws(() => distributeInstallmentAmounts(0.01, 2), /demasiado pequeño/)
 })
