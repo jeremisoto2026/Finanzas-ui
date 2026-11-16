@@ -62,6 +62,11 @@ export default function Configuracion() {
   // Estados para mostrar formularios
   const [mostrarFormPagoFijo, setMostrarFormPagoFijo] = useState(false)
   const [mostrarFormCuotas, setMostrarFormCuotas] = useState(false)
+  const [editingPagoFijoId, setEditingPagoFijoId] = useState(null)
+  const [editingCompraCuotasId, setEditingCompraCuotasId] = useState(null)
+  const [mostrarFormPresupuesto, setMostrarFormPresupuesto] = useState(false)
+  const [editingPresupuestoId, setEditingPresupuestoId] = useState(null)
+  const [presupuestoForm, setPresupuestoForm] = useState({ month: localDateInputValue().slice(0, 7), category: 'Alimentación', amount: '', notes: '' })
   
   // Datos para formularios
   const [pagoFijo, setPagoFijo] = useState({
@@ -126,43 +131,60 @@ export default function Configuracion() {
 
   // ========== FUNCIONES PARA PAGOS FIJOS ==========
 
+  const abrirNuevoPagoFijo = () => {
+    setEditingPagoFijoId(null)
+    setPagoFijo({
+      nombre: '', monto: '', metodo: 'Tarjeta', categoria: 'Servicios',
+      frecuencia: 'mensual', fechaInicio: localDateInputValue(), notificacion: true, notas: '',
+    })
+    setMostrarFormPagoFijo(true)
+  }
+
+  const editarPagoFijo = (pago) => {
+    setEditingPagoFijoId(pago.id)
+    setPagoFijo({
+      nombre: pago.nombre || '',
+      monto: String(pago.monto ?? ''),
+      metodo: pago.metodo || 'Tarjeta',
+      categoria: pago.categoria || 'Servicios',
+      frecuencia: pago.frecuencia || 'mensual',
+      fechaInicio: pago.fechaInicio || '',
+      notificacion: Boolean(pago.notificacion),
+      notas: pago.notas || '',
+    })
+    setMostrarFormPagoFijo(true)
+  }
+
   const guardarPagoFijo = async () => {
-    if (!pagoFijo.nombre || !pagoFijo.monto) {
-      alert('Por favor, completa el nombre y monto del pago fijo')
+    const amount = Number(pagoFijo.monto)
+    if (!pagoFijo.nombre.trim() || !Number.isFinite(amount) || amount <= 0) {
+      alert('Completa el nombre y un importe válido mayor que cero.')
       return
     }
-    
+
     try {
-      const res = await fetch('/api/pagos-fijos', {
-        method: 'POST',
+      const response = await fetch('/api/pagos-fijos', {
+        method: editingPagoFijoId ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(pagoFijo)
+        body: JSON.stringify({
+          ...(editingPagoFijoId ? { id: editingPagoFijoId } : {}),
+          ...pagoFijo,
+          monto: amount,
+        }),
       })
-      
-      if (!res.ok) {
-        const errorData = await res.json()
-        throw new Error(errorData.error || 'Error al guardar pago fijo')
-      }
-      
-      const nuevoPago = await res.json()
-      setPagosFijos([...pagosFijos, nuevoPago])
-      
-      // Resetear formulario
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.error || 'No se pudo guardar el pago fijo.')
+      setPagosFijos((current) => editingPagoFijoId
+        ? current.map((item) => item.id === editingPagoFijoId ? result : item)
+        : [...current, result])
       setPagoFijo({
-        nombre: '',
-        monto: '',
-        metodo: 'Tarjeta',
-        categoria: 'Servicios',
-        frecuencia: 'mensual',
-        fechaInicio: localDateInputValue(),
-        notificacion: true
+        nombre: '', monto: '', metodo: 'Tarjeta', categoria: 'Servicios',
+        frecuencia: 'mensual', fechaInicio: localDateInputValue(), notificacion: true, notas: '',
       })
+      setEditingPagoFijoId(null)
       setMostrarFormPagoFijo(false)
-      
-      alert('Pago fijo creado exitosamente')
     } catch (err) {
-      console.error('Error guardando pago fijo:', err)
-      alert(`Error al guardar pago fijo: ${err.message}`)
+      alert(err.message || 'No se pudo guardar el pago fijo.')
     }
   }
 
@@ -205,7 +227,80 @@ export default function Configuracion() {
     }
   }
 
+  const abrirNuevoPresupuesto = () => {
+    setEditingPresupuestoId(null)
+    setPresupuestoForm({ month: localDateInputValue().slice(0, 7), category: 'Alimentación', amount: '', notes: '' })
+    setMostrarFormPresupuesto(true)
+  }
+
+  const editarPresupuesto = (item) => {
+    setEditingPresupuestoId(item.id)
+    setPresupuestoForm({ month: item.month, category: item.category, amount: String(item.amount), notes: item.notes || '' })
+    setMostrarFormPresupuesto(true)
+  }
+
+  const guardarPresupuesto = async (event) => {
+    event.preventDefault()
+    const amount = Number(presupuestoForm.amount)
+    if (!/^\\d{4}-(0[1-9]|1[0-2])$/.test(presupuestoForm.month) || !presupuestoForm.category.trim() || !Number.isFinite(amount) || amount < 0) {
+      setError('Revisa el mes, la categoría y el importe del presupuesto.')
+      return
+    }
+    try {
+      setError(null)
+      const response = await fetch('/api/presupuestos', {
+        method: editingPresupuestoId ? 'PATCH' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...(editingPresupuestoId ? { id: editingPresupuestoId } : {}), ...presupuestoForm, amount }),
+      })
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.error || 'No se pudo guardar el presupuesto.')
+      setPresupuestos((current) => editingPresupuestoId
+        ? current.map((item) => item.id === editingPresupuestoId ? result : item)
+        : [...current, result])
+      setMostrarFormPresupuesto(false)
+      setEditingPresupuestoId(null)
+      setPresupuestoForm({ month: localDateInputValue().slice(0, 7), category: 'Alimentación', amount: '', notes: '' })
+    } catch (err) {
+      setError(err.message || 'No se pudo guardar el presupuesto.')
+    }
+  }
+
+  const eliminarPresupuesto = async (item) => {
+    if (!confirm(`¿Eliminar el presupuesto de ${item.category} para ${item.month}?`)) return
+    try {
+      const response = await fetch('/api/presupuestos', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: item.id }),
+      })
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.error || 'No se pudo eliminar el presupuesto.')
+      setPresupuestos((current) => current.filter((row) => row.id !== item.id))
+    } catch (err) {
+      setError(err.message || 'No se pudo eliminar el presupuesto.')
+    }
+  }
+
   // ========== FUNCIONES PARA COMPRAS A CUOTAS ==========
+
+  const abrirEdicionCompraCuotas = (compra) => {
+    setEditingCompraCuotasId(compra.id)
+    setCompraCuotas({
+      concepto: compra.concepto || '',
+      montoTotal: String(compra.montoTotal ?? ''),
+      cuotasTotales: String(compra.cuotasTotales ?? ''),
+      cuotasPagadas: String(compra.cuotasPagadas ?? 0),
+      montoPrimeraCuota: String(compra.montoPrimeraCuota ?? ''),
+      montoUltimaCuota: String(compra.montoUltimaCuota ?? ''),
+      fechaInicio: compra.fechaInicio || localDateInputValue(),
+      metodo: compra.metodo || 'Tarjeta',
+      categoria: compra.categoria || 'Tecnología',
+      frecuenciaPago: compra.frecuenciaPago || 'mensual',
+      notas: compra.notas || '',
+    })
+    setMostrarFormCuotas(true)
+  }
 
   const guardarCompraCuotas = async () => {
     if (!compraCuotas.concepto.trim() || !String(compraCuotas.montoTotal).trim()) {
@@ -224,7 +319,9 @@ export default function Configuracion() {
       alert('El número de cuotas pagadas debe estar entre cero y el total de cuotas.')
       return
     }
-    if (cuotasPagadas > 0) {
+    const planActual = editingCompraCuotasId ? comprasCuotas.find((item) => item.id === editingCompraCuotasId) : null
+    const tieneCuotasPagadas = Boolean(planActual?.historialCuotas?.some((cuota) => cuota.pagada || cuota.transactionId))
+    if (cuotasPagadas > 0 && !editingCompraCuotasId) {
       alert('Para no inventar fechas de pago ni descuadrar el saldo, crea el plan con 0 cuotas pagadas. Después registra cada pago con su fecha y revisa el movimiento bancario correspondiente.')
       return
     }
@@ -238,12 +335,21 @@ export default function Configuracion() {
         compraCuotas.montoPrimeraCuota || null,
         compraCuotas.montoUltimaCuota || null
       )
-      historialCuotas = importesCuotas.map((monto, index) => ({
-        numero: index + 1,
-        monto,
-        pagada: false,
-        fecha: addInstallmentDate(compraCuotas.fechaInicio, compraCuotas.frecuenciaPago, index),
-      }))
+      historialCuotas = importesCuotas.map((monto, index) => {
+        const fecha = addInstallmentDate(compraCuotas.fechaInicio, compraCuotas.frecuenciaPago, index)
+        const existing = planActual?.historialCuotas?.find((cuota) => cuota.numero === index + 1)
+        if (existing?.transactionId || existing?.pagada) {
+          if (Number(existing.monto) !== Number(monto) || existing.fecha !== fecha) {
+            throw new Error('No puedes cambiar el importe o la fecha de una cuota ya pagada o vinculada a un movimiento bancario.')
+          }
+          return existing
+        }
+        return { numero: index + 1, monto, pagada: false, fecha }
+      })
+      if (tieneCuotasPagadas && (historialCuotas.length !== planActual.historialCuotas.length ||
+          historialCuotas.some((cuota, index) => cuota.numero !== planActual.historialCuotas[index]?.numero))) {
+        throw new Error('No puedes cambiar el número de cuotas de un plan que ya tiene pagos registrados.')
+      }
     } catch (err) {
       alert(err.message || 'No se pudo calcular el calendario de cuotas.')
       return
@@ -251,10 +357,11 @@ export default function Configuracion() {
 
     try {
       const res = await fetch('/api/compras-cuotas', {
-        method: 'POST',
+        method: editingCompraCuotasId ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...compraCuotas,
+          ...(editingCompraCuotasId ? { id: editingCompraCuotasId } : {}),
           montoTotal,
           cuotasTotales,
           cuotasPagadas: 0,
@@ -268,7 +375,9 @@ export default function Configuracion() {
         throw new Error(errorData.error || 'Error al guardar la compra a cuotas.')
       }
       const nuevaCompra = await res.json()
-      setComprasCuotas((current) => [...current, nuevaCompra])
+      setComprasCuotas((current) => editingCompraCuotasId
+        ? current.map((item) => item.id === editingCompraCuotasId ? nuevaCompra : item)
+        : [...current, nuevaCompra])
       setCompraCuotas({
         concepto: '', montoTotal: '', cuotasTotales: '12', cuotasPagadas: '0',
         montoPrimeraCuota: '', montoUltimaCuota: '',
@@ -276,7 +385,8 @@ export default function Configuracion() {
         metodo: 'Tarjeta', categoria: 'Tecnología', frecuenciaPago: 'mensual',
       })
       setMostrarFormCuotas(false)
-      alert('Compra a cuotas creada. Los importes de todas las cuotas cuadran exactamente con el total.')
+      setEditingCompraCuotasId(null)
+      alert(editingCompraCuotasId ? 'Compra a cuotas actualizada correctamente.' : 'Compra a cuotas creada. Los importes de todas las cuotas cuadran exactamente con el total.')
     } catch (err) {
       console.error('Error guardando compra a cuotas:', err)
       alert('Error al guardar la compra a cuotas: ' + (err.message || 'Error desconocido'))
@@ -511,7 +621,7 @@ export default function Configuracion() {
       {/* BOTONES PRINCIPALES */}
       <div className="mb-8 grid grid-cols-1 sm:grid-cols-2 gap-3">
         <button
-          onClick={() => setMostrarFormPagoFijo(true)}
+          onClick={abrirNuevoPagoFijo}
           className="flex items-center justify-center gap-2 px-4 py-3 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-medium transition"
         >
           <Plus className="h-4 w-4" />
@@ -519,7 +629,7 @@ export default function Configuracion() {
         </button>
         
         <button
-          onClick={() => setMostrarFormCuotas(true)}
+          onClick={() => { setEditingCompraCuotasId(null); setCompraCuotas({ concepto: '', montoTotal: '', cuotasTotales: '12', cuotasPagadas: '0', montoPrimeraCuota: '', montoUltimaCuota: '', fechaInicio: localDateInputValue(), metodo: 'Tarjeta', categoria: 'Tecnología', frecuenciaPago: 'mensual', notas: '' }); setMostrarFormCuotas(true); }}
           className="flex items-center justify-center gap-2 px-4 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition"
         >
           <Plus className="h-4 w-4" />
@@ -531,9 +641,9 @@ export default function Configuracion() {
       {mostrarFormPagoFijo && (
         <div className="mb-6 bg-slate-900/80 border border-slate-800 rounded-xl p-6">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-bold text-white">Nuevo pago fijo</h2>
+            <h2 className="text-xl font-bold text-white">{editingPagoFijoId ? 'Editar pago fijo' : 'Nuevo pago fijo'}</h2>
             <button
-              onClick={() => setMostrarFormPagoFijo(false)}
+              onClick={() => { setMostrarFormPagoFijo(false); setEditingPagoFijoId(null); }}
               className="p-2 hover:bg-slate-800 rounded-lg transition"
             >
               <X className="h-5 w-5 text-slate-400" />
@@ -650,7 +760,7 @@ export default function Configuracion() {
             <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-800">
               <button
                 type="button"
-                onClick={() => setMostrarFormPagoFijo(false)}
+                onClick={() => { setMostrarFormPagoFijo(false); setEditingPagoFijoId(null); }}
                 className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg font-medium transition"
               >
                 Cancelar
@@ -660,7 +770,7 @@ export default function Configuracion() {
                 className="flex items-center gap-2 px-5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-medium transition"
               >
                 <Save className="h-4 w-4" />
-                Crear pago fijo
+                {editingPagoFijoId ? 'Guardar cambios' : 'Crear pago fijo'}
               </button>
             </div>
           </div>
@@ -671,9 +781,9 @@ export default function Configuracion() {
       {mostrarFormCuotas && (
         <div className="mb-6 bg-slate-900/80 border border-slate-800 rounded-xl p-6">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-bold text-white">Nueva compra a cuotas</h2>
+            <h2 className="text-xl font-bold text-white">{editingCompraCuotasId ? 'Editar compra a cuotas' : 'Nueva compra a cuotas'}</h2>
             <button
-              onClick={() => setMostrarFormCuotas(false)}
+              onClick={() => { setMostrarFormCuotas(false); setEditingCompraCuotasId(null); }}
               className="p-2 hover:bg-slate-800 rounded-lg transition"
             >
               <X className="h-5 w-5 text-slate-400" />
@@ -870,7 +980,7 @@ export default function Configuracion() {
             <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-800">
               <button
                 type="button"
-                onClick={() => setMostrarFormCuotas(false)}
+                onClick={() => { setMostrarFormCuotas(false); setEditingCompraCuotasId(null); }}
                 className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg font-medium transition"
               >
                 Cancelar
@@ -880,7 +990,7 @@ export default function Configuracion() {
                 className="flex items-center gap-2 px-5 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition"
               >
                 <Save className="h-4 w-4" />
-                Crear compra a cuotas
+                {editingCompraCuotasId ? 'Guardar cambios' : 'Crear compra a cuotas'}
               </button>
             </div>
           </div>
@@ -985,6 +1095,13 @@ export default function Configuracion() {
                             </button>
                             
                             <button
+                              onClick={() => editarPagoFijo(pago)}
+                              className="p-1.5 rounded-lg bg-sky-900/30 text-sky-300 hover:bg-sky-900/50 transition"
+                              title="Editar"
+                            >
+                              <Settings className="h-4 w-4" />
+                            </button>
+                            <button
                               onClick={() => eliminarPagoFijo(pago.id, pago.nombre)}
                               className="p-1.5 rounded-lg bg-red-900/30 text-red-400 hover:bg-red-900/50 transition"
                               title="Eliminar"
@@ -1004,6 +1121,19 @@ export default function Configuracion() {
       </div>
 
       {/* PRESUPUESTOS VARIABLES: SON PLANIFICACIÓN, NO PAGOS CONFIRMADOS */}
+      {mostrarFormPresupuesto && (
+        <form onSubmit={guardarPresupuesto} className="mb-4 space-y-3 rounded-xl border border-sky-800/40 bg-slate-900/70 p-5">
+          <div className="flex items-center justify-between"><h3 className="font-semibold text-white">{editingPresupuestoId ? 'Editar presupuesto' : 'Nuevo presupuesto'}</h3><button type="button" onClick={() => { setMostrarFormPresupuesto(false); setEditingPresupuestoId(null); }} className="text-sm text-slate-400 hover:text-white">Cerrar</button></div>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            <label className="text-sm text-slate-300">Mes<input type="month" required value={presupuestoForm.month} onChange={(e) => setPresupuestoForm({ ...presupuestoForm, month: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-white" /></label>
+            <label className="text-sm text-slate-300">Categoría<input required value={presupuestoForm.category} onChange={(e) => setPresupuestoForm({ ...presupuestoForm, category: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-white" /></label>
+            <label className="text-sm text-slate-300">Importe planificado (€)<input type="number" min="0" step="0.01" required value={presupuestoForm.amount} onChange={(e) => setPresupuestoForm({ ...presupuestoForm, amount: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-white" /></label>
+            <label className="text-sm text-slate-300">Notas<input value={presupuestoForm.notes} onChange={(e) => setPresupuestoForm({ ...presupuestoForm, notes: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-white" /></label>
+          </div>
+          <div className="flex justify-end gap-2"><button type="button" onClick={() => { setMostrarFormPresupuesto(false); setEditingPresupuestoId(null); }} className="rounded-lg bg-slate-800 px-4 py-2 text-sm text-slate-300">Cancelar</button><button type="submit" className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-semibold text-white">{editingPresupuestoId ? 'Guardar cambios' : 'Guardar presupuesto'}</button></div>
+        </form>
+      )}
+
       <div className="mb-8 overflow-hidden rounded-xl border border-slate-800 bg-slate-900/50">
         <div className="flex items-center justify-between border-b border-slate-800 px-6 py-4">
           <div>
@@ -1013,7 +1143,7 @@ export default function Configuracion() {
             </div>
             <p className="mt-1 text-xs text-slate-500">Mercado y ocio son límites de planificación; no se contabilizan como gastos pagados hasta registrar el movimiento real.</p>
           </div>
-          <span className="text-sm font-semibold text-sky-300">€{totalPresupuestoMesProximo.toFixed(2)} · {mesProximoTexto}</span>
+          <div className="flex items-center gap-3"><span className="text-sm font-semibold text-sky-300">€{totalPresupuestoMesProximo.toFixed(2)} · {mesProximoTexto}</span><button onClick={abrirNuevoPresupuesto} className="rounded-lg bg-sky-600 px-3 py-2 text-xs font-semibold text-white hover:bg-sky-500">Nuevo presupuesto</button></div>
         </div>
         {presupuestos.length === 0 ? (
           <p className="px-6 py-6 text-sm text-slate-500">No hay presupuestos registrados.</p>
@@ -1025,11 +1155,8 @@ export default function Configuracion() {
                 <div className="space-y-3">
                   {presupuestos.filter(item => item.month === mes).map((item) => (
                     <div key={item.id} className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="text-sm text-slate-200">{item.category}</p>
-                        {item.notes && <p className="mt-1 text-xs text-slate-500">{item.notes}</p>}
-                      </div>
-                      <span className="whitespace-nowrap text-sm font-semibold text-sky-300">€{item.amount.toFixed(2)}</span>
+                      <div className="min-w-0"><p className="text-sm text-slate-200">{item.category}</p>{item.notes && <p className="mt-1 text-xs text-slate-500">{item.notes}</p>}</div>
+                      <div className="flex items-center gap-2"><span className="whitespace-nowrap text-sm font-semibold text-sky-300">€{item.amount.toFixed(2)}</span><button onClick={() => editarPresupuesto(item)} className="rounded-lg bg-slate-800 p-1.5 text-sky-300 hover:bg-slate-700" title="Editar"><Settings className="h-4 w-4" /></button><button onClick={() => eliminarPresupuesto(item)} className="rounded-lg bg-rose-950/30 p-1.5 text-rose-300 hover:bg-rose-900/40" title="Eliminar"><Trash2 className="h-4 w-4" /></button></div>
                     </div>
                   ))}
                 </div>
@@ -1182,7 +1309,7 @@ export default function Configuracion() {
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-3">
+                        <div className="flex flex-wrap items-center gap-3">
                           <button
                             onClick={() => proximaCuota && marcarCuotaPagada(compra.id, proximaCuota.numero)}
                             disabled={!proximaCuota}
@@ -1197,8 +1324,9 @@ export default function Configuracion() {
                           </button>
 
                           <div className="flex items-center gap-1">
+                            <button onClick={() => abrirEdicionCompraCuotas(compra)} className="rounded-lg bg-sky-900/30 p-1.5 text-sky-300 hover:bg-sky-900/50" title="Editar plan"><Settings className="h-4 w-4" /></button>
                             <button
-                              onClick={() => toggleActivoCompraCuotas(compra.id, compra.activo)}
+                              onClick={() => toggleActivoCompraCuotas(compra.id, compra.activo)
                               className={`p-1.5 rounded-lg transition ${
                                 compra.activo
                                   ? 'bg-emerald-900/30 text-emerald-400 hover:bg-emerald-900/50'
