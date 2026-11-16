@@ -36,7 +36,7 @@ import {
 } from 'lucide-react';
 
 const normalizeIncomeCategory = (value) => String(value || '').trim().normalize('NFD').replace(/\p{Diacritic}/gu, '').toLocaleLowerCase('es-ES')
-const FIXED_INCOME_CATEGORIES = new Set(['sueldo', 'pension', 'alquiler recibido', 'subsidio', 'nomina'])
+const FIXED_INCOME_CATEGORIES = new Set(['sueldo', 'pension', 'alquiler recibido', 'subsidio', 'nomina', 'trabajo / reparto'])
 
 export default function TablaIngresos() {
   // Estados para los ingresos registrados en Supabase
@@ -45,6 +45,7 @@ export default function TablaIngresos() {
   const [error, setError] = useState(null);
   const [formOpen, setFormOpen] = useState(false);
   const [editingIngresoId, setEditingIngresoId] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState('');
   const [nuevoIngreso, setNuevoIngreso] = useState({
@@ -148,20 +149,25 @@ export default function TablaIngresos() {
     }
   }
 
-  const eliminarIngreso = async (ingreso) => {
-    if (!confirm(`¿Anular el ingreso «${ingreso.concepto}» por ${new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(ingreso.monto)}? El movimiento dejará de afectar al saldo, pero se conservará la trazabilidad.`)) return
+  const eliminarIngreso = (ingreso) => setDeleteTarget(ingreso)
+
+  const confirmarEliminarIngreso = async () => {
+    if (!deleteTarget) return
     try {
       setSaving(true)
       const response = await fetch('/api/ingresos', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: ingreso.id }),
+        body: JSON.stringify({ id: deleteTarget.id }),
       })
       const result = await response.json()
       if (!response.ok) throw new Error(result.error || 'No se pudo anular el ingreso.')
-      setIngresosMensuales((current) => current.filter((item) => item.id !== ingreso.id))
+      setIngresosMensuales((current) => current.filter((item) => item.id !== deleteTarget.id))
+      setDeleteTarget(null)
+      setFormError('')
     } catch (err) {
       setFormError(err.message || 'No se pudo anular el ingreso.')
+      setDeleteTarget(null)
     } finally {
       setSaving(false)
     }
@@ -726,43 +732,74 @@ export default function TablaIngresos() {
       </div>
 
       {formOpen && (
-        <form onSubmit={guardarIngreso} className="mb-6 rounded-xl border border-slate-800 bg-slate-900/80 p-5">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-white">{editingIngresoId ? 'Editar ingreso / nómina' : 'Registrar ingreso / nómina'}</h2>
-            <button type="button" onClick={() => { setFormOpen(false); setEditingIngresoId(null); }} className="rounded-lg p-2 text-slate-400 hover:bg-slate-800"><X className="h-5 w-5" /></button>
-          </div>
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-            <label className="text-sm text-slate-300 md:col-span-2">Concepto
-              <input required value={nuevoIngreso.concepto} onChange={(e) => setNuevoIngreso({ ...nuevoIngreso, concepto: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-white" placeholder="Ej. Nómina de noviembre" />
-            </label>
-            <label className="text-sm text-slate-300">Importe (€)
-              <input required type="number" min="0.01" step="0.01" value={nuevoIngreso.monto} onChange={(e) => setNuevoIngreso({ ...nuevoIngreso, monto: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-white" />
-            </label>
-            <label className="text-sm text-slate-300">Fecha
-              <input required type="date" value={nuevoIngreso.fecha} onChange={(e) => setNuevoIngreso({ ...nuevoIngreso, fecha: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-white" />
-            </label>
-            <label className="text-sm text-slate-300">Categoría
-              <select value={nuevoIngreso.categoria} onChange={(e) => setNuevoIngreso({ ...nuevoIngreso, categoria: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-white">
-                <option>Nómina</option><option>Ventas</option><option>Extras</option><option>Propinas</option><option>Préstamo recibido</option><option>Otros</option>
-              </select>
-            </label>
-            <label className="text-sm text-slate-300">Cuenta
-              <select value={nuevoIngreso.cuenta} onChange={(e) => setNuevoIngreso({ ...nuevoIngreso, cuenta: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-white">
-                <option>Revolut</option><option>BBVA</option><option>Efectivo</option>
-              </select>
-            </label>
-            <label className="text-sm text-slate-300">Método de recepción
-              <select value={nuevoIngreso.metodo} onChange={(e) => setNuevoIngreso({ ...nuevoIngreso, metodo: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-white">
-                <option>Transferencia</option><option>Bizum</option><option>Efectivo</option><option>Tarjeta</option>
-              </select>
-            </label>
-          </div>
-          {formError && <p className="mt-3 text-sm text-rose-300">{formError}</p>}
-          <div className="mt-4 flex justify-end gap-2">
-            <button type="button" onClick={() => { setFormOpen(false); setEditingIngresoId(null); }} className="rounded-lg bg-slate-800 px-4 py-2 text-sm text-slate-300">Cancelar</button>
-            <button type="submit" disabled={saving} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"><Save className="h-4 w-4" />{saving ? 'Guardando…' : editingIngresoId ? 'Guardar cambios' : 'Guardar ingreso'}</button>
-          </div>
-        </form>
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/80 p-3 backdrop-blur-sm sm:p-6"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget && !saving) {
+              setFormOpen(false)
+              setEditingIngresoId(null)
+            }
+          }}
+        >
+          <form onSubmit={guardarIngreso} role="dialog" aria-modal="true" aria-labelledby="income-dialog-title" className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-slate-700 bg-slate-900 p-5 shadow-2xl sm:p-6">
+            <div className="mb-5 flex items-start justify-between gap-4 border-b border-slate-800 pb-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-400">Libro de ingresos</p>
+                <h2 id="income-dialog-title" className="mt-1 text-xl font-semibold text-white">{editingIngresoId ? 'Editar ingreso' : 'Registrar ingreso'}</h2>
+                <p className="mt-1 text-sm text-slate-400">El cambio actualizará el movimiento y el saldo de la cuenta.</p>
+              </div>
+              <button type="button" onClick={() => { setFormOpen(false); setEditingIngresoId(null); }} className="rounded-xl border border-slate-700 p-2 text-slate-400 transition hover:bg-slate-800 hover:text-white" aria-label="Cerrar formulario"><X className="h-5 w-5" /></button>
+            </div>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <label className="text-sm font-medium text-slate-300 md:col-span-2">Concepto
+                <input required value={nuevoIngreso.concepto} onChange={(e) => setNuevoIngreso({ ...nuevoIngreso, concepto: e.target.value })} className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-3 text-white outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20" placeholder="Ej. Nómina de noviembre" />
+              </label>
+              <label className="text-sm font-medium text-slate-300">Importe (€)
+                <input required type="number" min="0.01" step="0.01" value={nuevoIngreso.monto} onChange={(e) => setNuevoIngreso({ ...nuevoIngreso, monto: e.target.value })} className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-3 text-white outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20" />
+              </label>
+              <label className="text-sm font-medium text-slate-300">Fecha
+                <input required type="date" value={nuevoIngreso.fecha} onChange={(e) => setNuevoIngreso({ ...nuevoIngreso, fecha: e.target.value })} className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-3 text-white outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20" />
+              </label>
+              <label className="text-sm font-medium text-slate-300">Categoría
+                <select value={nuevoIngreso.categoria} onChange={(e) => setNuevoIngreso({ ...nuevoIngreso, categoria: e.target.value })} className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-3 text-white outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20">
+                  <optgroup label="Ingresos habituales"><option>Nómina</option><option>Trabajo / reparto</option><option>Horas extra</option><option>Alquiler recibido</option><option>Prestaciones y ayudas</option></optgroup>
+                  <optgroup label="Ingresos puntuales"><option>Propinas</option><option>Ventas</option><option>Cobros de préstamos</option><option>Reembolsos</option><option>Intereses</option><option>Otros ingresos</option></optgroup>
+                </select>
+              </label>
+              <label className="text-sm font-medium text-slate-300">Cuenta
+                <select value={nuevoIngreso.cuenta} onChange={(e) => setNuevoIngreso({ ...nuevoIngreso, cuenta: e.target.value })} className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-3 text-white outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"><option>Revolut</option><option>BBVA</option><option>Efectivo</option></select>
+              </label>
+              <label className="text-sm font-medium text-slate-300">Método de recepción
+                <select value={nuevoIngreso.metodo} onChange={(e) => setNuevoIngreso({ ...nuevoIngreso, metodo: e.target.value })} className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-3 text-white outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"><option>Transferencia</option><option>Bizum</option><option>Efectivo</option><option>Tarjeta</option></select>
+              </label>
+            </div>
+            {formError && <p role="alert" className="mt-4 rounded-xl border border-rose-800/50 bg-rose-950/30 px-3 py-2.5 text-sm text-rose-200">{formError}</p>}
+            <div className="mt-6 flex flex-col-reverse gap-2 border-t border-slate-800 pt-4 sm:flex-row sm:justify-end">
+              <button type="button" onClick={() => { setFormOpen(false); setEditingIngresoId(null); setFormError(''); }} className="rounded-xl border border-slate-700 px-4 py-2.5 text-sm font-medium text-slate-300 transition hover:bg-slate-800">Cancelar</button>
+              <button type="submit" disabled={saving} className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"><Save className="h-4 w-4" />{saving ? 'Guardando…' : editingIngresoId ? 'Guardar cambios' : 'Registrar ingreso'}</button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {deleteTarget && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm">
+          <section role="dialog" aria-modal="true" aria-labelledby="delete-income-title" className="w-full max-w-md rounded-2xl border border-slate-700 bg-slate-900 p-5 shadow-2xl">
+            <div className="flex items-start gap-3">
+              <span className="rounded-xl bg-rose-500/10 p-2.5 text-rose-300"><Trash2 className="h-5 w-5" /></span>
+              <div><h2 id="delete-income-title" className="font-semibold text-white">Anular este ingreso</h2><p className="mt-1 text-sm leading-6 text-slate-400">Se retirará del saldo y de los totales, pero quedará conservado en el registro para mantener la trazabilidad.</p></div>
+            </div>
+            <div className="mt-4 rounded-xl border border-slate-800 bg-slate-950/70 p-3">
+              <p className="truncate text-sm font-medium text-slate-200">{deleteTarget.concepto}</p>
+              <p className="mt-1 text-lg font-semibold tabular-nums text-emerald-300">{new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(deleteTarget.monto)}</p>
+            </div>
+            <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <button type="button" disabled={saving} onClick={() => setDeleteTarget(null)} className="rounded-xl border border-slate-700 px-4 py-2.5 text-sm text-slate-300 hover:bg-slate-800 disabled:opacity-50">Conservar ingreso</button>
+              <button type="button" disabled={saving} onClick={confirmarEliminarIngreso} className="rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-rose-500 disabled:opacity-50">{saving ? 'Anulando…' : 'Sí, anular ingreso'}</button>
+            </div>
+          </section>
+        </div>
       )}
 
       {/* LAYOUT DE DOS COLUMNAS (igual que TablaGastos) */}
