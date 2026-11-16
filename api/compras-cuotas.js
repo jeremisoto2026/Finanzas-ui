@@ -71,6 +71,17 @@ export default async function handler(req, res) {
       if (history.length !== totalInstallments) {
         return res.status(400).json({ error: 'El número de cuotas del calendario debe coincidir con el total indicado.' })
       }
+      const paidDatesValid = history.every((item) => {
+        const paid = Boolean(item.pagada ?? item.status === 'paid')
+        if (!paid) return true
+        const paidOn = String(item.fechaPago ?? item.paid_on ?? '')
+        if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(paidOn)) return false
+        const parsedPaidOn = new Date(`${paidOn}T00:00:00.000Z`)
+        return Number.isFinite(parsedPaidOn.getTime()) && parsedPaidOn.toISOString().slice(0, 10) === paidOn
+      })
+      if (!paidDatesValid) {
+        return res.status(400).json({ error: 'Cada cuota marcada como pagada debe incluir una fecha real de pago.' })
+      }
       const normalizedHistory = history.map((item, index) => ({
         number: Number(item.numero ?? item.installment_number ?? index + 1),
         amount: Number(item.monto ?? item.amount),
@@ -79,7 +90,8 @@ export default async function handler(req, res) {
       const sequenceValid = normalizedHistory.every((item, index) => (
         Number.isInteger(item.number) && item.number === index + 1
         && Number.isFinite(item.amount) && item.amount > 0
-        && /^\\d{4}-\\d{2}-\\d{2}$/.test(item.dueOn)
+        && /^\d{4}-\d{2}-\d{2}$/.test(item.dueOn)
+        && new Date(`${item.dueOn}T00:00:00.000Z`).toISOString().slice(0, 10) === item.dueOn
       ))
       if (!sequenceValid) {
         return res.status(400).json({ error: 'El calendario contiene cuotas inválidas, fechas incompletas o números repetidos.' })
