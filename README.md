@@ -4,30 +4,51 @@ Aplicación web de finanzas personales construida con React 18, Vite 5, Tailwind
 
 ## Estado actual
 
-La aplicación conserva Notion como almacenamiento heredado durante la transición. No se considera sustituido hasta completar y conciliar la migración a PostgreSQL. La rama `main` no recibe estos cambios hasta pasar la revisión y las pruebas.
+- Supabase/PostgreSQL es el almacenamiento principal de la aplicación.
+- La autenticación se realiza con Supabase Auth (correo y contraseña).
+- Las API de la aplicación validan el JWT del usuario y consultan PostgreSQL con políticas RLS.
+- Notion se conserva como fuente histórica temporal para preparar una importación controlada; las páginas originales no se modifican.
+- La integración de Vercel se mantiene separada de otros proyectos. Las variables de Supabase de esta rama están limitadas a Preview para feat/finance-core-hardening.
+- No se importan saldos bancarios ni movimientos de conversaciones sin conciliación. No hay datos financieros personales sembrados en la base nueva.
 
-## Reglas de fiabilidad
+## Seguridad y fiabilidad
 
-- Si una API no puede recuperar datos reales, la interfaz debe mostrar un error y no sustituirlos por cifras de ejemplo.
-- Ingresos y gastos usan la fecha explícita del movimiento; `created_time` solo sirve como compatibilidad para registros históricos sin fecha.
-- Las consultas de Notion recorren todas las páginas mediante `has_more` y `next_cursor`.
-- Los pagos fijos programados son compromisos previstos; no equivalen por sí solos a movimientos bancarios pagados.
-- Las cuotas solo se consideran pagadas cuando el historial marca explícitamente `pagada: true`.
-- Saldos bancarios, reservas y cantidades que terceros deben devolver son conceptos distintos.
+- Las claves usadas en el navegador son únicamente la publishable key de Supabase. Nunca se utiliza la service_role ni una secret key en el frontend.
+- Todas las tablas financieras expuestas tienen RLS y políticas de propiedad por auth.uid().
+- Cada API protegida exige un token Bearer válido antes de leer o modificar datos.
+- Los balances bancarios se calculan a partir de movimientos publicados; compromisos, cuotas futuras, reservas y deudas por cobrar permanecen separados.
+- Las importaciones deben preservar el ID de origen y ser idempotentes para evitar duplicados.
+- Un error de conexión no se sustituye por datos ficticios.
 
 ## Desarrollo
 
-```bash
-npm install
-npm run dev
-npm test
-npm run build
-```
+Ejecuta npm install, npm run dev, npm test y npm run build.
+
+Crea un archivo .env.local a partir de .env.example para desarrollo local. No subas .env.local al repositorio.
+
+## Variables de entorno
+
+Cliente web:
+- VITE_SUPABASE_URL
+- VITE_SUPABASE_PUBLISHABLE_KEY
+
+Funciones de servidor:
+- SUPABASE_URL
+- SUPABASE_PUBLISHABLE_KEY
+
+La publishable key está diseñada para clientes públicos; el acceso real a cada fila lo restringen Auth y RLS. Nunca añadas service_role o una secret key a variables con prefijo VITE_.
+
+## Datos históricos de Notion
+
+Las bases originales de Notion se mantienen intactas. La importación debe hacerse con el usuario autenticado y debe guardar el ID original de cada registro en external_source y external_reference. Los saldos de la página resumen de Notion son una instantánea histórica y no deben tratarse como saldo bancario actual.
 
 ## Arquitectura de destino
 
-Supabase/PostgreSQL será el libro principal de movimientos, cuentas, reservas, deudas, presupuestos, cuotas e importaciones. Notion puede seguir usándose para documentación, notas y seguimiento. La migración de datos exige conciliación antes de cambiar el origen de verdad.
+- accounts y transactions: cuentas, ingresos, gastos y transferencias.
+- fixed_payments: compromisos recurrentes.
+- installment_plans e installments: financiación y estado de cada cuota.
+- debts: importes por cobrar o pagar, separados de la liquidez.
+- reservations: dinero reservado sin alterar el saldo bancario.
+- budgets y monthly_closings: planificación y cierres mensuales.
 
-## Variables heredadas de Notion
-
-Las credenciales deben configurarse únicamente en entornos del servidor (Vercel), nunca en el código de navegador ni en Git: `NOTION_TOKEN`, `NOTION_INCOME_DB`, `NOTION_EXPENSES_DB`, `NOTION_PAGOS_FIJOS_DATABASE_ID` y `NOTION_COMPRAS_CUOTAS_DATABASE_ID`.
+La rama feat/finance-core-hardening no se integra a main ni se promociona a producción hasta verificar Auth, build, pruebas y la importación.
