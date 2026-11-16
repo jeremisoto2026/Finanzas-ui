@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Wallet, RefreshCw, AlertCircle, Landmark } from 'lucide-react'
+import { sumMoneyBy } from '@/lib/finance-core'
 
 const formatDate = (value) => value ? new Date(`${String(value).slice(0, 10)}T00:00:00`).toLocaleDateString('es-ES') : null
 
@@ -39,11 +40,11 @@ export default function DineroDisponible() {
     return () => { cancelled = true }
   }, [])
 
-  const totalsByCurrency = useMemo(() => accounts.reduce((totals, account) => {
-    const currency = String(account.currencyCode || 'EUR').trim().toUpperCase()
-    totals[currency] = (totals[currency] || 0) + Number(account.balance || 0)
-    return totals
-  }, {}), [accounts])
+  const totalsByCurrency = useMemo(() => sumMoneyBy(
+    accounts,
+    (account) => String(account.currencyCode || 'EUR').trim().toUpperCase(),
+    (account) => account.balance || 0
+  ), [accounts])
 
   return (
     <Card className="border border-emerald-800/30 bg-gradient-to-br from-emerald-900/40 to-slate-900/40 backdrop-blur-sm">
@@ -101,7 +102,7 @@ export default function DineroDisponible() {
             </div>
 
             <div className="rounded-lg border border-slate-700/70 bg-slate-950/40 p-3 text-xs leading-relaxed text-slate-400">
-              Este saldo no suma los 344,39 € que te deben, los 136 € pendientes de reponer ni otros importes previstos o reservados. BBVA y efectivo conservan el saldo de apertura del 11/11/2026, sin movimientos posteriores registrados; Revolut incluye movimientos hasta el 16/11/2026.
+              Este saldo incluye el saldo inicial de cada cuenta y sus movimientos contabilizados. Los préstamos por cobrar, las reposiciones pendientes, los presupuestos y los pagos previstos se muestran por separado y no se suman al dinero bancario.
             </div>
           </>
         )}
