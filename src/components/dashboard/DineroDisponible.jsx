@@ -39,10 +39,11 @@ export default function DineroDisponible() {
     return () => { cancelled = true }
   }, [])
 
-  const total = useMemo(
-    () => accounts.reduce((sum, account) => sum + Number(account.balance || 0), 0),
-    [accounts]
-  )
+  const totalsByCurrency = useMemo(() => accounts.reduce((totals, account) => {
+    const currency = String(account.currencyCode || 'EUR').trim().toUpperCase()
+    totals[currency] = (totals[currency] || 0) + Number(account.balance || 0)
+    return totals
+  }, {}), [accounts])
 
   return (
     <Card className="border border-emerald-800/30 bg-gradient-to-br from-emerald-900/40 to-slate-900/40 backdrop-blur-sm">
@@ -69,8 +70,15 @@ export default function DineroDisponible() {
         ) : (
           <>
             <div className="text-center">
-              <p className="text-4xl font-bold text-white">{formatMoney(total)}</p>
-              <p className="mt-1 text-sm text-emerald-300">Suma de los saldos actuales, no una previsión mensual</p>
+              <div className="flex flex-wrap justify-center gap-3">
+                {Object.entries(totalsByCurrency).map(([currency, amount]) => (
+                  <div key={currency} className="text-center">
+                    <p className="text-4xl font-bold text-white">{formatMoney(amount, currency)}</p>
+                    <p className="mt-1 text-xs uppercase tracking-wide text-emerald-300">Total en {currency}</p>
+                  </div>
+                ))}
+              </div>
+              <p className="mt-2 text-sm text-slate-400">Saldos actuales por moneda; no mezcla divisas distintas</p>
             </div>
 
             <div className="space-y-2">
