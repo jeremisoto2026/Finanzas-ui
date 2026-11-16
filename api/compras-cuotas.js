@@ -17,13 +17,15 @@ function normalizeInstallment(item, userId, planId, fallbackNumber) {
     due_on: String(dueOn).slice(0, 10),
     paid_on: paid ? String(item.fechaPago || dueOn).slice(0, 10) : null,
     status: paid ? 'paid' : 'scheduled',
+    due_date_precision: item.fechaPrecision || 'day',
+    notes: String(item.notas || '').trim() || null,
   }
 }
 
 async function readPlans(supabase) {
   const { data: plans, error } = await supabase
     .from('installment_plans')
-    .select('id, name, total_amount, installments_total, start_on, frequency, status, payment_method, categories(name)')
+    .select('id, name, total_amount, installments_total, start_on, frequency, status, payment_method, notes, start_date_precision, categories(name)')
     .neq('status', 'cancelled')
     .order('start_on', { ascending: true })
   if (error) throw error
@@ -32,7 +34,7 @@ async function readPlans(supabase) {
   const ids = plans.map((plan) => plan.id)
   const { data: items, error: itemsError } = await supabase
     .from('installments')
-    .select('id, plan_id, installment_number, amount, due_on, paid_on, status')
+    .select('id, plan_id, installment_number, amount, due_on, paid_on, status, notes, due_date_precision')
     .in('plan_id', ids)
     .order('installment_number', { ascending: true })
   if (itemsError) throw itemsError
@@ -75,6 +77,8 @@ export default async function handler(req, res) {
         status: 'active',
         category_id: categoryId,
         payment_method: body.metodo || null,
+        notes: String(body.notas || '').trim() || null,
+        start_date_precision: body.fechaInicioPrecision || 'day',
       }).select('id').single()
       if (planError) throw planError
 
