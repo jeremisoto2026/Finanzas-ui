@@ -15,7 +15,7 @@ function normalizeInstallment(item, userId, planId, fallbackNumber) {
     installment_number: installmentNumber,
     amount,
     due_on: String(dueOn).slice(0, 10),
-    paid_on: paid ? String(item.fechaPago || dueOn).slice(0, 10) : null,
+    paid_on: paid && item.fechaPago ? String(item.fechaPago).slice(0, 10) : null,
     status: paid ? 'paid' : 'scheduled',
     due_date_precision: item.fechaPrecision || 'day',
     notes: String(item.notas || '').trim() || null,
