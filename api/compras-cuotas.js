@@ -75,7 +75,7 @@ export default async function handler(req, res) {
         const paid = Boolean(item.pagada ?? item.status === 'paid')
         if (!paid) return true
         const paidOn = String(item.fechaPago ?? item.paid_on ?? '')
-        if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(paidOn)) return false
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(paidOn)) return false
         const parsedPaidOn = new Date(`${paidOn}T00:00:00.000Z`)
         return Number.isFinite(parsedPaidOn.getTime()) && parsedPaidOn.toISOString().slice(0, 10) === paidOn
       })
