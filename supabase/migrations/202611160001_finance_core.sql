@@ -215,6 +215,8 @@ create table public.monthly_closings (
 );
 
 -- The view counts posted income/expenses and paired transfers only.
+-- Opening balance is the amount available at the start of opening_balance_date.
+-- Only posted movements on or after that date change the account balance.
 create or replace view public.account_balances
 with (security_invoker = true)
 as
@@ -232,9 +234,13 @@ select
   ), 0) as current_balance
 from public.accounts a
 left join public.transactions t
-  on t.account_id = a.id and t.user_id = a.user_id and t.status = 'posted'
+  on t.account_id = a.id
+  and t.user_id = a.user_id
+  and t.status = 'posted'
+  and t.occurred_on >= a.opening_balance_date
 group by a.id, a.user_id, a.name, a.currency_code, a.opening_balance;
 
+-- Enable ownership isolation for every exposed finance table.
 alter table public.profiles enable row level security;
 alter table public.accounts enable row level security;
 alter table public.categories enable row level security;
@@ -250,14 +256,22 @@ alter table public.budgets enable row level security;
 alter table public.monthly_closings enable row level security;
 
 create policy profiles_select_own on public.profiles
-  for select to authenticated using (id = auth.uid());
+  for select to authenticated
+  using ((select auth.uid()) = id);
 create policy profiles_insert_own on public.profiles
-  for insert to authenticated with check (id = auth.uid());
+  for insert to authenticated
+  with check ((select auth.uid()) = id);
 create policy profiles_update_own on public.profiles
-  for update to authenticated using (id = auth.uid()) with check (id = auth.uid());
+  for update to authenticated
+  using ((select auth.uid()) = id)
+  with check ((select auth.uid()) = id);
+create policy profiles_delete_own on public.profiles
+  for delete to authenticated
+  using ((select auth.uid()) = id);
 
 do $$
-declare table_name text;
+declare
+  table_name text;
 begin
   foreach table_name in array array[
     'accounts', 'categories', 'import_batches', 'transfers', 'transactions',
@@ -265,16 +279,58 @@ begin
     'reservations', 'budgets', 'monthly_closings'
   ]
   loop
-    execute format('create policy %I on public.%I for select to authenticated using (user_id = auth.uid())', table_name || '_select_own', table_name);
-    execute format('create policy %I on public.%I for insert to authenticated with check (user_id = auth.uid())', table_name || '_insert_own', table_name);
-    execute format('create policy %I on public.%I for update to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid())', table_name || '_update_own', table_name);
-    execute format('create policy %I on public.%I for delete to authenticated using (user_id = auth.uid())', table_name || '_delete_own', table_name);
+    execute format(
+      'create policy %I on public.%I for select to authenticated using ((select auth.uid()) = user_id)',
+      table_name || '_select_own', table_name
+    );
+    execute format(
+      'create policy %I on public.%I for insert to authenticated with check ((select auth.uid()) = user_id)',
+      table_name || '_insert_own', table_name
+    );
+    execute format(
+      'create policy %I on public.%I for update to authenticated using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id)',
+      table_name || '_update_own', table_name
+    );
+    execute format(
+      'create policy %I on public.%I for delete to authenticated using ((select auth.uid()) = user_id)',
+      table_name || '_delete_own', table_name
+    );
   end loop;
 end $$;
 
+-- Index ownership and frequent ledger filters used by RLS and account views.
+create index accounts_user_id_idx on public.accounts(user_id);
+create index categories_user_id_idx on public.categories(user_id);
+create index import_batches_user_id_idx on public.import_batches(user_id);
+create index transfers_user_id_idx on public.transfers(user_id);
+create index transactions_user_account_date_idx
+  on public.transactions(user_id, account_id, occurred_on desc);
+create index transactions_user_status_idx
+  on public.transactions(user_id, status);
+create index fixed_payments_user_id_idx on public.fixed_payments(user_id);
+create index installment_plans_user_id_idx on public.installment_plans(user_id);
+create index installments_user_due_idx on public.installments(user_id, due_on);
+create index debts_user_status_idx on public.debts(user_id, status);
+create index reservations_user_status_idx on public.reservations(user_id, status);
+create index budgets_user_period_idx on public.budgets(user_id, period_start);
+create index monthly_closings_user_period_idx on public.monthly_closings(user_id, period_start);
+
+-- Supabase changed its Data API exposure defaults in 2026. Explicitly grant
+-- only this app's tables to authenticated users, never to the anon role.
+grant usage on schema public to authenticated;
+revoke all on table
+  public.profiles, public.accounts, public.categories, public.import_batches,
+  public.transfers, public.transactions, public.fixed_payments,
+  public.installment_plans, public.installments, public.debts,
+  public.reservations, public.budgets, public.monthly_closings,
+  public.account_balances
+from anon, public;
+
 grant select, insert, update, delete on
-  public.profiles, public.accounts, public.categories, public.import_batches, public.transfers,
-  public.transactions, public.fixed_payments, public.installment_plans, public.installments,
-  public.debts, public.reservations, public.budgets, public.monthly_closings
+  public.profiles, public.accounts, public.categories, public.import_batches,
+  public.transfers, public.transactions, public.fixed_payments,
+  public.installment_plans, public.installments, public.debts,
+  public.reservations, public.budgets, public.monthly_closings
 to authenticated;
+
 grant select on public.account_balances to authenticated;
