@@ -98,3 +98,30 @@ export function sumMonthlyEquivalent(items, getAmount = (item) => item.amount, g
 
   return sumMoney(monthlyAmounts);
 }
+
+
+/** Adds calendar months while keeping end-of-month dates inside the target month. */
+export function addMonthsClamped(dateValue, monthsToAdd) {
+  const value = String(dateValue || '').slice(0, 10);
+  const match = /^\d{4}-\d{2}-\d{2}$/.test(value) ? value.split('-').map(Number) : null;
+  if (!match || !Number.isInteger(monthsToAdd)) {
+    throw new TypeError('Se esperaba una fecha YYYY-MM-DD y un desplazamiento entero.');
+  }
+
+  const [year, month, day] = match;
+  if (month < 1 || month > 12 || day < 1 || day > 31) {
+    throw new RangeError('La fecha no es válida.');
+  }
+
+  const targetMonthIndex = year * 12 + (month - 1) + monthsToAdd;
+  const targetYear = Math.floor(targetMonthIndex / 12);
+  const targetMonth = ((targetMonthIndex % 12) + 12) % 12;
+  const lastDay = new Date(Date.UTC(targetYear, targetMonth + 1, 0)).getUTCDate();
+  const targetDay = Math.min(day, lastDay);
+
+  return [
+    String(targetYear).padStart(4, '0'),
+    String(targetMonth + 1).padStart(2, '0'),
+    String(targetDay).padStart(2, '0'),
+  ].join('-');
+}
