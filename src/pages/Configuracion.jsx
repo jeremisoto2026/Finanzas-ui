@@ -242,7 +242,7 @@ export default function Configuracion() {
   const guardarPresupuesto = async (event) => {
     event.preventDefault()
     const amount = Number(presupuestoForm.amount)
-    if (!/^\\d{4}-(0[1-9]|1[0-2])$/.test(presupuestoForm.month) || !presupuestoForm.category.trim() || !Number.isFinite(amount) || amount < 0) {
+    if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(presupuestoForm.month) || !presupuestoForm.category.trim() || !Number.isFinite(amount) || amount < 0) {
       setError('Revisa el mes, la categoría y el importe del presupuesto.')
       return
     }
