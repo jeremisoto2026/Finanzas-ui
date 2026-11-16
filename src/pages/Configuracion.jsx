@@ -1326,7 +1326,7 @@ export default function Configuracion() {
                           <div className="flex items-center gap-1">
                             <button onClick={() => abrirEdicionCompraCuotas(compra)} className="rounded-lg bg-sky-900/30 p-1.5 text-sky-300 hover:bg-sky-900/50" title="Editar plan"><Settings className="h-4 w-4" /></button>
                             <button
-                              onClick={() => toggleActivoCompraCuotas(compra.id, compra.activo)
+                              onClick={() => toggleActivoCompraCuotas(compra.id, compra.activo)}
                               className={`p-1.5 rounded-lg transition ${
                                 compra.activo
                                   ? 'bg-emerald-900/30 text-emerald-400 hover:bg-emerald-900/50'
