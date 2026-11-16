@@ -247,25 +247,24 @@ export default function TablaIngresos() {
 
   // 3. Análisis de ingresos FIJOS vs VARIABLES
   const analisisTiposIngresos = useMemo(() => {
-    let fijos = 0;
-    let variables = 0;
-    
-    Object.entries(estadisticasCategorias).forEach(([_, datos]) => {
-      if (datos.tipo === 'fijo') {
-        fijos += datos.total;
-      } else {
-        variables += datos.total;
-      }
-    });
-    
-    const totalCalculado = fijos + variables;
+    const categoryStats = Object.values(estadisticasCategorias)
+    const fijos = sumMoney(
+      categoryStats.filter((item) => item.tipo === 'fijo'),
+      (item) => item.total
+    )
+    const variables = sumMoney(
+      categoryStats.filter((item) => item.tipo !== 'fijo'),
+      (item) => item.total
+    )
+    const totalCalculado = sumMoney([fijos, variables])
+
     return {
       fijos,
       variables,
       porcentajeFijos: totalCalculado > 0 ? (fijos / totalCalculado) * 100 : 0,
       porcentajeVariables: totalCalculado > 0 ? (variables / totalCalculado) * 100 : 0,
-      estabilidad: totalCalculado > 0 && fijos >= 0.6 * totalCalculado ? 'Alta' : 'Media'
-    };
+      estabilidad: totalCalculado > 0 && fijos >= 0.6 * totalCalculado ? 'Alta' : 'Media',
+    }
   }, [estadisticasCategorias]);
 
   // 4. Calcular categoría principal con más detalles
