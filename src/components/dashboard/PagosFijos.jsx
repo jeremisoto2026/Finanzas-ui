@@ -1,6 +1,7 @@
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Home, Smartphone, Film, Wifi, Car, ShoppingBag, Wallet, Calendar, Clock, CreditCard } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { monthlyEquivalentAmount, sumMonthlyEquivalent } from '@/lib/finance-core'
 
 export default function PagosFijos() {
   const [pagosFijos, setPagosFijos] = useState([])
@@ -25,11 +26,16 @@ export default function PagosFijos() {
     fetchPagosFijos();
   }, []);
 
-  // Calcular total
-  const total = pagosFijos.reduce((sum, pago) => {
-    const monto = typeof pago.monto === 'number' ? pago.monto : parseFloat(pago.monto) || 0
-    return sum + monto
-  }, 0)
+  const pagosActivos = pagosFijos.filter((pago) => pago.activo !== false)
+  const total = sumMonthlyEquivalent(
+    pagosActivos,
+    (pago) => pago.monto,
+    (pago) => pago.frecuencia || 'mensual'
+  )
+  const pagosConEquivalente = pagosActivos.map((pago) => ({
+    ...pago,
+    mensualEquivalente: monthlyEquivalentAmount(pago.monto, pago.frecuencia || 'mensual'),
+  }))
 
   // Mapeo de iconos
   const getIcon = (nombre) => {
@@ -120,8 +126,6 @@ export default function PagosFijos() {
     )
   }
 
-  const pagosActivos = pagosFijos.filter(p => p.activo !== false)
-
   return (
     <Card className="bg-slate-900/60 border border-slate-800">
       <CardHeader className="pb-3">
@@ -137,10 +141,12 @@ export default function PagosFijos() {
       </CardHeader>
 
       <CardContent className="space-y-4">
-        {pagosActivos.map((pago) => {
+        {pagosConEquivalente.map((pago) => {
           const Icon = getIcon(pago.nombre)
-          const montoFormateado = (typeof pago.monto === 'number' ? pago.monto : parseFloat(pago.monto || 0)).toFixed(2)
-          const porcentaje = total > 0 ? Math.round((parseFloat(pago.monto) / total) * 100) : 0
+          const montoFormateado = Number(pago.monto || 0).toFixed(2)
+          const porcentaje = total > 0 && pago.mensualEquivalente !== null
+            ? Math.round((pago.mensualEquivalente / total) * 100)
+            : null
           
           return (
             <div
@@ -176,8 +182,11 @@ export default function PagosFijos() {
                     </>
                   )}
                 </div>
-                <div>
-                  {porcentaje}% del total · {pago.categoria || 'Otros'}
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                  {porcentaje === null
+                    ? <span className="text-amber-400">Frecuencia personalizada: no incluida en el total mensual</span>
+                    : <span>{porcentaje}% del total mensual · {new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(pago.mensualEquivalente)}/mes equivalente</span>}
+                  <span>· {pago.categoria || 'Otros'}</span>
                 </div>
                 {pago.notas && <div className="max-w-xl whitespace-normal text-xs leading-relaxed text-slate-500">{pago.notas}</div>}
               </div>
@@ -195,7 +204,7 @@ export default function PagosFijos() {
             </div>
             <div className="text-right">
               <span className={`text-lg font-bold ${total > 500 ? 'text-red-400' : total > 200 ? 'text-yellow-400' : 'text-green-400'}`}>
-                €{total.toFixed(2)}
+                {new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(total)}
               </span>
               <div className="text-xs text-slate-500">
                 {total > 500 ? 'Alto impacto' : total > 200 ? 'Impacto moderado' : 'Bajo impacto'}
