@@ -14,6 +14,9 @@ import {
   addDaysClamped,
   addInstallmentDate,
   distributeInstallmentAmounts,
+  monthKeyFromDate,
+  parseDateOnlyLocal,
+  localDateInputValue,
 } from './finance-core.js'
 
 test('converts euro amounts to integer cents without float drift', () => {
@@ -134,4 +137,21 @@ test('rejects installment schedules that cannot reconcile to the total', () => {
   assert.throws(() => distributeInstallmentAmounts(100, 2, 70, 40), /superan/)
   assert.throws(() => distributeInstallmentAmounts(100, 2, 40, 40), /no coincide/)
   assert.throws(() => distributeInstallmentAmounts(0.01, 2), /demasiado pequeño/)
+})
+
+
+test('keeps date-only month keys independent of the machine timezone', () => {
+  assert.equal(monthKeyFromDate('2026-11-01'), '2026-11')
+  assert.equal(monthKeyFromDate('2026-11-01T00:00:00.000Z'), '2026-11')
+  assert.equal(monthKeyFromDate('invalid'), null)
+  assert.equal(monthKeyFromDate('2026-13-01'), null)
+})
+
+test('parses date-only values as local calendar dates', () => {
+  const value = parseDateOnlyLocal('2026-11-01')
+  assert.ok(value instanceof Date)
+  assert.equal(value.getFullYear(), 2026)
+  assert.equal(value.getMonth(), 10)
+  assert.equal(value.getDate(), 1)
+  assert.equal(parseDateOnlyLocal('2026-02-31'), null)
 })
