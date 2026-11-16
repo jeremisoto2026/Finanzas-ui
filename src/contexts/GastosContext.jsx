@@ -4,14 +4,10 @@ import { sumMoney, sumMoneyBy } from '@/lib/finance-core';
 const GastosContext = createContext();
 
 export function GastosProvider({ children }) {
-  // Estados para los datos de Notion (igual que en TablaGastos.jsx)
+  // Movimientos de gasto contabilizados del libro financiero.
   const [gastosMensuales, setGastosMensuales] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-
-  // Estados para pagos fijos y cuotas
-  const [pagosFijos, setPagosFijos] = useState([]);
-  const [comprasCuotas, setComprasCuotas] = useState([]);
 
   // Estados de filtros
   const [filtroMes, setFiltroMes] = useState('');
@@ -30,26 +26,10 @@ export function GastosProvider({ children }) {
         const gastosData = await resGastos.json();
         setGastosMensuales(gastosData);
 
-        // 2. Cargar pagos fijos
-        const resPagos = await fetch('/api/pagos-fijos');
-        if (resPagos.ok) {
-          const pagosData = await resPagos.json();
-          setPagosFijos(pagosData.filter(p => p.activo === true));
-        }
-
-        // 3. Cargar compras a cuotas
-        const resCuotas = await fetch('/api/compras-cuotas');
-        if (resCuotas.ok) {
-          const cuotasData = await resCuotas.json();
-          setComprasCuotas(cuotasData.filter(c => c.activo === true));
-        }
-
       } catch (err) {
         setError(err.message);
         console.error('Error fetching datos:', err);
         setGastosMensuales([]);
-        setPagosFijos([]);
-        setComprasCuotas([]);
       } finally {
         setLoading(false);
       }
@@ -58,91 +38,10 @@ export function GastosProvider({ children }) {
     fetchTodosLosDatos();
   }, []);
 
-  // ========== FUNCIONES DE TRANSFORMACIÓN - SOLO HISTÓRICOS ==========
-
-  // 1. Transformar pagos fijos YA EFECTUADOS en gastos
-  const transformarPagosFijosAGastos = useMemo(() => {
-    const hoy = new Date();
-    hoy.setHours(0, 0, 0, 0); // Normalizar a inicio del día
-    
-    return pagosFijos.map(pago => {
-      // Usar fechaRealPago si existe, sino fechaInicio
-      const fechaPagoStr = pago.fechaRealPago; // Próximo vencimiento no significa que esté pagado.
-      if (!fechaPagoStr) return null;
-      
-      const fechaPago = new Date(fechaPagoStr);
-      fechaPago.setHours(0, 0, 0, 0);
-      
-      // SOLO incluir si la fecha de pago es HOY o PASADA
-      if (fechaPago > hoy) {
-        return null; // Pago futuro, no mostrar
-      }
-      
-      const fechaStr = fechaPagoStr;
-      const mesGasto = `${fechaPago.getFullYear()}-${String(fechaPago.getMonth() + 1).padStart(2, '0')}`;
-      
-      return {
-        id: `pago-fijo-${pago.id}`,
-        fecha: fechaStr,
-        concepto: `${pago.nombre} (Pago Fijo)`,
-        metodo: pago.metodo,
-        categoria: pago.categoria,
-        cuenta: 'Cuenta Principal',
-        monto: parseFloat(pago.monto),
-        origen: 'pago_fijo',
-        frecuencia: pago.frecuencia,
-        esHistorico: true
-      };
-    }).filter(Boolean);
-  }, [pagosFijos]);
-
-  // 2. Transformar CUOTAS YA PAGADAS en gastos
-  const transformarCuotasAGastos = useMemo(() => {
-    const hoy = new Date();
-    hoy.setHours(0, 0, 0, 0);
-    
-    const gastosCuotas = [];
-    
-    comprasCuotas.forEach(compra => {
-      // Verificar que tenga historial de cuotas
-      if (!compra.historialCuotas || compra.historialCuotas.length === 0) {
-        return;
-      }
-      
-      // Filtrar SOLO cuotas PAGADAS con fecha HOY o PASADA
-      compra.historialCuotas.forEach(cuota => {
-        if (!cuota.pagada) return; // Solo cuotas pagadas
-        if (!cuota.fechaPago) return; // Solo contar cuando exista fecha real de pago confirmada.
-        
-        const fechaCuota = new Date(cuota.fechaPago);
-        fechaCuota.setHours(0, 0, 0, 0);
-        
-        // Solo incluir si la fecha es hoy o pasada
-        if (fechaCuota <= hoy) {
-          const cuotasPagadas = compra.cuotasPagadas || compra.historialCuotas.filter(c => c.pagada).length;
-          
-          gastosCuotas.push({
-            id: `cuota-${compra.id}-${cuota.numero}`,
-            fecha: cuota.fechaPago,
-            concepto: `${compra.concepto}`,
-            metodo: compra.metodo,
-            categoria: compra.categoria,
-            cuenta: 'Financiación',
-            monto: parseFloat(cuota.monto.toFixed(2)),
-            origen: 'cuota',
-            cuotaNumero: cuota.numero,
-            totalCuotas: compra.cuotasTotales,
-            cuotasPagadas: cuotasPagadas,
-            infoCuota: `Cuota ${cuota.numero} de ${compra.cuotasTotales}`,
-            infoProgreso: `${cuotasPagadas}/${compra.cuotasTotales} pagadas`,
-            esHistorico: true
-          });
-        }
-      });
-    });
-    
-    return gastosCuotas;
-  }, [comprasCuotas]);
+  // No se generan gastos sintéticos desde compromisos o cuotas.
+  // Solo los movimientos contabilizados del libro pueden afectar al histórico real.
+  const transformarPagosFijosAGastos = []
+  const transformarCuotasAGastos = []
 
   // 3. Meses disponibles únicamente a partir de movimientos reales contabilizados.
   const obtenerMesesDisponibles = useMemo(() => {
@@ -282,8 +181,6 @@ export function GastosProvider({ children }) {
   const value = {
     // Estados
     gastosMensuales,
-    pagosFijos,
-    comprasCuotas,
     loading,
     error,
     filtroMes,
