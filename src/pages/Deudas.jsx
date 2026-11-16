@@ -37,7 +37,7 @@ export default function Deudas() {
 
   useEffect(() => { loadDebts() }, [])
 
-  const activeDebts = debts.filter((debt) => !['settled', 'written_off'].includes(debt.status))
+  const activeDebts = useMemo(() => debts.filter((debt) => !['settled', 'written_off'].includes(debt.status)), [debts])
   const totals = useMemo(() => ({
     receivable: sumMoney(
       activeDebts.filter((debt) => debt.direction === 'receivable'),
@@ -94,7 +94,7 @@ export default function Deudas() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 p-4 md:p-6 text-slate-100">
+    <div className="mx-auto w-full max-w-7xl space-y-6 text-slate-100">
       <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <div className="mb-2 flex items-center gap-3">
