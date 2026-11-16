@@ -148,7 +148,7 @@ export function GastosProvider({ children }) {
     const months = new Set();
     gastosMensuales.forEach((gasto) => {
       const value = String(gasto.fecha || '').slice(0, 7);
-      if (/^\\d{4}-\\d{2}$/.test(value)) months.add(value);
+      if (/^\d{4}-\d{2}$/.test(value)) months.add(value);
     });
     return Array.from(months).sort((a, b) => b.localeCompare(a));
   }, [gastosMensuales]);
@@ -172,7 +172,6 @@ export function GastosProvider({ children }) {
   const todosLosGastos = useMemo(() => (
     gastosMensuales.map((gasto) => ({ ...gasto, origen: 'normal' }))
   ), [gastosMensuales]);
-}, [gastosMensuales, transformarPagosFijosAGastos, transformarCuotasAGastos]);
 
   // Filtrar gastos combinados
   const gastosFiltrados = useMemo(() => {
