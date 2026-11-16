@@ -240,7 +240,7 @@ export function distributeInstallmentAmounts(totalAmount, installmentCount, firs
 
 /** Returns YYYY-MM for a date-only or ISO timestamp without timezone conversion. */
 export function monthKeyFromDate(value) {
-  const match = /^(\\d{4})-(\\d{2})-\\d{2}/.exec(String(value || '').trim());
+  const match = /^(\d{4})-(\d{2})-\d{2}/.exec(String(value || '').trim());
   if (!match) return null;
   const month = Number(match[2]);
   return month >= 1 && month <= 12 ? `${match[1]}-${match[2]}` : null;
@@ -249,7 +249,7 @@ export function monthKeyFromDate(value) {
 /** Parses a YYYY-MM-DD value as a local calendar date (not UTC midnight). */
 export function parseDateOnlyLocal(value) {
   const text = String(value || '').slice(0, 10);
-  const match = /^(\\d{4})-(\\d{2})-(\\d{2})$/.exec(text);
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(text);
   if (!match) return null;
   const year = Number(match[1]);
   const month = Number(match[2]);
