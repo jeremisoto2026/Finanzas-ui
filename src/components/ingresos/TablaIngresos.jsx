@@ -26,14 +26,28 @@ import {
   Percent,
   Zap,
   Shield,
-  Thermometer
+  Thermometer,
+  Plus,
+  Save,
+  X
 } from 'lucide-react';
 
 export default function TablaIngresos() {
-  // Estados para los datos de Notion
+  // Estados para los ingresos registrados en Supabase
   const [ingresosMensuales, setIngresosMensuales] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [formOpen, setFormOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState('');
+  const [nuevoIngreso, setNuevoIngreso] = useState({
+    concepto: '',
+    monto: '',
+    fecha: new Date().toISOString().slice(0, 10),
+    categoria: 'Nómina',
+    cuenta: 'Revolut',
+    metodo: 'Transferencia'
+  });
 
   // Estados de filtros
   const [filtroMes, setFiltroMes] = useState('');
@@ -62,6 +76,43 @@ export default function TablaIngresos() {
     };
     fetchIngresos();
   }, []);
+
+  const guardarIngreso = async (event) => {
+    event.preventDefault();
+    const amount = Number(nuevoIngreso.monto);
+    if (!nuevoIngreso.concepto.trim() || !Number.isFinite(amount) || amount <= 0 || !nuevoIngreso.fecha) {
+      setFormError('Completa el concepto, un importe positivo y la fecha.');
+      return;
+    }
+
+    try {
+      setSaving(true);
+      setFormError('');
+      const response = await fetch('/api/ingresos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...nuevoIngreso, monto: amount, idempotencyKey: crypto.randomUUID() })
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'No se pudo guardar el ingreso.');
+
+      setIngresosMensuales((current) => [result, ...current]);
+      setFiltroMes(result.fecha.slice(0, 7));
+      setNuevoIngreso({
+        concepto: '',
+        monto: '',
+        fecha: new Date().toISOString().slice(0, 10),
+        categoria: 'Nómina',
+        cuenta: 'Revolut',
+        metodo: 'Transferencia'
+      });
+      setFormOpen(false);
+    } catch (err) {
+      setFormError(err.message || 'No se pudo guardar el ingreso.');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   // ========== FUNCIONES PARA DATOS DINÁMICOS ==========
 
@@ -558,7 +609,7 @@ export default function TablaIngresos() {
       <div className="min-h-screen bg-slate-950 flex items-center justify-center">
         <div className="text-center">
           <RefreshCw className="h-12 w-12 text-emerald-400 animate-spin mx-auto mb-4" />
-          <p className="text-slate-400 text-lg">Cargando ingresos desde Notion...</p>
+          <p className="text-slate-400 text-lg">Cargando ingresos desde Supabase...</p>
           <p className="text-slate-500 text-sm mt-2">Conectando con tu base de datos</p>
         </div>
       </div>
@@ -654,6 +705,50 @@ export default function TablaIngresos() {
           </button>
         </div>
       </div>
+
+      <div className="mb-5 flex justify-end">
+        <button onClick={() => { setFormError(''); setFormOpen((open) => !open); }} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-500"><Plus className="h-4 w-4" />Nuevo ingreso</button>
+      </div>
+
+      {formOpen && (
+        <form onSubmit={guardarIngreso} className="mb-6 rounded-xl border border-slate-800 bg-slate-900/80 p-5">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-white">Registrar ingreso</h2>
+            <button type="button" onClick={() => setFormOpen(false)} className="rounded-lg p-2 text-slate-400 hover:bg-slate-800"><X className="h-5 w-5" /></button>
+          </div>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+            <label className="text-sm text-slate-300 md:col-span-2">Concepto
+              <input required value={nuevoIngreso.concepto} onChange={(e) => setNuevoIngreso({ ...nuevoIngreso, concepto: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-white" placeholder="Ej. Nómina de noviembre" />
+            </label>
+            <label className="text-sm text-slate-300">Importe (€)
+              <input required type="number" min="0.01" step="0.01" value={nuevoIngreso.monto} onChange={(e) => setNuevoIngreso({ ...nuevoIngreso, monto: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-white" />
+            </label>
+            <label className="text-sm text-slate-300">Fecha
+              <input required type="date" value={nuevoIngreso.fecha} onChange={(e) => setNuevoIngreso({ ...nuevoIngreso, fecha: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-white" />
+            </label>
+            <label className="text-sm text-slate-300">Categoría
+              <select value={nuevoIngreso.categoria} onChange={(e) => setNuevoIngreso({ ...nuevoIngreso, categoria: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-white">
+                <option>Nómina</option><option>Ventas</option><option>Extras</option><option>Propinas</option><option>Préstamo recibido</option><option>Otros</option>
+              </select>
+            </label>
+            <label className="text-sm text-slate-300">Cuenta
+              <select value={nuevoIngreso.cuenta} onChange={(e) => setNuevoIngreso({ ...nuevoIngreso, cuenta: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-white">
+                <option>Revolut</option><option>BBVA</option><option>Efectivo</option>
+              </select>
+            </label>
+            <label className="text-sm text-slate-300">Método de recepción
+              <select value={nuevoIngreso.metodo} onChange={(e) => setNuevoIngreso({ ...nuevoIngreso, metodo: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-white">
+                <option>Transferencia</option><option>Bizum</option><option>Efectivo</option><option>Tarjeta</option>
+              </select>
+            </label>
+          </div>
+          {formError && <p className="mt-3 text-sm text-rose-300">{formError}</p>}
+          <div className="mt-4 flex justify-end gap-2">
+            <button type="button" onClick={() => setFormOpen(false)} className="rounded-lg bg-slate-800 px-4 py-2 text-sm text-slate-300">Cancelar</button>
+            <button type="submit" disabled={saving} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"><Save className="h-4 w-4" />{saving ? 'Guardando…' : 'Guardar ingreso'}</button>
+          </div>
+        </form>
+      )}
 
       {/* LAYOUT DE DOS COLUMNAS (igual que TablaGastos) */}
       <div className="flex flex-col lg:flex-row gap-6">
