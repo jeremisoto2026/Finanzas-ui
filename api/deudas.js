@@ -19,71 +19,71 @@ export default async function handler(req, res) {
     const { supabase, user } = await createAuthenticatedClient(req)
 
     if (req.method === 'GET') {
-      const { data, error } = await supabase
-        .from('debts')
+      const { data, error } = await supabase.from('debts')
         .select('id, direction, person_name, description, original_amount, outstanding_amount, due_on, status')
-        .order('created_at', { ascending: false })
+        .eq('user_id', user.id).order('created_at', { ascending: false })
       if (error) throw error
       return res.status(200).json((data || []).map(debtForUi))
     }
 
-    if (req.method === 'POST') {
+    if (req.method === 'POST' || req.method === 'PATCH') {
       const body = req.body || {}
-      const personName = String(body.personName || '').trim()
-      const description = String(body.description || '').trim()
-      const direction = body.direction === 'payable' ? 'payable' : 'receivable'
-      const amount = Number(body.amount)
-      if (!personName || !Number.isFinite(amount) || amount <= 0) {
-        return res.status(400).json({ error: 'Indica una persona y un importe válido mayor que cero.' })
-      }
-
-      const { data, error } = await supabase.from('debts').insert({
-        user_id: user.id,
-        direction,
-        person_name: personName,
-        description: description || null,
-        original_amount: amount,
-        outstanding_amount: amount,
-        status: 'open',
-      }).select('id, direction, person_name, description, original_amount, outstanding_amount, due_on, status').single()
-
-      if (error) throw error
-      return res.status(201).json(debtForUi(data))
-    }
-
-    if (req.method === 'PATCH') {
-      const body = req.body || {}
-      if (!body.id) return res.status(400).json({ error: 'Falta el identificador de la deuda.' })
-
+      if (req.method === 'PATCH' && !body.id) return res.status(400).json({ error: 'Falta el identificador de la deuda.' })
       const patch = {}
+      if (req.method === 'POST' || body.personName !== undefined) {
+        const name = String(body.personName || '').trim()
+        if (!name) return res.status(400).json({ error: 'Indica una persona.' })
+        patch.person_name = name
+      }
+      if (req.method === 'POST' || body.direction !== undefined) {
+        if (!['receivable', 'payable'].includes(body.direction)) return res.status(400).json({ error: 'Tipo de deuda no válido.' })
+        patch.direction = body.direction
+      }
+      if (body.description !== undefined || req.method === 'POST') patch.description = String(body.description || '').trim() || null
+      if (body.dueOn !== undefined) patch.due_on = body.dueOn ? String(body.dueOn).slice(0, 10) : null
+      if (req.method === 'POST' || body.amount !== undefined || body.originalAmount !== undefined) {
+        const amount = Number(body.amount ?? body.originalAmount)
+        if (!Number.isFinite(amount) || amount <= 0) return res.status(400).json({ error: 'El importe original debe ser mayor que cero.' })
+        patch.original_amount = amount
+      }
       if (body.outstandingAmount !== undefined) {
         const outstanding = Number(body.outstandingAmount)
-        if (!Number.isFinite(outstanding) || outstanding < 0) {
-          return res.status(400).json({ error: 'El saldo pendiente no puede ser negativo.' })
-        }
+        if (!Number.isFinite(outstanding) || outstanding < 0) return res.status(400).json({ error: 'El saldo pendiente no puede ser negativo.' })
         patch.outstanding_amount = outstanding
-        patch.status = outstanding === 0 ? 'settled' : 'partially_settled'
+      } else if (req.method === 'POST') {
+        patch.outstanding_amount = patch.original_amount
+      }
+      if (patch.original_amount !== undefined && patch.outstanding_amount !== undefined && patch.outstanding_amount > patch.original_amount) {
+        return res.status(400).json({ error: 'El importe pendiente no puede superar el importe original.' })
       }
       if (body.status !== undefined) {
-        if (!['open', 'partially_settled', 'settled', 'written_off'].includes(body.status)) {
-          return res.status(400).json({ error: 'Estado de deuda no válido.' })
-        }
+        if (!['open', 'partially_settled', 'settled', 'written_off'].includes(body.status)) return res.status(400).json({ error: 'Estado de deuda no válido.' })
         patch.status = body.status
-      }
-      if (!Object.keys(patch).length) {
-        return res.status(400).json({ error: 'No hay cambios para guardar.' })
-      }
+      } else if (patch.outstanding_amount !== undefined) {
+        patch.status = patch.outstanding_amount === 0 ? 'settled' : patch.outstanding_amount < (patch.original_amount ?? Number.MAX_SAFE_INTEGER) ? 'partially_settled' : 'open'
+      } else if (req.method === 'POST') patch.status = 'open'
 
-      const { data, error } = await supabase.from('debts')
-        .update(patch).eq('id', body.id)
+      const query = req.method === 'POST'
+        ? supabase.from('debts').insert({ user_id: user.id, ...patch })
+        : supabase.from('debts').update(patch).eq('id', body.id).eq('user_id', user.id)
+      const { data, error } = await query
         .select('id, direction, person_name, description, original_amount, outstanding_amount, due_on, status')
-        .maybeSingle()
+        .single()
       if (error) throw error
-      if (!data) return res.status(404).json({ error: 'No se encontró la deuda.' })
-      return res.status(200).json(debtForUi(data))
+      return res.status(req.method === 'POST' ? 201 : 200).json(debtForUi(data))
     }
 
-    res.setHeader('Allow', 'GET, POST, PATCH')
+    if (req.method === 'DELETE') {
+      const { id } = req.body || {}
+      if (!id) return res.status(400).json({ error: 'Falta el identificador de la deuda.' })
+      const { data, error } = await supabase.from('debts').delete()
+        .eq('id', id).eq('user_id', user.id).select('id').maybeSingle()
+      if (error) throw error
+      if (!data) return res.status(404).json({ error: 'No se encontró la deuda.' })
+      return res.status(200).json({ success: true, id })
+    }
+
+    res.setHeader('Allow', 'GET, POST, PATCH, DELETE')
     return res.status(405).json({ error: 'Método no permitido.' })
   } catch (error) {
     return sendApiError(res, error, 'No se pudo completar la operación de deudas.')
