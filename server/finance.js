@@ -57,6 +57,7 @@ export function installmentPlanForUi(plan, installments = []) {
     .slice()
     .sort((a, b) => a.installment_number - b.installment_number)
     .map((item) => ({
+      installmentId: item.id,
       numero: item.installment_number,
       monto: Number(item.amount || 0),
       pagada: item.status === 'paid',
