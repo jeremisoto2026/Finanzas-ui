@@ -1,5 +1,6 @@
 import { createAuthenticatedClient, findOrCreateCategory, sendApiError } from '../server/supabase.js'
 import { frequencyToDb, installmentPlanForUi } from '../server/finance.js'
+import { toCents } from '../src/lib/finance-core.js'
 
 function normalizeInstallment(item, userId, planId, fallbackNumber) {
   const installmentNumber = Number(item.numero ?? item.installment_number ?? fallbackNumber)
@@ -66,6 +67,32 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'Revisa concepto, importe, número de cuotas y fecha de inicio.' })
       }
 
+      const history = Array.isArray(body.historialCuotas) ? body.historialCuotas : []
+      if (history.length !== totalInstallments) {
+        return res.status(400).json({ error: 'El número de cuotas del calendario debe coincidir con el total indicado.' })
+      }
+      const normalizedHistory = history.map((item, index) => ({
+        number: Number(item.numero ?? item.installment_number ?? index + 1),
+        amount: Number(item.monto ?? item.amount),
+        dueOn: String(item.fecha ?? item.due_on ?? '').slice(0, 10),
+      }))
+      const sequenceValid = normalizedHistory.every((item, index) => (
+        Number.isInteger(item.number) && item.number === index + 1
+        && Number.isFinite(item.amount) && item.amount > 0
+        && /^\\d{4}-\\d{2}-\\d{2}$/.test(item.dueOn)
+      ))
+      if (!sequenceValid) {
+        return res.status(400).json({ error: 'El calendario contiene cuotas inválidas, fechas incompletas o números repetidos.' })
+      }
+      const scheduledTotalCents = normalizedHistory.reduce((sum, item) => sum + toCents(item.amount), 0)
+      if (scheduledTotalCents !== toCents(totalAmount)) {
+        return res.status(400).json({ error: 'La suma de las cuotas no coincide con el importe total de la compra.' })
+      }
+      const frequency = frequencyToDb(body.frecuenciaPago)
+      if (!['weekly', 'biweekly', 'monthly', 'quarterly'].includes(frequency)) {
+        return res.status(400).json({ error: 'La frecuencia indicada no está admitida para planes de cuotas.' })
+      }
+
       const categoryId = await findOrCreateCategory(supabase, user.id, body.categoria, 'expense')
       const { data: plan, error: planError } = await supabase.from('installment_plans').insert({
         user_id: user.id,
@@ -73,7 +100,7 @@ export default async function handler(req, res) {
         total_amount: totalAmount,
         installments_total: totalInstallments,
         start_on: String(startOn).slice(0, 10),
-        frequency: frequencyToDb(body.frecuenciaPago),
+        frequency,
         status: 'active',
         category_id: categoryId,
         payment_method: body.metodo || null,
