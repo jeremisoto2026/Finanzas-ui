@@ -662,7 +662,7 @@ export default function TablaIngresos() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 p-4 md:p-6">
+    <div className="mx-auto w-full max-w-7xl space-y-6 pb-8">
       {/* HEADER MEJORADO (igual que TablaGastos) */}
       <div className="mb-8">
         <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
