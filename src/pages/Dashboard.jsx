@@ -40,7 +40,7 @@ export default function Dashboard() {
       <section aria-label="Obligaciones y pendientes" className="space-y-4">
         <div className="flex items-center gap-3">
           <div className="rounded-lg bg-slate-800/80 p-2">
-            <ChartNoAxesCombined className="h-4 w-4 text-emerald-400" />
+            <BarChart3 className="h-4 w-4 text-emerald-400" />
           </div>
           <div>
             <h2 className="text-base font-semibold text-white">Compromisos y pendientes</h2>
