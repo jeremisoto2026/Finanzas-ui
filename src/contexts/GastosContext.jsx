@@ -104,26 +104,15 @@ export function GastosProvider({ children }) {
   }, [gastosFiltrados]);
 
   // 3. Estadísticas por tipo de gasto
-  const estadisticasPorTipo = useMemo(() => {
-    const stats = {
-      normal: { total: 0, count: 0, label: 'Gastos Normales' },
-      pago_fijo: { total: 0, count: 0, label: 'Pagos Fijos' },
-      cuota: { total: 0, count: 0, label: 'Cuotas Pagadas' }
-    };
-    
-    gastosFiltrados.forEach(gasto => {
-      const tipo = gasto.origen || 'normal';
-      if (stats[tipo]) {
-        stats[tipo].total += gasto.monto || 0;
-        stats[tipo].count += 1;
-      } else {
-        stats.normal.total += gasto.monto || 0;
-        stats.normal.count += 1;
-      }
-    });
-    
-    return stats;
-  }, [gastosFiltrados]);
+  const estadisticasPorTipo = useMemo(() => ({
+    normal: {
+      total: sumMoney(gastosFiltrados, (gasto) => gasto.monto || 0),
+      count: gastosFiltrados.length,
+      label: 'Gastos registrados',
+    },
+    pago_fijo: { total: 0, count: 0, label: 'Pagos fijos (no incluidos)' },
+    cuota: { total: 0, count: 0, label: 'Cuotas (no incluidas)' },
+  }), [gastosFiltrados]);
 
   // ========== DATOS DEL MES ACTUAL ==========
 
@@ -156,26 +145,15 @@ export function GastosProvider({ children }) {
   }, [gastosMesActual]);
 
   // 5. Estadísticas por tipo para el mes actual
-  const estadisticasPorTipoMesActual = useMemo(() => {
-    const stats = {
-      normal: { total: 0, count: 0, label: 'Gastos Normales' },
-      pago_fijo: { total: 0, count: 0, label: 'Pagos Fijos' },
-      cuota: { total: 0, count: 0, label: 'Cuotas Pagadas' }
-    };
-    
-    gastosMesActual.forEach(gasto => {
-      const tipo = gasto.origen || 'normal';
-      if (stats[tipo]) {
-        stats[tipo].total += gasto.monto || 0;
-        stats[tipo].count += 1;
-      } else {
-        stats.normal.total += gasto.monto || 0;
-        stats.normal.count += 1;
-      }
-    });
-    
-    return stats;
-  }, [gastosMesActual]);
+  const estadisticasPorTipoMesActual = useMemo(() => ({
+    normal: {
+      total: sumMoney(gastosMesActual, (gasto) => gasto.monto || 0),
+      count: gastosMesActual.length,
+      label: 'Gastos registrados',
+    },
+    pago_fijo: { total: 0, count: 0, label: 'Pagos fijos (no incluidos)' },
+    cuota: { total: 0, count: 0, label: 'Cuotas (no incluidas)' },
+  }), [gastosMesActual]);
 
   // Valor del contexto
   const value = {
