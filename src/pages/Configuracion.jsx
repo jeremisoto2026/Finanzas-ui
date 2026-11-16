@@ -755,6 +755,11 @@ export default function Configuracion() {
                   className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition"
                 />
               </div>
+
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-slate-300 mb-2">Notas (opcional)</label>
+                <textarea rows={2} value={pagoFijo.notas || ''} onChange={(e) => setPagoFijo({ ...pagoFijo, notas: e.target.value })} className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white" />
+              </div>
             </div>
 
             <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-800">
