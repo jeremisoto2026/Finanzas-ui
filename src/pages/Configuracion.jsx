@@ -1390,7 +1390,7 @@ export default function Configuracion() {
                               </div>
                               {editingCalendarioId === compra.id ? (
                                 <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-slate-700 pt-3">
-                                  <span className="text-xs text-slate-500">Los importes deben sumar {euro(compra.montoTotal)}. Los pagos vinculados están bloqueados.</span>
+                                  <span className="text-xs text-slate-500">Los importes deben sumar €{Number(compra.montoTotal).toFixed(2)}. Los pagos vinculados están bloqueados.</span>
                                   <div className="flex gap-2">
                                     <button type="button" onClick={() => { setEditingCalendarioId(null); setHistorialEditable([]); }} className="rounded-lg bg-slate-800 px-3 py-1.5 text-xs text-slate-300">Cancelar</button>
                                     <button type="button" onClick={() => guardarCalendarioCuotas(compra)} className="rounded-lg bg-sky-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-sky-500">Guardar calendario</button>
