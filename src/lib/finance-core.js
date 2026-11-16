@@ -65,7 +65,7 @@ export function monthlyEquivalentAmount(amount, frequency) {
     .trim()
     .toLowerCase()
     .normalize('NFD')
-    .replace(/[\\u0300-\\u036f]/g, '');
+    .replace(/\p{Diacritic}/gu, '');
 
   const factors = {
     monthly: 1,
@@ -109,7 +109,10 @@ export function addMonthsClamped(dateValue, monthsToAdd) {
   }
 
   const [year, month, day] = match;
-  if (month < 1 || month > 12 || day < 1 || day > 31) {
+  const sourceMonthDays = month >= 1 && month <= 12
+    ? new Date(Date.UTC(year, month, 0)).getUTCDate()
+    : 0;
+  if (day < 1 || day > sourceMonthDays) {
     throw new RangeError('La fecha no es válida.');
   }
 
@@ -124,4 +127,23 @@ export function addMonthsClamped(dateValue, monthsToAdd) {
     String(targetMonth + 1).padStart(2, '0'),
     String(targetDay).padStart(2, '0'),
   ].join('-');
+}
+
+
+/** Groups monetary values by key, accumulating integer cents per group. */
+export function sumMoneyBy(items, getKey, getAmount = (item) => item.amount) {
+  if (!Array.isArray(items) || typeof getKey !== 'function') {
+    throw new TypeError('Se esperaba una lista y una función para agrupar.');
+  }
+
+  const groups = new Map();
+  for (const item of items) {
+    const key = String(getKey(item) ?? 'Otros');
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(getAmount(item));
+  }
+
+  return Object.fromEntries(
+    [...groups.entries()].map(([key, amounts]) => [key, sumMoney(amounts)])
+  );
 }
