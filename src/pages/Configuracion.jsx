@@ -747,7 +747,7 @@ export default function Configuracion() {
 
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Cuotas ya pagadas
+                  Cuotas ya pagadas (deja 0 al crear)
                 </label>
                 <input
                   type="number"
@@ -758,6 +758,9 @@ export default function Configuracion() {
                   className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition"
                   placeholder="0"
                 />
+                <p className="mt-1 text-xs leading-relaxed text-slate-500">
+                  Al crear un plan, las cuotas empiezan pendientes. Para marcar una como pagada se necesita registrar su fecha real y comprobar el movimiento de cuenta.
+                </p>
               </div>
 
               <div>
@@ -1073,7 +1076,7 @@ export default function Configuracion() {
                   <div className="text-xl font-bold text-purple-400">{comprasCuotas.length}</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-xs text-slate-400 mb-1">Cuotas pagadas (fecha pendiente)</div>
+                  <div className="text-xs text-slate-400 mb-1">Cuotas pagadas</div>
                   <div className="text-xl font-bold text-emerald-400">{totalCuotasPagadas} / {totalCuotasTotales}</div>
                 </div>
                 <div className="text-center">
