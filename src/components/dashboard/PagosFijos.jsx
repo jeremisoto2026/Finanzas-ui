@@ -197,7 +197,7 @@ export default function PagosFijos() {
         <div className="pt-4 border-t border-slate-800">
           <div className="flex justify-between items-center p-3 bg-slate-800/30 rounded-lg">
             <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-slate-300">Total mensual hogar/familia</span>
+              <span className="text-sm font-medium text-slate-300">Coste mensual equivalente</span>
               <span className="text-xs text-slate-500 bg-slate-900 px-2 py-0.5 rounded">
                 {pagosActivos.length} servicios
               </span>
