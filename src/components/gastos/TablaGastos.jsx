@@ -28,7 +28,10 @@ import {
   Repeat,
   Calculator,
   Receipt,
-  TrendingUp as TrendingUpIcon
+  TrendingUp as TrendingUpIcon,
+  Plus,
+  Save,
+  X
 } from 'lucide-react';
 
 export default function TablaGastos() {
@@ -36,6 +39,17 @@ export default function TablaGastos() {
   const [gastosMensuales, setGastosMensuales] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [formOpen, setFormOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState('');
+  const [nuevoGasto, setNuevoGasto] = useState({
+    concepto: '',
+    monto: '',
+    fecha: new Date().toISOString().slice(0, 10),
+    categoria: 'Otros',
+    cuenta: 'Revolut',
+    metodo: 'Tarjeta'
+  });
 
   // Nuevos estados para pagos fijos y cuotas
   const [pagosFijos, setPagosFijos] = useState([]);
@@ -86,6 +100,43 @@ export default function TablaGastos() {
     fetchTodosLosDatos();
   }, []);
 
+  const guardarGasto = async (event) => {
+    event.preventDefault();
+    const amount = Number(nuevoGasto.monto);
+    if (!nuevoGasto.concepto.trim() || !Number.isFinite(amount) || amount <= 0 || !nuevoGasto.fecha) {
+      setFormError('Completa el concepto, un importe positivo y la fecha.');
+      return;
+    }
+
+    try {
+      setSaving(true);
+      setFormError('');
+      const response = await fetch('/api/gastos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...nuevoGasto, monto: amount, idempotencyKey: crypto.randomUUID() })
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'No se pudo guardar el gasto.');
+
+      setGastosMensuales((current) => [result, ...current]);
+      setFiltroMes(result.fecha.slice(0, 7));
+      setNuevoGasto({
+        concepto: '',
+        monto: '',
+        fecha: new Date().toISOString().slice(0, 10),
+        categoria: 'Otros',
+        cuenta: 'Revolut',
+        metodo: 'Tarjeta'
+      });
+      setFormOpen(false);
+    } catch (err) {
+      setFormError(err.message || 'No se pudo guardar el gasto.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   // ========== FUNCIONES DE TRANSFORMACIÓN - SOLO HISTÓRICOS ==========
 
   // 1. Transformar pagos fijos YA EFECTUADOS en gastos
@@ -95,7 +146,7 @@ export default function TablaGastos() {
     
     return pagosFijos.map(pago => {
       // Usar fechaRealPago si existe, sino fechaInicio
-      const fechaPagoStr = pago.fechaRealPago || pago.fechaInicio;
+      const fechaPagoStr = pago.fechaRealPago; // No contar un próximo vencimiento como gasto pagado.
       if (!fechaPagoStr) return null;
       
       const fechaPago = new Date(fechaPagoStr);
@@ -140,9 +191,9 @@ export default function TablaGastos() {
       // Filtrar SOLO cuotas PAGADAS con fecha HOY o PASADA
       compra.historialCuotas.forEach(cuota => {
         if (!cuota.pagada) return; // Solo cuotas pagadas
-        if (!cuota.fecha) return; // Necesita fecha
+        if (!cuota.fechaPago) return; // Solo contar cuotas con fecha real de pago confirmada.
         
-        const fechaCuota = new Date(cuota.fecha);
+        const fechaCuota = new Date(cuota.fechaPago);
         fechaCuota.setHours(0, 0, 0, 0);
         
         // Solo incluir si la fecha es hoy o pasada
@@ -151,7 +202,7 @@ export default function TablaGastos() {
           
           gastosCuotas.push({
             id: `cuota-${compra.id}-${cuota.numero}`,
-            fecha: cuota.fecha,
+            fecha: cuota.fechaPago,
             concepto: `${compra.concepto}`,
             metodo: compra.metodo,
             categoria: compra.categoria,
@@ -410,6 +461,50 @@ export default function TablaGastos() {
             <span>Exportar CSV</span>
           </button>
         </div>
+      </div>
+
+      {formOpen && (
+        <form onSubmit={guardarGasto} className="mb-6 rounded-xl border border-slate-800 bg-slate-900/80 p-5">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-white">Registrar gasto</h2>
+            <button type="button" onClick={() => setFormOpen(false)} className="rounded-lg p-2 text-slate-400 hover:bg-slate-800"><X className="h-5 w-5" /></button>
+          </div>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+            <label className="text-sm text-slate-300 md:col-span-2">Concepto
+              <input required value={nuevoGasto.concepto} onChange={(e) => setNuevoGasto({ ...nuevoGasto, concepto: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-white" placeholder="Ej. Compra de comida" />
+            </label>
+            <label className="text-sm text-slate-300">Importe (€)
+              <input required type="number" min="0.01" step="0.01" value={nuevoGasto.monto} onChange={(e) => setNuevoGasto({ ...nuevoGasto, monto: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-white" />
+            </label>
+            <label className="text-sm text-slate-300">Fecha
+              <input required type="date" value={nuevoGasto.fecha} onChange={(e) => setNuevoGasto({ ...nuevoGasto, fecha: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-white" />
+            </label>
+            <label className="text-sm text-slate-300">Categoría
+              <select value={nuevoGasto.categoria} onChange={(e) => setNuevoGasto({ ...nuevoGasto, categoria: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-white">
+                <option>Alimentación</option><option>Salud e higiene</option><option>Vivienda</option><option>Telefonía</option><option>Servicios legales</option><option>Transporte</option><option>Equipamiento de trabajo</option><option>Apoyo familiar</option><option>Otros</option>
+              </select>
+            </label>
+            <label className="text-sm text-slate-300">Cuenta
+              <select value={nuevoGasto.cuenta} onChange={(e) => setNuevoGasto({ ...nuevoGasto, cuenta: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-white">
+                <option>Revolut</option><option>BBVA</option><option>Efectivo</option>
+              </select>
+            </label>
+            <label className="text-sm text-slate-300">Método de pago
+              <select value={nuevoGasto.metodo} onChange={(e) => setNuevoGasto({ ...nuevoGasto, metodo: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-white">
+                <option>Tarjeta</option><option>Transferencia</option><option>Bizum</option><option>Efectivo</option>
+              </select>
+            </label>
+          </div>
+          {formError && <p className="mt-3 text-sm text-rose-300">{formError}</p>}
+          <div className="mt-4 flex justify-end gap-2">
+            <button type="button" onClick={() => setFormOpen(false)} className="rounded-lg bg-slate-800 px-4 py-2 text-sm text-slate-300">Cancelar</button>
+            <button type="submit" disabled={saving} className="inline-flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"><Save className="h-4 w-4" />{saving ? 'Guardando…' : 'Guardar gasto'}</button>
+          </div>
+        </form>
+      )}
+
+      <div className="mb-5 flex justify-end">
+        <button onClick={() => { setFormError(''); setFormOpen((open) => !open); }} className="inline-flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-red-500"><Plus className="h-4 w-4" />Nuevo gasto</button>
       </div>
 
       {/* LAYOUT DE DOS COLUMNAS */}
