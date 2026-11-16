@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { BanknotesIcon, PlusIcon, CheckCircleIcon, ArrowPathIcon } from '@heroicons/react/24/outline'
+import { sumMoney } from '@/lib/finance-core'
 
 const euro = (value) => new Intl.NumberFormat('es-ES', {
   style: 'currency',
@@ -36,14 +37,17 @@ export default function Deudas() {
 
   useEffect(() => { loadDebts() }, [])
 
-  const totals = useMemo(() => {
-    return debts.reduce((acc, debt) => {
-      if (['settled', 'written_off'].includes(debt.status)) return acc
-      if (debt.direction === 'receivable') acc.receivable += debt.outstandingAmount
-      if (debt.direction === 'payable') acc.payable += debt.outstandingAmount
-      return acc
-    }, { receivable: 0, payable: 0 })
-  }, [debts])
+  const activeDebts = debts.filter((debt) => !['settled', 'written_off'].includes(debt.status))
+  const totals = useMemo(() => ({
+    receivable: sumMoney(
+      activeDebts.filter((debt) => debt.direction === 'receivable'),
+      (debt) => debt.outstandingAmount || 0
+    ),
+    payable: sumMoney(
+      activeDebts.filter((debt) => debt.direction === 'payable'),
+      (debt) => debt.outstandingAmount || 0
+    ),
+  }), [activeDebts])
 
   const submit = async (event) => {
     event.preventDefault()
