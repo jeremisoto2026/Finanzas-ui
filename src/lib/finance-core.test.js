@@ -63,3 +63,22 @@ test('rejects unknown transaction types and invalid amounts', () => {
   assert.throws(() => transactionDeltaCents({ type: 'unknown', amount: 10 }), /Tipo de movimiento/)
   assert.throws(() => toCents('no es un importe'), /número válido/)
 })
+
+
+test('normaliza pagos recurrentes a su equivalente mensual', () => {
+  assert.equal(monthlyEquivalentAmount(120, 'monthly'), 120)
+  assert.equal(monthlyEquivalentAmount(60, 'biweekly'), 130)
+  assert.equal(monthlyEquivalentAmount(12, 'weekly'), 52)
+  assert.equal(monthlyEquivalentAmount(90, 'quarterly'), 30)
+  assert.equal(monthlyEquivalentAmount(1200, 'yearly'), 100)
+  assert.equal(monthlyEquivalentAmount(50, 'custom'), null)
+})
+
+test('suma importes recurrentes sin mezclar frecuencias', () => {
+  assert.equal(sumMonthlyEquivalent([
+    { amount: 385, frequency: 'mensual' },
+    { amount: 300, frequency: 'monthly' },
+    { amount: 120, frequency: 'yearly' },
+    { amount: 60, frequency: 'biweekly' },
+  ]), 885)
+})
