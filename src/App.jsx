@@ -1,5 +1,9 @@
-import Layout from './components/layout/Layout';
-import { GastosProvider } from '@/contexts/GastosContext';
+import { AuthProvider, AuthGate } from '@/contexts/AuthContext'
+
 export default function App() {
-  return <GastosProvider><Layout /></GastosProvider>;
+  return (
+    <AuthProvider>
+      <AuthGate />
+    </AuthProvider>
+  )
 }
