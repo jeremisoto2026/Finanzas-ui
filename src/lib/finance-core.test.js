@@ -7,6 +7,9 @@ import {
   transactionDeltaCents,
   calculateAccountBalance,
   calculateAvailableBalance,
+  monthlyEquivalentAmount,
+  sumMonthlyEquivalent,
+  addMonthsClamped,
 } from './finance-core.js'
 
 test('converts euro amounts to integer cents without float drift', () => {
