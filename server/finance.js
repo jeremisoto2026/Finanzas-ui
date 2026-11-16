@@ -32,6 +32,7 @@ export function transactionForUi(row) {
     categoria: row.categories?.name || '',
     metodo: row.payment_method || '',
     cuenta: row.accounts?.name || '',
+    cuentaId: row.account_id || null,
     origen: 'normal',
   }
 }
