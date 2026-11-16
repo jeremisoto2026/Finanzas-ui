@@ -10,6 +10,7 @@ import {
   monthlyEquivalentAmount,
   sumMonthlyEquivalent,
   addMonthsClamped,
+  sumMoneyBy,
 } from './finance-core.js'
 
 test('converts euro amounts to integer cents without float drift', () => {
@@ -92,4 +93,16 @@ test('adds months without overflowing the end of short months', () => {
   assert.equal(addMonthsClamped('2028-01-31', 1), '2028-02-29')
   assert.equal(addMonthsClamped('2027-03-31', -1), '2027-02-28')
   assert.throws(() => addMonthsClamped('bad-date', 1), /fecha YYYY-MM-DD/)
+  assert.throws(() => addMonthsClamped('2027-02-31', 1), /fecha no es válida/)
+})
+
+test('groups category totals without floating-point drift', () => {
+  assert.deepEqual(sumMoneyBy([
+    { category: 'Comida', amount: 0.1 },
+    { category: 'Comida', amount: 0.2 },
+    { category: 'Transporte', amount: 0.7 },
+  ], (item) => item.category), {
+    Comida: 0.3,
+    Transporte: 0.7,
+  })
 })
