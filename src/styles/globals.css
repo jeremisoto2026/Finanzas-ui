@@ -2,19 +2,24 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
-  @apply bg-slate-950 text-slate-100;
-}
-
 @layer base {
   html {
     color-scheme: dark;
     scroll-behavior: smooth;
+    background: #020617;
   }
 
   body {
-    @apply min-w-0 antialiased;
+    @apply min-w-0 bg-slate-950 text-slate-100 antialiased;
     font-feature-settings: "ss01" on, "cv11" on;
+    background-image:
+      radial-gradient(ellipse at 12% 0%, rgba(16, 185, 129, 0.075), transparent 36rem),
+      radial-gradient(ellipse at 100% 18%, rgba(56, 189, 248, 0.035), transparent 30rem);
+    background-attachment: fixed;
+  }
+
+  #root {
+    @apply min-h-screen;
   }
 
   button,
@@ -22,6 +27,12 @@ body {
   select,
   textarea {
     @apply disabled:cursor-not-allowed;
+  }
+
+  input,
+  select,
+  textarea {
+    @apply transition-colors;
   }
 
   button:focus-visible,
@@ -39,5 +50,19 @@ body {
   * {
     scrollbar-width: thin;
     scrollbar-color: #334155 #020617;
+  }
+}
+
+@layer components {
+  .finance-panel {
+    @apply rounded-2xl border border-slate-800/90 bg-slate-900/70 shadow-lg shadow-black/10;
+  }
+
+  .finance-page-title {
+    @apply text-2xl font-semibold tracking-tight text-white sm:text-3xl;
+  }
+
+  .finance-muted {
+    @apply text-sm leading-6 text-slate-400;
   }
 }
