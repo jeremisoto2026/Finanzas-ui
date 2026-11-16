@@ -27,8 +27,10 @@ export default function Layout() {
         {/* Sidebar móvil ✅ */}
         {menuAbierto && (
           <div className="fixed inset-0 z-50 md:hidden flex">
-            <div
-              className="absolute inset-0 bg-black/50"
+            <button
+              type="button"
+              aria-label="Cerrar menú de navegación"
+              className="absolute inset-0 cursor-default bg-black/60"
               onClick={() => setMenuAbierto(false)}
             />
             <div className="relative z-10 h-full w-64">
