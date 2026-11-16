@@ -383,8 +383,8 @@ export default function TablaGastos() {
               <label className="text-sm font-medium text-slate-300">Categoría
                 <select value={nuevoGasto.categoria} onChange={(e) => setNuevoGasto({ ...nuevoGasto, categoria: e.target.value })} className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-3 text-white outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20">
                   <optgroup label="Hogar y necesidades"><option>Alimentación</option><option>Vivienda</option><option>Alquiler</option><option>Hogar</option><option>Servicios</option><option>Telefonía</option></optgroup>
-                  <optgroup label="Personales y trabajo"><option>Transporte</option><option>Salud e higiene</option><option>Equipamiento de trabajo</option><option>Servicios legales</option><option>Educación</option></optgroup>
-                  <optgroup label="Otros compromisos"><option>Apoyo familiar</option><option>Venezuela</option><option>Cuotas</option><option>Ocio</option><option>Otros</option></optgroup>
+                  <optgroup label="Personales y trabajo"><option>Transporte</option><option>Salud e higiene</option><option>Equipamiento de trabajo</option><option>Tecnología</option><option>Servicios legales</option><option>Educación</option></optgroup>
+                  <optgroup label="Otros compromisos"><option>Apoyo familiar</option><option>Venezuela</option><option>Cuotas</option><option>Ocio</option><option>Ocio y cigarrillos</option><option>Otros</option></optgroup>
                 </select>
               </label>
               <label className="text-sm font-medium text-slate-300">Cuenta
