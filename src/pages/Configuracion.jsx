@@ -51,6 +51,11 @@ export default function Configuracion() {
   const [presupuestos, setPresupuestos] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [cuentasDisponibles, setCuentasDisponibles] = useState([])
+  const [gastosRegistrados, setGastosRegistrados] = useState([])
+  const [pagoCuotaDialog, setPagoCuotaDialog] = useState(null)
+  const [guardandoPagoCuota, setGuardandoPagoCuota] = useState(false)
+  const [mensajeCuotas, setMensajeCuotas] = useState(null)
 
   // Estados para acordeones
   const [acordeonesAbiertos, setAcordeonesAbiertos] = useState({
@@ -129,6 +134,30 @@ export default function Configuracion() {
     }
 
     cargarDatos()
+  }, [])
+
+  useEffect(() => {
+    let activo = true
+    const cargarCuentasYGastos = async () => {
+      try {
+        const [cuentasResponse, gastosResponse] = await Promise.all([
+          fetch('/api/cuentas', { cache: 'no-store' }),
+          fetch('/api/gastos', { cache: 'no-store' }),
+        ])
+        if (cuentasResponse.ok) {
+          const rows = await cuentasResponse.json()
+          if (activo) setCuentasDisponibles(Array.isArray(rows) ? rows.filter((row) => row.currencyCode === 'EUR') : [])
+        }
+        if (gastosResponse.ok) {
+          const rows = await gastosResponse.json()
+          if (activo) setGastosRegistrados(Array.isArray(rows) ? rows : [])
+        }
+      } catch (loadError) {
+        console.error('No se pudieron cargar las cuentas y gastos para vincular cuotas:', loadError)
+      }
+    }
+    cargarCuentasYGastos()
+    return () => { activo = false }
   }, [])
 
   // ========== FUNCIONES PARA PAGOS FIJOS ==========
@@ -305,8 +334,9 @@ export default function Configuracion() {
   }
 
   const guardarCompraCuotas = async () => {
+    setMensajeCuotas(null)
     if (!compraCuotas.concepto.trim() || !String(compraCuotas.montoTotal).trim()) {
-      alert('Completa el concepto y el importe total.')
+      setMensajeCuotas({ type: 'error', message: 'Completa el concepto y el importe total.' })
       return
     }
 
@@ -314,17 +344,17 @@ export default function Configuracion() {
     const cuotasPagadas = Number.parseInt(compraCuotas.cuotasPagadas || '0', 10)
     const montoTotal = Number(compraCuotas.montoTotal)
     if (!Number.isInteger(cuotasTotales) || cuotasTotales < 1 || !Number.isFinite(montoTotal) || montoTotal <= 0) {
-      alert('Indica un importe mayor que cero y un número de cuotas válido.')
+      setMensajeCuotas({ type: 'error', message: 'Indica un importe mayor que cero y un número de cuotas válido.' })
       return
     }
     if (!Number.isInteger(cuotasPagadas) || cuotasPagadas < 0 || cuotasPagadas > cuotasTotales) {
-      alert('El número de cuotas pagadas debe estar entre cero y el total de cuotas.')
+      setMensajeCuotas({ type: 'error', message: 'El número de cuotas pagadas debe estar entre cero y el total de cuotas.' })
       return
     }
     const planActual = editingCompraCuotasId ? comprasCuotas.find((item) => item.id === editingCompraCuotasId) : null
     const tieneCuotasPagadas = Boolean(planActual?.historialCuotas?.some((cuota) => cuota.pagada || cuota.transactionId))
     if (cuotasPagadas > 0 && !editingCompraCuotasId) {
-      alert('Para no inventar fechas de pago ni descuadrar el saldo, crea el plan con 0 cuotas pagadas. Después registra cada pago con su fecha y revisa el movimiento bancario correspondiente.')
+      setMensajeCuotas({ type: 'error', message: 'Crea el plan con cero cuotas pagadas y registra cada cargo desde el calendario para elegir la cuenta y mantener el saldo correcto.' })
       return
     }
 
@@ -353,11 +383,12 @@ export default function Configuracion() {
         throw new Error('No puedes cambiar el número de cuotas de un plan que ya tiene pagos registrados.')
       }
     } catch (err) {
-      alert(err.message || 'No se pudo calcular el calendario de cuotas.')
+      setMensajeCuotas({ type: 'error', message: err.message || 'No se pudo calcular el calendario de cuotas.' })
       return
     }
 
     try {
+      setMensajeCuotas(null)
       const res = await fetch('/api/compras-cuotas', {
         method: editingCompraCuotasId ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -388,14 +419,14 @@ export default function Configuracion() {
       })
       setMostrarFormCuotas(false)
       setEditingCompraCuotasId(null)
-      alert(editingCompraCuotasId ? 'Compra a cuotas actualizada correctamente.' : 'Compra a cuotas creada. Los importes de todas las cuotas cuadran exactamente con el total.')
+      setMensajeCuotas({ type: 'success', message: editingCompraCuotasId ? 'Compra a cuotas actualizada correctamente.' : 'Compra a cuotas creada correctamente. El calendario coincide con el importe total.' })
     } catch (err) {
       console.error('Error guardando compra a cuotas:', err)
-      alert('Error al guardar la compra a cuotas: ' + (err.message || 'Error desconocido'))
+      setMensajeCuotas({ type: 'error', message: err.message || 'No se pudo guardar la compra a cuotas. Revisa los datos e inténtalo de nuevo.' })
     }
   }
 
-  const marcarCuotaPagada = async (compraId, cuotaNumero) => {
+  const abrirDialogoPagoCuota = async (compraId, cuotaNumero) => {
     const confirmar = confirm('Esta acción marca la cuota como pagada en el plan, pero no crea un cargo en tu cuenta. Para cuadrar el saldo, debe existir también un movimiento de gasto. ¿Confirmas que ya se pagó?')
     if (!confirmar) return
 
@@ -438,6 +469,65 @@ export default function Configuracion() {
     } catch (error) {
       console.error('Error marcando cuota como pagada:', error)
       alert('Error al marcar la cuota como pagada')
+    }
+  }
+
+  const abrirDialogoPagoCuota = (compra, cuota) => {
+    const cuentaPredeterminada = cuentasDisponibles.find((cuenta) => cuenta.name === 'Revolut') || cuentasDisponibles[0]
+    setMensajeCuotas(null)
+    setPagoCuotaDialog({
+      compra, cuota, modo: 'nuevo',
+      accountId: cuentaPredeterminada?.id || '',
+      paidOn: cuota.fechaPago || localDateInputValue(),
+      existingTransactionId: '',
+    })
+  }
+
+  const registrarPagoCuota = async (event) => {
+    event.preventDefault()
+    if (!pagoCuotaDialog) return
+    const { compra, cuota, modo, accountId, paidOn, existingTransactionId } = pagoCuotaDialog
+    if (modo === 'nuevo' && (!accountId || !paidOn)) {
+      setMensajeCuotas({ type: 'error', message: 'Selecciona la cuenta y la fecha real del cargo.' })
+      return
+    }
+    if (modo === 'existente' && !existingTransactionId) {
+      setMensajeCuotas({ type: 'error', message: 'Selecciona el gasto que ya registraste.' })
+      return
+    }
+    try {
+      setGuardandoPagoCuota(true)
+      setMensajeCuotas(null)
+      const response = await fetch('/api/compras-cuotas', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'pay_installment',
+          planId: compra.id,
+          installmentId: cuota.installmentId,
+          accountId: modo === 'nuevo' ? accountId : null,
+          paidOn: modo === 'nuevo' ? paidOn : null,
+          existingTransactionId: modo === 'existente' ? existingTransactionId : null,
+        }),
+      })
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.error || 'No se pudo registrar el pago de la cuota.')
+      if (!result.plan) throw new Error('El movimiento se registró, pero no se pudo actualizar la vista. Recarga la página para comprobarlo.')
+      setComprasCuotas((current) => current.map((item) => item.id === result.plan.id ? result.plan : item))
+      setPagoCuotaDialog(null)
+      setMensajeCuotas({
+        type: 'success',
+        message: result.alreadyRecorded
+          ? 'Esta cuota ya tenía un movimiento bancario vinculado.'
+          : modo === 'existente'
+            ? 'El gasto existente quedó vinculado a la cuota. No se creó un cargo duplicado.'
+            : 'Pago registrado: se creó el gasto y se actualizó el saldo de la cuenta.',
+      })
+    } catch (paymentError) {
+      console.error('Error registrando el pago de la cuota:', paymentError)
+      setMensajeCuotas({ type: 'error', message: paymentError.message || 'No se pudo registrar el pago de la cuota.' })
+    } finally {
+      setGuardandoPagoCuota(false)
     }
   }
 
@@ -613,6 +703,61 @@ export default function Configuracion() {
   // ========== RENDER ==========
   return (
     <div className="min-h-screen bg-slate-950 p-4 md:p-6">
+      {pagoCuotaDialog && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 p-4" role="presentation">
+          <form onSubmit={registrarPagoCuota} className="w-full max-w-lg space-y-4 rounded-2xl border border-slate-700 bg-slate-900 p-5 shadow-2xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-emerald-400">Registrar movimiento</p>
+                <h2 className="mt-1 text-lg font-bold text-white">{pagoCuotaDialog.compra.concepto}</h2>
+                <p className="mt-1 text-sm text-slate-400">Cuota {pagoCuotaDialog.cuota.numero} · €{Number(pagoCuotaDialog.cuota.monto).toFixed(2)}</p>
+              </div>
+              <button type="button" onClick={() => setPagoCuotaDialog(null)} className="rounded-lg p-2 text-slate-400 hover:bg-slate-800 hover:text-white" aria-label="Cerrar"><X className="h-5 w-5" /></button>
+            </div>
+            {pagoCuotaDialog.cuota.pagada && !pagoCuotaDialog.cuota.transactionId && (
+              <div className="rounded-lg border border-amber-700/50 bg-amber-950/20 p-3 text-xs leading-5 text-amber-200">
+                Esta cuota ya figura como pagada, pero no tiene movimiento asociado. Primero comprueba si ya registraste el gasto para no descontarlo dos veces.
+              </div>
+            )}
+            <label className="block text-sm text-slate-300">Cómo quieres contabilizarla
+              <select value={pagoCuotaDialog.modo} onChange={(event) => setPagoCuotaDialog((current) => ({ ...current, modo: event.target.value, existingTransactionId: '' }))} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2.5 text-white">
+                <option value="nuevo">Crear automáticamente un gasto nuevo</option>
+                <option value="existente">Vincular un gasto que ya registré</option>
+              </select>
+            </label>
+            {pagoCuotaDialog.modo === 'nuevo' ? (
+              <>
+                <label className="block text-sm text-slate-300">Cuenta desde la que se pagó
+                  <select required value={pagoCuotaDialog.accountId} onChange={(event) => setPagoCuotaDialog((current) => ({ ...current, accountId: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2.5 text-white">
+                    <option value="">Seleccionar cuenta</option>
+                    {cuentasDisponibles.map((cuenta) => <option key={cuenta.id} value={cuenta.id}>{cuenta.name}</option>)}
+                  </select>
+                </label>
+                <label className="block text-sm text-slate-300">Fecha del cargo
+                  <input required type="date" value={pagoCuotaDialog.paidOn} onChange={(event) => setPagoCuotaDialog((current) => ({ ...current, paidOn: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2.5 text-white" />
+                </label>
+                <p className="text-xs leading-5 text-slate-500">Se creará un gasto por el importe exacto de la cuota y quedará vinculado al calendario. Volver a pulsar no creará un segundo cargo.</p>
+              </>
+            ) : (
+              <label className="block text-sm text-slate-300">Gastos existentes por el mismo importe
+                <select required value={pagoCuotaDialog.existingTransactionId} onChange={(event) => setPagoCuotaDialog((current) => ({ ...current, existingTransactionId: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2.5 text-white">
+                  <option value="">Seleccionar gasto existente</option>
+                  {gastosRegistrados
+                    .filter((gasto) => Number(gasto.monto) === Number(pagoCuotaDialog.cuota.monto))
+                    .filter((gasto) => !comprasCuotas.some((plan) => plan.historialCuotas?.some((cuota) => cuota.transactionId === gasto.id)))
+                    .map((gasto) => <option key={gasto.id} value={gasto.id}>{gasto.fecha} · {gasto.concepto} · {gasto.cuenta} · €{Number(gasto.monto).toFixed(2)}</option>)}
+                </select>
+              </label>
+            )}
+            <div className="flex justify-end gap-2 border-t border-slate-800 pt-4">
+              <button type="button" onClick={() => setPagoCuotaDialog(null)} className="rounded-lg bg-slate-800 px-4 py-2 text-sm text-slate-300">Cancelar</button>
+              <button type="submit" disabled={guardandoPagoCuota || (pagoCuotaDialog.modo === 'nuevo' && cuentasDisponibles.length === 0)} className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50">
+                {guardandoPagoCuota ? 'Registrando…' : pagoCuotaDialog.modo === 'existente' ? 'Vincular gasto' : 'Registrar pago'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
       {/* HEADER */}
       <div className="mb-8">
         <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
@@ -654,12 +799,19 @@ export default function Configuracion() {
         </div>
       </div>
 
+      {mensajeCuotas && (
+        <div role={mensajeCuotas.type === 'error' ? 'alert' : 'status'} className={`mb-5 flex items-start gap-3 rounded-xl border p-4 text-sm ${mensajeCuotas.type === 'error' ? 'border-rose-700/60 bg-rose-950/30 text-rose-200' : 'border-emerald-700/50 bg-emerald-950/20 text-emerald-200'}`}>
+          {mensajeCuotas.type === 'error' ? <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" /> : <CheckCircle className="mt-0.5 h-5 w-5 shrink-0" />}
+          <p>{mensajeCuotas.message}</p>
+          <button type="button" onClick={() => setMensajeCuotas(null)} className="ml-auto text-current/70 hover:text-current" aria-label="Cerrar aviso"><X className="h-4 w-4" /></button>
+        </div>
+      )}
+
       {cuotasPagadasSinMovimiento > 0 && (
         <div className="mb-5 rounded-xl border border-amber-700/50 bg-amber-950/20 p-4 text-sm text-amber-100">
-          <p className="font-semibold">Revisión de cuotas: {cuotasPagadasSinMovimiento} marcadas como pagadas sin movimiento bancario vinculado</p>
+          <p className="font-semibold">Revisión de cuotas: {cuotasPagadasSinMovimiento} pagadas sin movimiento vinculado</p>
           <p className="mt-1 leading-6 text-amber-200/80">
-            Estas cuotas no se descuentan del saldo bancario ni se suman al gasto real automáticamente.
-            Comprueba si ya registraste cada cargo en Gastos antes de volver a introducirlo, para evitar duplicados.
+            No se han cargado automáticamente para evitar duplicados. En cada cuota puedes vincular un gasto que ya exista o registrar uno nuevo seleccionando la cuenta.
           </p>
         </div>
       )}
@@ -1408,7 +1560,7 @@ export default function Configuracion() {
 
                         <div className="flex flex-wrap items-center gap-3">
                           <button
-                            onClick={() => proximaCuota && marcarCuotaPagada(compra.id, proximaCuota.numero)}
+                            onClick={() => proximaCuota && abrirDialogoPagoCuota(compra, proximaCuota)}
                             disabled={!proximaCuota}
                             className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
                               !proximaCuota
