@@ -1,4 +1,4 @@
-import { createAuthenticatedClient, sendApiError } from '../server/supabase.js'
+import { createAuthenticatedClient, findOrCreateCategory, sendApiError } from '../server/supabase.js'
 
 function debtForUi(row) {
   return {
@@ -24,6 +24,44 @@ export default async function handler(req, res) {
         .eq('user_id', user.id).order('created_at', { ascending: false })
       if (error) throw error
       return res.status(200).json((data || []).map(debtForUi))
+    }
+
+    if (req.method === 'POST' && req.body?.action === 'settle') {
+      const body = req.body
+      if (!body.id || !body.accountId || !body.idempotencyKey) {
+        return res.status(400).json({ error: 'Selecciona deuda, cuenta y confirma la operación.' })
+      }
+      const amount = Number(body.amount)
+      const occurredOn = String(body.occurredOn || '').slice(0, 10)
+      if (!Number.isFinite(amount) || amount <= 0 || !/^\\d{4}-\\d{2}-\\d{2}$/.test(occurredOn)) {
+        return res.status(400).json({ error: 'Indica un importe válido y la fecha del movimiento.' })
+      }
+      const { data: currentDebt, error: readError } = await supabase.from('debts')
+        .select('id, direction').eq('id', body.id).eq('user_id', user.id).maybeSingle()
+      if (readError) throw readError
+      if (!currentDebt) return res.status(404).json({ error: 'No se encontró la deuda seleccionada.' })
+      const transactionKind = currentDebt.direction === 'receivable' ? 'income' : 'expense'
+      const categoryName = currentDebt.direction === 'receivable' ? 'Cobros de préstamos' : 'Pago de deudas'
+      const categoryId = await findOrCreateCategory(supabase, user.id, categoryName, transactionKind)
+      const { data: settlement, error: settlementError } = await supabase.rpc('register_debt_settlement', {
+        p_debt_id: body.id,
+        p_account_id: body.accountId,
+        p_amount: amount,
+        p_occurred_on: occurredOn,
+        p_idempotency_key: body.idempotencyKey,
+        p_category_id: categoryId,
+      })
+      if (settlementError) throw settlementError
+      const { data: updatedDebt, error: updateError } = await supabase.from('debts')
+        .select('id, direction, person_name, description, original_amount, outstanding_amount, due_on, status')
+        .eq('id', body.id).eq('user_id', user.id).single()
+      if (updateError) throw updateError
+      return res.status(200).json({
+        success: true,
+        debt: debtForUi(updatedDebt),
+        transactionId: settlement?.transactionId || null,
+        alreadyRecorded: Boolean(settlement?.alreadyRecorded),
+      })
     }
 
     if (req.method === 'POST' || req.method === 'PATCH') {
