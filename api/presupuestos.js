@@ -1,7 +1,7 @@
 import { createAuthenticatedClient, findOrCreateCategory, sendApiError } from '../server/supabase.js'
 
 function monthStart(value) {
-  const match = /^\\d{4}-(0[1-9]|1[0-2])$/.exec(String(value || '').trim())
+  const match = /^\d{4}-(0[1-9]|1[0-2])$/.exec(String(value || '').trim())
   return match ? `${match[0]}-01` : null
 }
 
