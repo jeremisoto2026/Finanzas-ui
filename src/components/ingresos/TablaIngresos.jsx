@@ -474,7 +474,7 @@ export default function TablaIngresos() {
     const estimaciones = Object.values(conceptosRecurrentes)
       .filter(item => item.montos.length >= 1)
       .map(item => {
-        const montoPromedio = item.montos.reduce((a, b) => a + b, 0) / item.montos.length;
+        const montoPromedio = sumMoney(item.montos) / item.montos.length;
         const fechaUltima = parseDateOnlyLocal(item.ultimaFecha);
         if (!fechaUltima) return null;
 
@@ -497,7 +497,8 @@ export default function TablaIngresos() {
           cuenta: item.cuenta
         };
       })
-      .sort((a, b) => new Date(a.proximaFecha) - new Date(b.proximaFecha))
+      .filter(Boolean)
+      .sort((a, b) => a.proximaFecha.localeCompare(b.proximaFecha))
       .slice(0, 3);
     
     return estimaciones;
