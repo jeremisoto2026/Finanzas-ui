@@ -656,7 +656,7 @@ export default function Configuracion() {
 
   // ========== RENDER ==========
   return (
-    <div className="min-h-screen bg-slate-950 p-4 md:p-6">
+    <div className="mx-auto w-full max-w-7xl space-y-6 pb-8">
       {pagoCuotaDialog && (
         <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 p-4" role="presentation">
           <form onSubmit={registrarPagoCuota} className="w-full max-w-lg space-y-4 rounded-2xl border border-slate-700 bg-slate-900 p-5 shadow-2xl">
