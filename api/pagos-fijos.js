@@ -9,7 +9,7 @@ export default async function handler(req, res) {
     if (req.method === 'GET') {
       const { data, error } = await supabase
         .from('fixed_payments')
-        .select('id, name, amount, payment_method, frequency, next_due_on, status, notification_enabled, categories(name), accounts(name)')
+        .select('id, name, amount, payment_method, frequency, next_due_on, status, notification_enabled, notes, categories(name), accounts(name)')
         .neq('status', 'cancelled')
         .order('next_due_on', { ascending: true })
       if (error) throw error
@@ -36,6 +36,7 @@ export default async function handler(req, res) {
         frequency: frequencyToDb(body.frecuencia),
         next_due_on: body.fechaInicio || null,
         notification_enabled: Boolean(body.notificacion),
+        notes: String(body.notas || '').trim() || null,
         status: 'active',
       }).select('id, name, amount, payment_method, frequency, next_due_on, status, notification_enabled, categories(name), accounts(name)').single()
 
