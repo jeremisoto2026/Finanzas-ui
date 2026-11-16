@@ -390,7 +390,7 @@ export default function Configuracion() {
 
   // Función para resetear datos (ahora solo para datos locales)
   const resetearDatos = () => {
-    if (confirm('¿Estás seguro de querer resetear todos los datos locales? Esto eliminará los datos cargados en memoria pero no los de Notion.')) {
+    if (confirm('¿Estás seguro de querer resetear todos los datos locales? Esto eliminará los datos cargados en memoria pero no los de Supabase.')) {
       setPagosFijos([])
       setComprasCuotas([])
       window.location.reload()
@@ -403,7 +403,7 @@ export default function Configuracion() {
       <div className="min-h-screen bg-slate-950 flex items-center justify-center">
         <div className="text-center">
           <RefreshCw className="h-12 w-12 text-blue-400 animate-spin mx-auto mb-4" />
-          <p className="text-slate-400 text-lg">Cargando configuración desde Notion...</p>
+          <p className="text-slate-400 text-lg">Cargando configuración financiera...</p>
           <p className="text-slate-500 text-sm mt-2">Conectando con tu base de datos</p>
         </div>
       </div>
@@ -449,7 +449,7 @@ export default function Configuracion() {
               <h1 className="text-2xl font-bold text-white">Gestión Financiera</h1>
             </div>
             <p className="text-slate-400 mt-2">
-              Controla tus pagos fijos y compras a cuotas (almacenado en Notion)
+              Controla tus pagos fijos y compras a cuotas guardados en Supabase
             </p>
           </div>
           
@@ -1075,6 +1075,7 @@ export default function Configuracion() {
                             </div>
                             <div>
                               <h4 className="font-medium text-white">{compra.concepto}</h4>
+                              {compra.notas && <p className="mt-1 max-w-2xl text-xs text-amber-200/70">{compra.notas}</p>}
                               <div className="flex items-center gap-3 text-xs text-slate-400 mt-1">
                                 <span>{compra.categoria}</span>
                                 <span>•</span>
