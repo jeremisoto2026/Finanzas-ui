@@ -59,6 +59,7 @@ export function installmentPlanForUi(plan, installments = []) {
       numero: item.installment_number,
       monto: Number(item.amount || 0),
       pagada: item.status === 'paid',
+      transactionId: item.transaction_id || null,
       fecha: dateOnly(item.due_on),
       fechaPago: dateOnly(item.paid_on),
       fechaPrecision: item.due_date_precision || 'day',
