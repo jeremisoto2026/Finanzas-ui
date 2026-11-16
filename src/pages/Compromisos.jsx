@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ArrowPathIcon, BanknotesIcon, CheckCircleIcon, ClockIcon, LockClosedIcon, ReceiptPercentIcon } from '@heroicons/react/24/outline'
+import { sumMoney } from '@/lib/finance-core'
 
 const euro = (value) => new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(Number(value || 0))
 const labels = {
@@ -40,14 +41,25 @@ export default function Compromisos() {
 
   useEffect(() => { load() }, [])
 
-  const totals = useMemo(() => {
-    return items.reduce((acc, item) => {
-      if (item.kind === 'replenishment' && item.status !== 'settled') acc.replenishment += item.outstandingAmount
-      if (item.kind === 'reserve' && item.status === 'reserved') acc.reserve += item.outstandingAmount
-      if (item.kind === 'planned_extra' && item.status === 'open') acc.extra += item.outstandingAmount
-      return acc
-    }, { replenishment: 0, reserve: 0, extra: 0 })
-  }, [items])
+  const totals = useMemo(() => ({
+    replenishment: sumMoney(
+      items.filter((item) => item.kind === 'replenishment' && item.status !== 'settled'),
+      (item) => item.outstandingAmount || 0
+    ),
+    reserve: sumMoney(
+      items.filter((item) => item.kind === 'reserve' && item.status === 'reserved'),
+      (item) => item.outstandingAmount || 0
+    ),
+    extra: sumMoney(
+      items.filter((item) => item.kind === 'planned_extra' && item.status === 'open'),
+      (item) => item.outstandingAmount || 0
+    ),
+  }), [items])
+
+  const statusWarnings = items.filter((item) => (
+    item.status === 'settled'
+    && /no consta como pagado|no se ha pagado|pendiente de pago|no consta pagado/i.test(String(item.notes || ''))
+  ))
 
   const update = async (item, status) => {
     const message = status === 'settled'
@@ -110,6 +122,22 @@ export default function Compromisos() {
       </div>
 
       {error && <div className="mb-4 rounded-lg border border-rose-800 bg-rose-950/30 p-3 text-sm text-rose-200">{error}</div>}
+
+      {statusWarnings.length > 0 && (
+        <div role="alert" className="mb-5 rounded-xl border border-amber-700/50 bg-amber-950/20 p-4">
+          <p className="text-sm font-semibold text-amber-200">
+            Hay {statusWarnings.length} registro(s) cuyo estado no coincide con sus notas
+          </p>
+          <div className="mt-2 space-y-1">
+            {statusWarnings.map((item) => (
+              <p key={item.id} className="text-xs leading-5 text-amber-100/80">
+                {item.title}: figura como completado, pero la nota indica que el pago no está confirmado.
+              </p>
+            ))}
+          </div>
+          <p className="mt-2 text-xs text-amber-200/70">No se ha cambiado ningún registro automáticamente. Revísalos antes de considerar ese importe liquidado.</p>
+        </div>
+      )}
 
       {loading ? (
         <div className="flex items-center gap-2 py-10 text-slate-400"><ArrowPathIcon className="h-5 w-5 animate-spin" /> Cargando compromisos…</div>
