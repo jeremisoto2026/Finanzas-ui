@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { sumMoney } from '@/lib/finance-core';
+import { monthKeyFromDate, sumMoney } from '@/lib/finance-core';
 import { 
   Download, 
   Filter,
@@ -154,10 +154,8 @@ export default function TablaGastos() {
     return todosLosGastos.filter(gasto => {
       if (!gasto.fecha) return false;
       
-      const fechaGasto = new Date(gasto.fecha);
-      if (isNaN(fechaGasto.getTime())) return false;
-      
-      const mesGasto = `${fechaGasto.getFullYear()}-${String(fechaGasto.getMonth() + 1).padStart(2, '0')}`;
+      const mesGasto = monthKeyFromDate(gasto.fecha);
+      if (!mesGasto) return false;
       
       const cumpleMes = !filtroMes || mesGasto === filtroMes;
       const cumpleMetodo = !filtroMetodo || gasto.metodo === filtroMetodo;
