@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { addMonthsClamped, sumMoney, sumMonthlyEquivalent } from '@/lib/finance-core'
+import { addInstallmentDate, distributeInstallmentAmounts, sumMoney, sumMonthlyEquivalent } from '@/lib/finance-core'
 import { 
   Settings, 
   Plus,
@@ -208,46 +208,47 @@ export default function Configuracion() {
   // ========== FUNCIONES PARA COMPRAS A CUOTAS ==========
 
   const guardarCompraCuotas = async () => {
-    if (!compraCuotas.concepto || !compraCuotas.montoTotal) {
-      alert('Por favor, completa el concepto y monto total')
+    if (!compraCuotas.concepto.trim() || !String(compraCuotas.montoTotal).trim()) {
+      alert('Completa el concepto y el importe total.')
       return
     }
-    
-    const cuotasTotales = parseInt(compraCuotas.cuotasTotales) || 12
-    const cuotasPagadas = parseInt(compraCuotas.cuotasPagadas) || 0
-    
-    // Calcular cuotas intermedias si se especifican primera y última cuota
-    const montoPrimeraCuota = parseFloat(compraCuotas.montoPrimeraCuota) || 0
-    const montoUltimaCuota = parseFloat(compraCuotas.montoUltimaCuota) || 0
-    const montoTotal = parseFloat(compraCuotas.montoTotal)
-    
-    // Crear historial de cuotas
-    const historialCuotas = []
-    let montoRestante = montoTotal
-    
-    for (let i = 1; i <= cuotasTotales; i++) {
-      let montoCuota
-      
-      if (i === 1 && montoPrimeraCuota > 0) {
-        montoCuota = montoPrimeraCuota
-      } else if (i === cuotasTotales && montoUltimaCuota > 0) {
-        montoCuota = montoUltimaCuota
-      } else {
-        // Distribuir el resto equitativamente
-        const cuotasRestantes = cuotasTotales - i + 1
-        montoCuota = montoRestante / cuotasRestantes
-      }
-      
-      historialCuotas.push({
-        numero: i,
-        monto: parseFloat(montoCuota.toFixed(2)),
-        pagada: i <= cuotasPagadas,
-        fecha: addMonthsClamped(compraCuotas.fechaInicio, i - 1)
-      })
-      
-      montoRestante -= montoCuota
+
+    const cuotasTotales = Number.parseInt(compraCuotas.cuotasTotales, 10)
+    const cuotasPagadas = Number.parseInt(compraCuotas.cuotasPagadas || '0', 10)
+    const montoTotal = Number(compraCuotas.montoTotal)
+    if (!Number.isInteger(cuotasTotales) || cuotasTotales < 1 || !Number.isFinite(montoTotal) || montoTotal <= 0) {
+      alert('Indica un importe mayor que cero y un número de cuotas válido.')
+      return
     }
-    
+    if (!Number.isInteger(cuotasPagadas) || cuotasPagadas < 0 || cuotasPagadas > cuotasTotales) {
+      alert('El número de cuotas pagadas debe estar entre cero y el total de cuotas.')
+      return
+    }
+    if (cuotasPagadas > 0) {
+      alert('Para no inventar fechas de pago ni descuadrar el saldo, crea el plan con 0 cuotas pagadas. Después registra cada pago con su fecha y revisa el movimiento bancario correspondiente.')
+      return
+    }
+
+    let importesCuotas
+    let historialCuotas
+    try {
+      importesCuotas = distributeInstallmentAmounts(
+        montoTotal,
+        cuotasTotales,
+        compraCuotas.montoPrimeraCuota || null,
+        compraCuotas.montoUltimaCuota || null
+      )
+      historialCuotas = importesCuotas.map((monto, index) => ({
+        numero: index + 1,
+        monto,
+        pagada: false,
+        fecha: addInstallmentDate(compraCuotas.fechaInicio, compraCuotas.frecuenciaPago, index),
+      }))
+    } catch (err) {
+      alert(err.message || 'No se pudo calcular el calendario de cuotas.')
+      return
+    }
+
     try {
       const res = await fetch('/api/compras-cuotas', {
         method: 'POST',
@@ -256,40 +257,29 @@ export default function Configuracion() {
           ...compraCuotas,
           montoTotal,
           cuotasTotales,
-          cuotasPagadas,
-          montoPrimeraCuota,
-          montoUltimaCuota,
-          historialCuotas
-        })
+          cuotasPagadas: 0,
+          montoPrimeraCuota: compraCuotas.montoPrimeraCuota ? Number(compraCuotas.montoPrimeraCuota) : 0,
+          montoUltimaCuota: compraCuotas.montoUltimaCuota ? Number(compraCuotas.montoUltimaCuota) : 0,
+          historialCuotas,
+        }),
       })
-      
       if (!res.ok) {
         const errorData = await res.json()
-        throw new Error(errorData.error || 'Error al guardar compra a cuotas')
+        throw new Error(errorData.error || 'Error al guardar la compra a cuotas.')
       }
-      
       const nuevaCompra = await res.json()
-      setComprasCuotas([...comprasCuotas, nuevaCompra])
-      
-      // Resetear formulario
+      setComprasCuotas((current) => [...current, nuevaCompra])
       setCompraCuotas({
-        concepto: '',
-        montoTotal: '',
-        cuotasTotales: '12',
-        cuotasPagadas: '0',
-        montoPrimeraCuota: '',
-        montoUltimaCuota: '',
-        fechaInicio: new Date().toISOString().split('T')[0],
-        metodo: 'Tarjeta',
-        categoria: 'Tecnología',
-        frecuenciaPago: 'mensual'
+        concepto: '', montoTotal: '', cuotasTotales: '12', cuotasPagadas: '0',
+        montoPrimeraCuota: '', montoUltimaCuota: '',
+        fechaInicio: new Date().toISOString().slice(0, 10),
+        metodo: 'Tarjeta', categoria: 'Tecnología', frecuenciaPago: 'mensual',
       })
       setMostrarFormCuotas(false)
-      
-      alert('Compra a cuotas creada exitosamente')
+      alert('Compra a cuotas creada. Los importes de todas las cuotas cuadran exactamente con el total.')
     } catch (err) {
       console.error('Error guardando compra a cuotas:', err)
-      alert(`Error al guardar compra a cuotas: ${err.message}`)
+      alert('Error al guardar la compra a cuotas: ' + (err.message || 'Error desconocido'))
     }
   }
 
