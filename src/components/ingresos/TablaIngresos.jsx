@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { sumMoney, sumMoneyBy } from '@/lib/finance-core';
 
 // ICONOS LUCIDE REACT para ingresos (paleta verde unificada)
 import { 
@@ -206,25 +207,20 @@ export default function TablaIngresos() {
   // ========== CÁLCULOS PRINCIPALES MEJORADOS ==========
 
   // 1. Total
-  const total = ingresosFiltrados.reduce((sum, ingreso) => sum + ingreso.monto, 0);
+  const total = sumMoney(ingresosFiltrados, (ingreso) => ingreso.monto || 0);
 
   // 2. Calcular estadísticas por categoría con clasificación
   const estadisticasCategorias = useMemo(() => {
-    const categorias = {};
-    
-    ingresosFiltrados.forEach(ingreso => {
-      if (!categorias[ingreso.categoria]) {
-        categorias[ingreso.categoria] = {
-          total: 0,
-          count: 0,
-          promedio: 0,
-          porcentaje: 0,
-          tipo: 'variable' // Valor por defecto
-        };
-      }
-      categorias[ingreso.categoria].total += ingreso.monto;
-      categorias[ingreso.categoria].count += 1;
-    });
+    const groupedTotals = sumMoneyBy(
+      ingresosFiltrados,
+      (ingreso) => ingreso.categoria || 'Otros',
+      (ingreso) => ingreso.monto || 0
+    );
+    const categorias = Object.fromEntries(Object.entries(groupedTotals).map(([name, value]) => [
+      name,
+      { total: value, count: ingresosFiltrados.filter((ingreso) => (ingreso.categoria || 'Otros') === name).length,
+        promedio: 0, porcentaje: 0, tipo: 'variable' }
+    ]));
     
     // Calcular promedio y porcentaje
     Object.keys(categorias).forEach(categoria => {
