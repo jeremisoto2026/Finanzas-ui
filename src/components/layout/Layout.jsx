@@ -21,7 +21,7 @@ export default function Layout() {
         setActivePage={setActivePage}
       />
 
-      <div className="flex-1">
+      <div className="min-w-0 flex-1">
         <Navbar onMenu={() => setMenuAbierto(true)} />
 
         {/* Sidebar móvil ✅ */}
@@ -44,7 +44,7 @@ export default function Layout() {
           </div>
         )}
 
-        <main className="p-4 md:p-6">
+        <main className="min-w-0 p-4 md:p-6">
   {activePage === 'Dashboard' && <Dashboard />}
   {activePage === 'Gastos' && <Gastos />}
   {activePage === 'Ingresos' && <Ingresos />}
