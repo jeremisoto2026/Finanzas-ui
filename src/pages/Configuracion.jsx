@@ -64,6 +64,8 @@ export default function Configuracion() {
   const [mostrarFormCuotas, setMostrarFormCuotas] = useState(false)
   const [editingPagoFijoId, setEditingPagoFijoId] = useState(null)
   const [editingCompraCuotasId, setEditingCompraCuotasId] = useState(null)
+  const [editingCalendarioId, setEditingCalendarioId] = useState(null)
+  const [historialEditable, setHistorialEditable] = useState([])
   const [mostrarFormPresupuesto, setMostrarFormPresupuesto] = useState(false)
   const [editingPresupuestoId, setEditingPresupuestoId] = useState(null)
   const [presupuestoForm, setPresupuestoForm] = useState({ month: localDateInputValue().slice(0, 7), category: 'Alimentación', amount: '', notes: '' })
@@ -475,6 +477,50 @@ export default function Configuracion() {
     } catch (error) {
       console.error('Error eliminando compra a cuotas:', error)
       alert('Error al eliminar la compra a cuotas')
+    }
+  }
+
+  const abrirEdicionCalendario = (compra) => {
+    setEditingCalendarioId(compra.id)
+    setHistorialEditable((compra.historialCuotas || []).map((cuota) => ({ ...cuota })))
+  }
+
+  const actualizarCuotaEditable = (numero, field, value) => {
+    setHistorialEditable((current) => current.map((cuota) => (
+      cuota.numero === numero ? { ...cuota, [field]: field === 'monto' ? value : value } : cuota
+    )))
+  }
+
+  const guardarCalendarioCuotas = async (compra) => {
+    const totalCuotas = sumMoney(historialEditable, (cuota) => cuota.monto || 0)
+    if (Math.round(totalCuotas * 100) !== Math.round(Number(compra.montoTotal) * 100)) {
+      alert(`La suma del calendario es ${totalCuotas.toFixed(2)} €. Debe cuadrar exactamente con el total del plan de ${Number(compra.montoTotal).toFixed(2)} €.`)
+      return
+    }
+    try {
+      const response = await fetch('/api/compras-cuotas', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: compra.id,
+          cuotasTotales: historialEditable.length,
+          historialCuotas: historialEditable.map((cuota) => ({
+            numero: cuota.numero,
+            monto: Number(cuota.monto),
+            fecha: cuota.fecha,
+            pagada: Boolean(cuota.pagada),
+            fechaPago: cuota.fechaPago || null,
+            notas: cuota.notas || '',
+          })),
+        }),
+      })
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.error || 'No se pudo actualizar el calendario.')
+      setComprasCuotas((current) => current.map((item) => item.id === compra.id ? result : item))
+      setEditingCalendarioId(null)
+      setHistorialEditable([])
+    } catch (err) {
+      alert(err.message || 'No se pudo actualizar el calendario.')
     }
   }
 
@@ -1301,18 +1347,60 @@ export default function Configuracion() {
                               <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Historial completo de cuotas</div>
                               <div className="space-y-2">
                                 {(compra.historialCuotas || []).map((cuota) => (
-                                  <div key={cuota.numero} className="flex items-center justify-between gap-3 text-xs">
+                                  <div key={cuota.numero} className="grid grid-cols-1 items-center gap-2 border-b border-slate-800/60 py-2 last:border-0 sm:grid-cols-[minmax(0,1fr)_auto]">
                                     <div className="min-w-0">
-                                      <span className="text-slate-200">Cuota {cuota.numero} de {compra.cuotasTotales}</span>
-                                      <span className="ml-2 capitalize text-slate-500">{formatearMesCuota(cuota.fecha)}</span>
+                                      <div className="flex flex-wrap items-center gap-2">
+                                        <span className="text-slate-200">Cuota {cuota.numero} de {compra.cuotasTotales}</span>
+                                        <span className="capitalize text-slate-500">{formatearMesCuota(editingCalendarioId === compra.id ? (historialEditable.find((item) => item.numero === cuota.numero)?.fecha || cuota.fecha) : cuota.fecha)}</span>
+                                        <span className={cuota.pagada ? 'text-emerald-300' : 'text-amber-300'}>{cuota.pagada ? 'Pagada' : 'Pendiente'}</span>
+                                      </div>
+                                      {editingCalendarioId === compra.id && (
+                                        <label className="mt-2 block text-[11px] text-slate-500">
+                                          Fecha de vencimiento
+                                          <input
+                                            type="date"
+                                            value={historialEditable.find((item) => item.numero === cuota.numero)?.fecha || cuota.fecha || ''}
+                                            disabled={Boolean(cuota.pagada || cuota.transactionId)}
+                                            onChange={(e) => actualizarCuotaEditable(cuota.numero, 'fecha', e.target.value)}
+                                            className="mt-1 w-full rounded-md border border-slate-700 bg-slate-900 px-2 py-1.5 text-xs text-white disabled:opacity-50"
+                                          />
+                                        </label>
+                                      )}
                                     </div>
-                                    <div className="flex shrink-0 items-center gap-2">
-                                      <span className={cuota.pagada ? 'text-emerald-300' : 'text-amber-300'}>{cuota.pagada ? 'Pagada' : 'Pendiente'}</span>
-                                      <span className="font-semibold text-white">€{Number(cuota.monto || 0).toFixed(2)}</span>
+                                    <div className="flex items-center gap-2 sm:justify-end">
+                                      {editingCalendarioId === compra.id ? (
+                                        <label className="text-[11px] text-slate-500">
+                                          Importe (€)
+                                          <input
+                                            type="number"
+                                            min="0.01"
+                                            step="0.01"
+                                            value={historialEditable.find((item) => item.numero === cuota.numero)?.monto ?? cuota.monto}
+                                            disabled={Boolean(cuota.pagada || cuota.transactionId)}
+                                            onChange={(e) => actualizarCuotaEditable(cuota.numero, 'monto', e.target.value)}
+                                            className="mt-1 w-28 rounded-md border border-slate-700 bg-slate-900 px-2 py-1.5 text-right text-xs font-semibold text-white disabled:opacity-50"
+                                          />
+                                        </label>
+                                      ) : (
+                                        <span className="font-semibold text-white">€{Number(cuota.monto || 0).toFixed(2)}</span>
+                                      )}
                                     </div>
                                   </div>
                                 ))}
                               </div>
+                              {editingCalendarioId === compra.id ? (
+                                <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-slate-700 pt-3">
+                                  <span className="text-xs text-slate-500">Los importes deben sumar {euro(compra.montoTotal)}. Los pagos vinculados están bloqueados.</span>
+                                  <div className="flex gap-2">
+                                    <button type="button" onClick={() => { setEditingCalendarioId(null); setHistorialEditable([]); }} className="rounded-lg bg-slate-800 px-3 py-1.5 text-xs text-slate-300">Cancelar</button>
+                                    <button type="button" onClick={() => guardarCalendarioCuotas(compra)} className="rounded-lg bg-sky-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-sky-500">Guardar calendario</button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="mt-3 flex justify-end">
+                                  <button type="button" onClick={() => abrirEdicionCalendario(compra)} className="rounded-lg bg-slate-800 px-3 py-1.5 text-xs text-sky-300 hover:bg-slate-700">Editar importes y fechas</button>
+                                </div>
+                              )}
                             </div>
 
                           </div>
