@@ -42,6 +42,7 @@ export default function TablaIngresos() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [formOpen, setFormOpen] = useState(false);
+  const [editingIngresoId, setEditingIngresoId] = useState(null);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState('');
   const [nuevoIngreso, setNuevoIngreso] = useState({
@@ -81,42 +82,88 @@ export default function TablaIngresos() {
     fetchIngresos();
   }, []);
 
+  const abrirNuevoIngreso = () => {
+    setEditingIngresoId(null)
+    setNuevoIngreso({
+      concepto: '', monto: '', fecha: localDateInputValue(),
+      categoria: 'Nómina', cuenta: 'Revolut', metodo: 'Transferencia',
+    })
+    setFormError('')
+    setFormOpen(true)
+  }
+
+  const editarIngreso = (ingreso) => {
+    setEditingIngresoId(ingreso.id)
+    setNuevoIngreso({
+      concepto: ingreso.concepto || '',
+      monto: String(ingreso.monto ?? ''),
+      fecha: String(ingreso.fecha || '').slice(0, 10),
+      categoria: ingreso.categoria || 'Otros',
+      cuenta: ingreso.cuenta || 'Revolut',
+      metodo: ingreso.metodo || 'Transferencia',
+    })
+    setFormError('')
+    setFormOpen(true)
+  }
+
   const guardarIngreso = async (event) => {
-    event.preventDefault();
-    const amount = Number(nuevoIngreso.monto);
+    event.preventDefault()
+    const amount = Number(nuevoIngreso.monto)
     if (!nuevoIngreso.concepto.trim() || !Number.isFinite(amount) || amount <= 0 || !nuevoIngreso.fecha) {
-      setFormError('Completa el concepto, un importe positivo y la fecha.');
-      return;
+      setFormError('Completa el concepto, un importe positivo y la fecha.')
+      return
     }
 
     try {
-      setSaving(true);
-      setFormError('');
+      setSaving(true)
+      setFormError('')
       const response = await fetch('/api/ingresos', {
-        method: 'POST',
+        method: editingIngresoId ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...nuevoIngreso, monto: amount, idempotencyKey: crypto.randomUUID() })
-      });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error || 'No se pudo guardar el ingreso.');
+        body: JSON.stringify({
+          ...(editingIngresoId ? { id: editingIngresoId } : { idempotencyKey: crypto.randomUUID() }),
+          ...nuevoIngreso,
+          monto: amount,
+        }),
+      })
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.error || 'No se pudo guardar el ingreso.')
 
-      setIngresosMensuales((current) => [result, ...current]);
-      setFiltroMes(result.fecha.slice(0, 7));
+      setIngresosMensuales((current) => editingIngresoId
+        ? current.map((item) => item.id === editingIngresoId ? result : item)
+        : [result, ...current])
+      setFiltroMes(result.fecha.slice(0, 7))
       setNuevoIngreso({
-        concepto: '',
-        monto: '',
-        fecha: localDateInputValue(),
-        categoria: 'Nómina',
-        cuenta: 'Revolut',
-        metodo: 'Transferencia'
-      });
-      setFormOpen(false);
+        concepto: '', monto: '', fecha: localDateInputValue(),
+        categoria: 'Nómina', cuenta: 'Revolut', metodo: 'Transferencia',
+      })
+      setEditingIngresoId(null)
+      setFormOpen(false)
     } catch (err) {
-      setFormError(err.message || 'No se pudo guardar el ingreso.');
+      setFormError(err.message || 'No se pudo guardar el ingreso.')
     } finally {
-      setSaving(false);
+      setSaving(false)
     }
-  };
+  }
+
+  const eliminarIngreso = async (ingreso) => {
+    if (!confirm(`¿Anular el ingreso «${ingreso.concepto}» por ${new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(ingreso.monto)}? El movimiento dejará de afectar al saldo, pero se conservará la trazabilidad.`)) return
+    try {
+      setSaving(true)
+      const response = await fetch('/api/ingresos', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: ingreso.id }),
+      })
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.error || 'No se pudo anular el ingreso.')
+      setIngresosMensuales((current) => current.filter((item) => item.id !== ingreso.id))
+    } catch (err) {
+      setFormError(err.message || 'No se pudo anular el ingreso.')
+    } finally {
+      setSaving(false)
+    }
+  }
 
   // ========== FUNCIONES PARA DATOS DINÁMICOS ==========
 
@@ -673,14 +720,14 @@ export default function TablaIngresos() {
       </div>
 
       <div className="mb-5 flex justify-end">
-        <button onClick={() => { setFormError(''); setFormOpen((open) => !open); }} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-500"><Plus className="h-4 w-4" />Nuevo ingreso</button>
+        <button onClick={abrirNuevoIngreso} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-500"><Plus className="h-4 w-4" />Nuevo ingreso</button>
       </div>
 
       {formOpen && (
         <form onSubmit={guardarIngreso} className="mb-6 rounded-xl border border-slate-800 bg-slate-900/80 p-5">
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-white">Registrar ingreso</h2>
-            <button type="button" onClick={() => setFormOpen(false)} className="rounded-lg p-2 text-slate-400 hover:bg-slate-800"><X className="h-5 w-5" /></button>
+            <h2 className="text-lg font-semibold text-white">{editingIngresoId ? 'Editar ingreso / nómina' : 'Registrar ingreso / nómina'}</h2>
+            <button type="button" onClick={() => { setFormOpen(false); setEditingIngresoId(null); }} className="rounded-lg p-2 text-slate-400 hover:bg-slate-800"><X className="h-5 w-5" /></button>
           </div>
           <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
             <label className="text-sm text-slate-300 md:col-span-2">Concepto
@@ -710,8 +757,8 @@ export default function TablaIngresos() {
           </div>
           {formError && <p className="mt-3 text-sm text-rose-300">{formError}</p>}
           <div className="mt-4 flex justify-end gap-2">
-            <button type="button" onClick={() => setFormOpen(false)} className="rounded-lg bg-slate-800 px-4 py-2 text-sm text-slate-300">Cancelar</button>
-            <button type="submit" disabled={saving} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"><Save className="h-4 w-4" />{saving ? 'Guardando…' : 'Guardar ingreso'}</button>
+            <button type="button" onClick={() => { setFormOpen(false); setEditingIngresoId(null); }} className="rounded-lg bg-slate-800 px-4 py-2 text-sm text-slate-300">Cancelar</button>
+            <button type="submit" disabled={saving} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"><Save className="h-4 w-4" />{saving ? 'Guardando…' : editingIngresoId ? 'Guardar cambios' : 'Guardar ingreso'}</button>
           </div>
         </form>
       )}
@@ -1002,6 +1049,9 @@ export default function TablaIngresos() {
                     <th className="px-6 py-3 text-right text-xs font-medium text-slate-400 uppercase tracking-wider">
                       Monto
                     </th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-slate-400 uppercase tracking-wider">
+                      Acciones
+                    </th>
                   </tr>
                 </thead>
                 
@@ -1053,6 +1103,12 @@ export default function TablaIngresos() {
                             <span className="text-sm font-semibold text-emerald-400">
                               €{ingreso.monto.toFixed(2)}
                             </span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right">
+                          <div className="inline-flex items-center gap-1">
+                            <button type="button" disabled={saving} onClick={() => editarIngreso(ingreso)} className="rounded-lg bg-slate-800 p-2 text-sky-300 hover:bg-slate-700 disabled:opacity-50" title="Editar ingreso"><Pencil className="h-4 w-4" /></button>
+                            <button type="button" disabled={saving} onClick={() => eliminarIngreso(ingreso)} className="rounded-lg bg-rose-950/30 p-2 text-rose-300 hover:bg-rose-900/40 disabled:opacity-50" title="Anular ingreso"><Trash2 className="h-4 w-4" /></button>
                           </div>
                         </td>
                       </tr>
