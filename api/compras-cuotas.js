@@ -70,6 +70,28 @@ export default async function handler(req, res) {
 
     if (req.method === 'POST') {
       const body = req.body || {}
+      if (body.action === 'pay_installment') {
+        if (!body.installmentId) return res.status(400).json({ error: 'Falta el identificador de la cuota.' })
+        if (!body.existingTransactionId && (!body.accountId || !validDateOnly(body.paidOn))) {
+          return res.status(400).json({ error: 'Selecciona la cuenta y la fecha real del pago.' })
+        }
+        const { data: payment, error: paymentError } = await supabase.rpc('register_installment_payment', {
+          p_installment_id: body.installmentId,
+          p_account_id: body.accountId || null,
+          p_paid_on: body.paidOn || null,
+          p_existing_transaction_id: body.existingTransactionId || null,
+        })
+        if (paymentError) throw paymentError
+        const plans = await readPlans(supabase, user.id)
+        const plan = plans.find((item) => item.historialCuotas.some((row) => row.numero === Number(body.installmentNumber)))
+          || plans.find((item) => item.historialCuotas.some((row) => row.transactionId === payment?.transactionId))
+        return res.status(200).json({
+          success: true,
+          plan: plan || null,
+          transactionId: payment?.transactionId || null,
+          alreadyRecorded: Boolean(payment?.alreadyRecorded),
+        })
+      }
       const name = String(body.concepto || '').trim()
       const totalAmount = Number(body.montoTotal)
       const totalInstallments = Number(body.cuotasTotales)
@@ -145,7 +167,7 @@ export default async function handler(req, res) {
         throw error
       }
 
-      const allPlans = await readPlans(supabase)
+      const allPlans = await readPlans(supabase, user.id)
       const created = allPlans.find((item) => item.id === plan.id)
       return res.status(201).json(created)
     }
