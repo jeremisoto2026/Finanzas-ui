@@ -1,4 +1,4 @@
-import { createAuthenticatedClient, sendApiError } from '../server/supabase.js'
+import { createAuthenticatedClient, findOrCreateCategory, sendApiError } from '../server/supabase.js'
 
 const allowed = {
   replenishment: ['open', 'partially_settled', 'settled'],
@@ -39,9 +39,42 @@ export default async function handler(req, res) {
       const { data, error } = await supabase.from('financial_items')
         .select('id, item_kind, title, amount, outstanding_amount, status, beneficiary, effective_on, due_on, notes')
         .eq('user_id', user.id)
-        .order('item_kind', { ascending: true }).order('title', { ascending: true })
+        .eq('item_kind', 'replenishment')
+        .order('title', { ascending: true })
       if (error) throw error
       return res.status(200).json((data || []).map(mapItem))
+    }
+
+    if (req.method === 'POST' && req.body?.action === 'settle') {
+      const body = req.body
+      if (!body.id || !body.accountId || !body.idempotencyKey) {
+        return res.status(400).json({ error: 'Selecciona la reposición, la cuenta y confirma la operación.' })
+      }
+      const amount = Number(body.amount)
+      const occurredOn = String(body.occurredOn || '').slice(0, 10)
+      if (!Number.isFinite(amount) || amount <= 0 || !/^\\d{4}-\\d{2}-\\d{2}$/.test(occurredOn)) {
+        return res.status(400).json({ error: 'Indica un importe válido y la fecha en que recibiste el dinero.' })
+      }
+      const categoryId = await findOrCreateCategory(supabase, user.id, 'Reposiciones', 'income')
+      const { data: settlement, error: settlementError } = await supabase.rpc('register_replenishment', {
+        p_item_id: body.id,
+        p_account_id: body.accountId,
+        p_amount: amount,
+        p_occurred_on: occurredOn,
+        p_idempotency_key: body.idempotencyKey,
+        p_category_id: categoryId,
+      })
+      if (settlementError) throw settlementError
+      const { data: updatedItem, error: updateError } = await supabase.from('financial_items')
+        .select('id, item_kind, title, amount, outstanding_amount, status, beneficiary, effective_on, due_on, notes')
+        .eq('id', body.id).eq('user_id', user.id).single()
+      if (updateError) throw updateError
+      return res.status(200).json({
+        success: true,
+        item: mapItem(updatedItem),
+        transactionId: settlement?.transactionId || null,
+        alreadyRecorded: Boolean(settlement?.alreadyRecorded),
+      })
     }
 
     if (req.method === 'POST' || req.method === 'PATCH') {
