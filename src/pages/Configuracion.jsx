@@ -1073,7 +1073,7 @@ export default function Configuracion() {
                   <div className="text-xl font-bold text-purple-400">{comprasCuotas.length}</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-xs text-slate-400 mb-1">Cuotas pagadas</div>
+                  <div className="text-xs text-slate-400 mb-1">Cuotas pagadas (fecha pendiente)</div>
                   <div className="text-xl font-bold text-emerald-400">{totalCuotasPagadas} / {totalCuotasTotales}</div>
                 </div>
                 <div className="text-center">
