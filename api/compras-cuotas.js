@@ -155,20 +155,38 @@ export default async function handler(req, res) {
       }).select('id').single()
       if (planError) throw planError
 
+      let insertedRows = []
       try {
         const history = Array.isArray(body.historialCuotas) ? body.historialCuotas : []
         const rows = history.map((item, index) => normalizeInstallment(item, user.id, plan.id, index + 1))
         if (rows.length) {
-          const { error: itemsError } = await supabase.from('installments').insert(rows)
+          const { data, error: itemsError } = await supabase.from('installments')
+            .insert(rows)
+            .select('id, user_id, plan_id, installment_number, amount, due_on, paid_on, status, transaction_id, notes, due_date_precision')
           if (itemsError) throw itemsError
+          insertedRows = data || []
         }
       } catch (error) {
-        await supabase.from('installment_plans').delete().eq('id', plan.id)
+        await supabase.from('installment_plans').delete().eq('id', plan.id).eq('user_id', user.id)
         throw error
       }
 
-      const allPlans = await readPlans(supabase, user.id)
-      const created = allPlans.find((item) => item.id === plan.id)
+      // Return the committed plan directly from the insert results. A second
+      // full-list read here could fail after the writes committed, making the
+      // UI show an error even though the purchase had actually been created.
+      const created = installmentPlanForUi({
+        id: plan.id,
+        name,
+        total_amount: totalAmount,
+        installments_total: totalInstallments,
+        start_on: String(startOn).slice(0, 10),
+        frequency,
+        status: 'active',
+        payment_method: body.metodo || null,
+        notes: String(body.notas || '').trim() || null,
+        start_date_precision: body.fechaInicioPrecision || 'day',
+        categories: { name: String(body.categoria || '').trim() },
+      }, insertedRows)
       return res.status(201).json(created)
     }
 
