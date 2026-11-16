@@ -91,6 +91,7 @@ export default async function handler(req, res) {
         Number.isInteger(item.number) && item.number === index + 1
         && Number.isFinite(item.amount) && item.amount > 0
         && /^\d{4}-\d{2}-\d{2}$/.test(item.dueOn)
+        && Number.isFinite(Date.parse(`${item.dueOn}T00:00:00.000Z`))
         && new Date(`${item.dueOn}T00:00:00.000Z`).toISOString().slice(0, 10) === item.dueOn
       ))
       if (!sequenceValid) {
