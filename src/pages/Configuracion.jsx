@@ -15,6 +15,7 @@ import {
   Receipt,
   AlertCircle,
   CreditCard,
+  Wallet,
   TrendingDown,
   TrendingUp,
   Eye,
