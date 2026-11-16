@@ -30,7 +30,9 @@ import {
   Thermometer,
   Plus,
   Save,
-  X
+  X,
+  Pencil,
+  Trash2
 } from 'lucide-react';
 
 const normalizeIncomeCategory = (value) => String(value || '').trim().normalize('NFD').replace(/\p{Diacritic}/gu, '').toLocaleLowerCase('es-ES')
