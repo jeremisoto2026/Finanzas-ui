@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useMemo } from 'react';
-import { sumMoney, sumMoneyBy } from '@/lib/finance-core';
+import { monthKeyFromDate, sumMoney, sumMoneyBy } from '@/lib/finance-core';
 
 const GastosContext = createContext();
 
@@ -78,10 +78,8 @@ export function GastosProvider({ children }) {
     return todosLosGastos.filter(gasto => {
       if (!gasto.fecha) return false;
       
-      const fechaGasto = new Date(gasto.fecha);
-      if (isNaN(fechaGasto.getTime())) return false;
-      
-      const mesGasto = `${fechaGasto.getFullYear()}-${String(fechaGasto.getMonth() + 1).padStart(2, '0')}`;
+      const mesGasto = monthKeyFromDate(gasto.fecha);
+      if (!mesGasto) return false;
       
       const cumpleMes = !filtroMes || mesGasto === filtroMes;
       const cumpleMetodo = !filtroMetodo || gasto.metodo === filtroMetodo;
@@ -128,9 +126,7 @@ export function GastosProvider({ children }) {
   const gastosMesActual = useMemo(() => {
     return todosLosGastos.filter(gasto => {
       if (!gasto.fecha) return false;
-      const fechaGasto = new Date(gasto.fecha);
-      const mesGasto = `${fechaGasto.getFullYear()}-${String(fechaGasto.getMonth() + 1).padStart(2, '0')}`;
-      return mesGasto === getMesActual;
+      return monthKeyFromDate(gasto.fecha) === getMesActual;
     });
   }, [todosLosGastos, getMesActual]);
 
@@ -207,9 +203,7 @@ export function GastosProvider({ children }) {
       
       const gastosDelMes = todosLosGastos.filter(gasto => {
         if (!gasto.fecha) return false;
-        const fechaGasto = new Date(gasto.fecha);
-        const mesGasto = `${fechaGasto.getFullYear()}-${String(fechaGasto.getMonth() + 1).padStart(2, '0')}`;
-        return mesGasto === mesFormato;
+        return monthKeyFromDate(gasto.fecha) === mesFormato;
       });
       
       const totalDelMes = sumMoney(gastosDelMes, (gasto) => gasto.monto || 0);
