@@ -54,3 +54,47 @@ export function calculateAvailableBalance(balance, reservations = []) {
     .reduce((sum, reservation) => sum + toCents(reservation.amount), 0);
   return fromCents(toCents(balance) - reservedCents);
 }
+
+
+/**
+ * Converts a recurring amount into its average monthly equivalent.
+ * Returns null for custom/unknown frequencies rather than guessing.
+ */
+export function monthlyEquivalentAmount(amount, frequency) {
+  const normalizedFrequency = String(frequency || 'monthly')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\\u0300-\\u036f]/g, '');
+
+  const factors = {
+    monthly: 1,
+    mensual: 1,
+    mensualidad: 1,
+    biweekly: 26 / 12,
+    quincenal: 26 / 12,
+    weekly: 52 / 12,
+    semanal: 52 / 12,
+    quarterly: 1 / 3,
+    trimestral: 1 / 3,
+    yearly: 1 / 12,
+    annual: 1 / 12,
+    anual: 1 / 12,
+  };
+
+  const factor = factors[normalizedFrequency];
+  if (factor === undefined) return null;
+  return fromCents(Math.round(toCents(amount) * factor));
+}
+
+export function sumMonthlyEquivalent(items, getAmount = (item) => item.amount, getFrequency = (item) => item.frequency) {
+  if (!Array.isArray(items)) throw new TypeError("Se esperaba una lista de pagos recurrentes.");
+
+  const monthlyAmounts = [];
+  for (const item of items) {
+    const monthlyAmount = monthlyEquivalentAmount(getAmount(item), getFrequency(item));
+    if (monthlyAmount !== null) monthlyAmounts.push(monthlyAmount);
+  }
+
+  return sumMoney(monthlyAmounts);
+}
