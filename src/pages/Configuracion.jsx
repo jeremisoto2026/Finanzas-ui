@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { addInstallmentDate, distributeInstallmentAmounts, sumMoney, sumMonthlyEquivalent } from '@/lib/finance-core'
+import { addInstallmentDate, distributeInstallmentAmounts, localDateInputValue, sumMoney, sumMonthlyEquivalent } from '@/lib/finance-core'
 import { 
   Settings, 
   Plus,
@@ -70,7 +70,7 @@ export default function Configuracion() {
     metodo: 'Tarjeta',
     categoria: 'Servicios',
     frecuencia: 'mensual',
-    fechaInicio: new Date().toISOString().split('T')[0],
+    fechaInicio: localDateInputValue(),
     notificacion: true
   })
 
@@ -81,7 +81,7 @@ export default function Configuracion() {
     cuotasPagadas: '0',
     montoPrimeraCuota: '',
     montoUltimaCuota: '',
-    fechaInicio: new Date().toISOString().split('T')[0],
+    fechaInicio: localDateInputValue(),
     metodo: 'Tarjeta',
     categoria: 'Tecnología',
     frecuenciaPago: 'mensual'
@@ -154,7 +154,7 @@ export default function Configuracion() {
         metodo: 'Tarjeta',
         categoria: 'Servicios',
         frecuencia: 'mensual',
-        fechaInicio: new Date().toISOString().split('T')[0],
+        fechaInicio: localDateInputValue(),
         notificacion: true
       })
       setMostrarFormPagoFijo(false)
@@ -272,7 +272,7 @@ export default function Configuracion() {
       setCompraCuotas({
         concepto: '', montoTotal: '', cuotasTotales: '12', cuotasPagadas: '0',
         montoPrimeraCuota: '', montoUltimaCuota: '',
-        fechaInicio: new Date().toISOString().slice(0, 10),
+        fechaInicio: localDateInputValue(),
         metodo: 'Tarjeta', categoria: 'Tecnología', frecuenciaPago: 'mensual',
       })
       setMostrarFormCuotas(false)
@@ -293,7 +293,7 @@ export default function Configuracion() {
       
       const historialActualizado = compra.historialCuotas.map(cuota => {
         if (cuota.numero === cuotaNumero && !cuota.pagada) {
-          return { ...cuota, pagada: true, fechaPago: new Date().toISOString().slice(0, 10) }
+          return { ...cuota, pagada: true, fechaPago: localDateInputValue() }
         }
         return cuota
       })
