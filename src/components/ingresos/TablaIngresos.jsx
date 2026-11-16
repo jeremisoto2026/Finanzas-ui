@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { sumMoney, sumMoneyBy } from '@/lib/finance-core';
+import { localDateInputValue, monthKeyFromDate, parseDateOnlyLocal, sumMoney, sumMoneyBy } from '@/lib/finance-core';
 
 // ICONOS LUCIDE REACT para ingresos (paleta verde unificada)
 import { 
@@ -44,7 +44,7 @@ export default function TablaIngresos() {
   const [nuevoIngreso, setNuevoIngreso] = useState({
     concepto: '',
     monto: '',
-    fecha: new Date().toISOString().slice(0, 10),
+    fecha: localDateInputValue(),
     categoria: 'Nómina',
     cuenta: 'Revolut',
     metodo: 'Transferencia'
@@ -102,7 +102,7 @@ export default function TablaIngresos() {
       setNuevoIngreso({
         concepto: '',
         monto: '',
-        fecha: new Date().toISOString().slice(0, 10),
+        fecha: localDateInputValue(),
         categoria: 'Nómina',
         cuenta: 'Revolut',
         metodo: 'Transferencia'
@@ -124,13 +124,8 @@ export default function TablaIngresos() {
     ingresosMensuales.forEach(ingreso => {
       if (ingreso.fecha) {
         try {
-          const fecha = new Date(ingreso.fecha);
-          if (!isNaN(fecha.getTime())) {
-            const año = fecha.getFullYear();
-            const mes = fecha.getMonth() + 1;
-            const mesFormateado = `${año}-${mes.toString().padStart(2, '0')}`;
-            mesesSet.add(mesFormateado);
-          }
+          const monthKey = monthKeyFromDate(ingreso.fecha);
+          if (monthKey) mesesSet.add(monthKey);
         } catch (error) {
           console.error('Error procesando fecha:', ingreso.fecha, error);
         }
@@ -190,8 +185,8 @@ export default function TablaIngresos() {
   const ingresosFiltrados = useMemo(() => {
     return ingresosMensuales.filter(ingreso => {
       if (ingreso.fecha) {
-        const fechaIngreso = new Date(ingreso.fecha);
-        const mesIngreso = `${fechaIngreso.getFullYear()}-${String(fechaIngreso.getMonth() + 1).padStart(2, '0')}`;
+        const mesIngreso = monthKeyFromDate(ingreso.fecha);
+        if (!mesIngreso) return false;
         
         const cumpleMes = !filtroMes || mesIngreso === filtroMes;
         const cumpleMetodo = !filtroMetodo || ingreso.metodo === filtroMetodo;
@@ -422,8 +417,8 @@ export default function TablaIngresos() {
     
     ingresosMensuales.forEach(ingreso => {
       if (ingreso.fecha) {
-        const fecha = new Date(ingreso.fecha);
-        const mes = `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}`;
+        const mes = monthKeyFromDate(ingreso.fecha);
+        if (!mes) return;
         
         if (meses.includes(mes)) {
           totalesPorMes[mes] = (totalesPorMes[mes] || 0) + ingreso.monto;
@@ -451,9 +446,7 @@ export default function TablaIngresos() {
   const proximosIngresos = useMemo(() => {
     const ingresosMesActual = ingresosMensuales.filter(ingreso => {
       if (!ingreso.fecha) return false;
-      const fecha = new Date(ingreso.fecha);
-      const mesIngreso = `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}`;
-      return mesIngreso === mesActual;
+      return monthKeyFromDate(ingreso.fecha) === mesActual;
     });
     
     if (ingresosMesActual.length === 0) return [];
@@ -472,6 +465,8 @@ export default function TablaIngresos() {
           metodo: ingreso.metodo,
           ultimaFecha: ingreso.fecha
         };
+      } else if (String(ingreso.fecha).slice(0, 10) > String(conceptosRecurrentes[clave].ultimaFecha).slice(0, 10)) {
+        conceptosRecurrentes[clave].ultimaFecha = ingreso.fecha;
       }
       conceptosRecurrentes[clave].montos.push(ingreso.monto);
     });
@@ -480,14 +475,13 @@ export default function TablaIngresos() {
       .filter(item => item.montos.length >= 1)
       .map(item => {
         const montoPromedio = item.montos.reduce((a, b) => a + b, 0) / item.montos.length;
-        const fechaUltima = new Date(item.ultimaFecha);
-        
-        let proximaFechaEstimada = new Date(fechaUltima);
-        
-        if (item.concepto.toLowerCase().includes('salario') || 
+        const fechaUltima = parseDateOnlyLocal(item.ultimaFecha);
+        if (!fechaUltima) return null;
+
+        const proximaFechaEstimada = new Date(fechaUltima);
+        if (item.concepto.toLowerCase().includes('salario') ||
             item.concepto.toLowerCase().includes('nómina')) {
-          proximaFechaEstimada.setMonth(proximaFechaEstimada.getMonth() + 1);
-          proximaFechaEstimada.setDate(1);
+          proximaFechaEstimada.setMonth(proximaFechaEstimada.getMonth() + 1, 1);
         } else if (item.categoria === 'Freelance' || item.categoria === 'Consultoría') {
           proximaFechaEstimada.setDate(proximaFechaEstimada.getDate() + 15);
         } else {
@@ -498,7 +492,7 @@ export default function TablaIngresos() {
           concepto: item.concepto,
           categoria: item.categoria,
           montoEstimado: montoPromedio,
-          proximaFecha: proximaFechaEstimada.toISOString().split('T')[0],
+          proximaFecha: localDateInputValue(proximaFechaEstimada),
           confianza: item.montos.length > 1 ? 'Alta' : 'Media',
           cuenta: item.cuenta
         };
@@ -524,8 +518,8 @@ export default function TablaIngresos() {
     // Calcular total y categorías por mes
     ingresosMensuales.forEach(ingreso => {
       if (ingreso.fecha) {
-        const fecha = new Date(ingreso.fecha);
-        const mes = `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}`;
+        const mes = monthKeyFromDate(ingreso.fecha);
+        if (!mes) return;
         
         if (meses.includes(mes)) {
           totalesPorMes[mes] = (totalesPorMes[mes] || 0) + ingreso.monto;
