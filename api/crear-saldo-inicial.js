@@ -1,47 +1,33 @@
-import { Client } from '@notionhq/client'
-
-const notion = new Client({ auth: process.env.NOTION_TOKEN })
+import { createAuthenticatedClient, findOrCreateAccount, sendApiError } from '../server/supabase.js'
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
-    return res.status(405).end()
+    res.setHeader('Allow', 'POST')
+    return res.status(405).json({ error: 'Método no permitido.' })
   }
 
-  const { saldo, year, month } = req.body
-
+  res.setHeader('Cache-Control', 'no-store')
   try {
-    const fecha = new Date(year, month, 1).toISOString()
-
-    // Verificar si ya existe
-    const existe = await notion.databases.query({
-      database_id: process.env.NOTION_INGRESOS_DB,
-      filter: {
-        and: [
-          { property: 'Categoría', select: { equals: 'Saldo inicial' } },
-          { property: 'Fecha del ingreso', date: { equals: fecha } }
-        ]
-      }
-    })
-
-    if (existe.results.length > 0) {
-      return res.status(200).json({ ok: true, duplicated: true })
+    const { supabase, user } = await createAuthenticatedClient(req)
+    const { saldo, year, month, cuenta } = req.body || {}
+    const amount = Number(saldo)
+    const y = Number(year)
+    const m = Number(month)
+    if (!Number.isFinite(amount) || !Number.isInteger(y) || !Number.isInteger(m) || m < 0 || m > 11) {
+      return res.status(400).json({ error: 'El saldo o el periodo no son válidos.' })
     }
 
-    await notion.pages.create({
-      parent: { database_id: process.env.NOTION_INGRESOS_DB },
-      properties: {
-        Nombre: { title: [{ text: { content: 'Saldo inicial' } }] },
-        Cantidad: { number: saldo },
-        'Fecha del ingreso': { date: { start: fecha } },
-        Categoría: { select: { name: 'Saldo inicial' } },
-        Cuenta: { select: { name: 'Sistema' } },
-        'Método de pago': { select: { name: 'Sistema' } }
-      }
-    })
+    const accountId = await findOrCreateAccount(supabase, user.id, cuenta || 'Cuenta Principal')
+    const openingDate = `${y}-${String(m + 1).padStart(2, '0')}-01`
+    const { data, error } = await supabase.from('accounts')
+      .update({ opening_balance: amount, opening_balance_date: openingDate })
+      .eq('id', accountId)
+      .select('id, name, opening_balance, opening_balance_date')
+      .single()
+    if (error) throw error
 
-    res.status(201).json({ ok: true })
+    return res.status(200).json({ ok: true, account: data })
   } catch (error) {
-    console.error(error)
-    res.status(500).json({ error: 'Error creando saldo inicial' })
+    return sendApiError(res, error, 'No se pudo guardar el saldo inicial.')
   }
 }
