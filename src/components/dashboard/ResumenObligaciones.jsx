@@ -4,6 +4,17 @@ import { sumMoney, sumMonthlyEquivalent } from '@/lib/finance-core'
 
 const euro = (value) => new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(Number(value || 0))
 
+function dateKeyToday() {
+  const now = new Date()
+  return [now.getFullYear(), String(now.getMonth() + 1).padStart(2, '0'), String(now.getDate()).padStart(2, '0')].join('-')
+}
+
+function monthLabel(value) {
+  if (!value) return 'sin vencimientos'
+  const [year, month] = value.split('-').map(Number)
+  return new Date(year, month - 1, 1).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })
+}
+
 export default function ResumenObligaciones() {
   const [data, setData] = useState({ installments: [], fixed: [], debts: [], replenishments: [], loading: true, error: '' })
 
@@ -39,22 +50,36 @@ export default function ResumenObligaciones() {
   }, [])
 
   const summary = useMemo(() => {
+    const todayKey = dateKeyToday()
+    const currentMonth = todayKey.slice(0, 7)
     const plans = data.installments.filter((plan) => plan.activo !== false)
-    const allInstallments = plans.flatMap((plan) => (plan.historialCuotas || []).map((installment) => ({ ...installment, planName: plan.concepto })))
-    const pendingInstallments = allInstallments.filter((installment) => !installment.pagada)
-    const unlinkedPaid = allInstallments.filter((installment) => installment.pagada && !installment.transactionId)
+    const allInstallments = plans.flatMap((plan) => (plan.historialCuotas || []).map((installment) => ({
+      ...installment,
+      planName: plan.concepto,
+      month: String(installment.fecha || '').slice(0, 7),
+    })))
+    const pendingAll = allInstallments
+      .filter((installment) => !installment.pagada && /^\d{4}-\d{2}$/.test(installment.month))
+      .sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)))
+
+    // Focus on one month only: overdue month first, current month if it has pending items,
+    // otherwise the nearest future month. This prevents the dashboard from accumulating
+    // every future installment into one misleading figure.
+    const overdueFirst = pendingAll.find((item) => item.fecha < todayKey)
+    const currentMonthPending = pendingAll.filter((item) => item.month === currentMonth)
+    const focusMonth = overdueFirst?.month || (currentMonthPending.length ? currentMonth : pendingAll[0]?.month || currentMonth)
+    const pendingInstallments = pendingAll.filter((item) => item.month === focusMonth)
+    const unlinkedPaid = allInstallments.filter((item) => item.month === focusMonth && item.pagada && !item.transactionId)
     const activeFixed = data.fixed.filter((item) => item.activo !== false)
     const activeDebts = data.debts.filter((item) => !['settled', 'written_off'].includes(item.status))
     const replenishments = data.replenishments.filter((item) => Number(item.outstandingAmount || 0) > 0)
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    const todayKey = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0')
     const upcoming = pendingInstallments
-      .filter((item) => item.fecha && item.fecha.slice(0, 10) >= todayKey)
-      .sort((a, b) => a.fecha.localeCompare(b.fecha))
+      .filter((item) => item.fecha && item.fecha >= todayKey)
       .slice(0, 3)
-    const overdue = pendingInstallments.filter((item) => item.fecha && item.fecha.slice(0, 10) < todayKey)
+    const overdue = pendingInstallments.filter((item) => item.fecha && item.fecha < todayKey)
+
     return {
+      focusMonth,
       pendingInstallments,
       pendingInstallmentAmount: sumMoney(pendingInstallments, (item) => item.monto || 0),
       unlinkedPaid,
@@ -71,12 +96,16 @@ export default function ResumenObligaciones() {
 
   const cards = [
     {
-      title: 'Cuotas pendientes',
+      title: 'Cuotas · ' + monthLabel(summary.focusMonth),
       value: euro(summary.pendingInstallmentAmount),
-      detail: summary.pendingInstallments.length + ' cuotas por pagar',
+      detail: summary.pendingInstallments.length
+        ? summary.pendingInstallments.length + ' cuotas pendientes en ese mes'
+        : 'Sin cuotas pendientes en ese mes',
       icon: CreditCardIcon,
       tone: 'violet',
-      secondary: summary.unlinkedPaid.length > 0 ? summary.unlinkedPaid.length + ' pagadas sin gasto vinculado' : 'Pagos vinculados a sus movimientos',
+      secondary: summary.unlinkedPaid.length > 0
+        ? summary.unlinkedPaid.length + ' pagadas sin gasto vinculado'
+        : 'Solo se muestra el mes prioritario',
     },
     {
       title: 'Pagos fijos',
@@ -126,7 +155,7 @@ export default function ResumenObligaciones() {
           return (
             <article key={card.title} className="group rounded-2xl border border-slate-800 bg-slate-900/65 p-4 shadow-sm transition-colors hover:border-slate-700 hover:bg-slate-900/90">
               <div className="flex items-center justify-between gap-2">
-                <p className="text-sm font-medium text-slate-300">{card.title}</p>
+                <p className="text-sm font-medium capitalize text-slate-300">{card.title}</p>
                 <span className={'rounded-lg p-2 ' + toneClasses[card.tone]}>
                   <Icon className="h-4 w-4" />
                 </span>
@@ -143,13 +172,13 @@ export default function ResumenObligaciones() {
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <CalendarDaysIcon className="h-4 w-4 text-emerald-400" />
-            <h3 className="text-sm font-semibold text-white">Calendario de cuotas</h3>
+            <h3 className="text-sm font-semibold capitalize text-white">Cuotas de {monthLabel(summary.focusMonth)}</h3>
           </div>
-          <span className="text-xs text-slate-500">Próximos vencimientos</span>
+          <span className="text-xs text-slate-500">Un mes prioritario cada vez</span>
         </div>
 
-        {summary.upcoming.length === 0 ? (
-          <p className="py-2 text-sm text-slate-500">No hay cuotas futuras pendientes con fecha programada.</p>
+        {summary.pendingInstallments.length === 0 ? (
+          <p className="py-2 text-sm text-slate-500">No hay cuotas pendientes en {monthLabel(summary.focusMonth)}.</p>
         ) : (
           <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
             {summary.upcoming.map((item) => (
@@ -161,6 +190,7 @@ export default function ResumenObligaciones() {
                 <span className="shrink-0 text-sm font-semibold tabular-nums text-white">{euro(item.monto)}</span>
               </div>
             ))}
+            {summary.upcoming.length === 0 && <p className="py-2 text-sm text-slate-500">Quedan cuotas vencidas pendientes de revisar.</p>}
           </div>
         )}
 
