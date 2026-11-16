@@ -1034,7 +1034,7 @@ export default function Configuracion() {
                   ))}
                 </div>
                 <div className="mt-3 border-t border-slate-800 pt-3 text-right text-sm font-semibold text-white">
-                  Total planificado: €{presupuestos.filter(item => item.month === mes).reduce((sum,item) => sum + item.amount,0).toFixed(2)}
+                  Total planificado: €{sumMoney(presupuestos.filter((item) => item.month === mes), (item) => item.amount || 0).toFixed(2)}
                 </div>
               </div>
             ))}
@@ -1158,7 +1158,7 @@ export default function Configuracion() {
                                 Total: €{compra.montoTotal.toFixed(2)}
                               </span>
                               <span className="text-slate-500">
-                                Restan: {cuotasRestantes} cuotas · €{(compra.historialCuotas || []).filter(c => !c.pagada).reduce((sum,c) => sum + Number(c.monto || 0),0).toFixed(2)}
+                                Restan: {cuotasRestantes} cuotas · €{sumMoney((compra.historialCuotas || []).filter((cuota) => !cuota.pagada), (cuota) => cuota.monto || 0).toFixed(2)}
                               </span>
                             </div>
                             <div className="mt-4 rounded-lg border border-slate-700/70 bg-slate-950/40 p-3">
