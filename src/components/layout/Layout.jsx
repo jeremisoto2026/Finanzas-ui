@@ -64,7 +64,7 @@ export default function Layout() {
             {activePage === 'Dashboard' && <Dashboard />}
             {activePage === 'Gastos' && <Gastos />}
             {activePage === 'Ingresos' && <Ingresos />}
-            {activePage === 'Configuración' && <Configuracion />}
+            {activePage === 'Gestión financiera' && <Configuracion />}
             {activePage === 'Deudas' && <Deudas />}
             {activePage === 'Compromisos' && <Compromisos />}
           </Suspense>
