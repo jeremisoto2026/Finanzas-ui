@@ -242,9 +242,7 @@ export default function Configuracion() {
         numero: i,
         monto: parseFloat(montoCuota.toFixed(2)),
         pagada: i <= cuotasPagadas,
-        fecha: new Date(new Date(compraCuotas.fechaInicio).setMonth(
-          new Date(compraCuotas.fechaInicio).getMonth() + (i - 1)
-        )).toISOString().split('T')[0]
+        fecha: addMonthsClamped(compraCuotas.fechaInicio, i - 1)
       })
       
       montoRestante -= montoCuota
@@ -395,6 +393,7 @@ export default function Configuracion() {
   const cuotasPendientes = todasLasCuotas.filter(cuota => !cuota.pagada)
   const totalCuotasPendientes = cuotasPendientes.reduce((sum, cuota) => sum + Number(cuota.monto || 0), 0)
   const totalCuotasPagadas = todasLasCuotas.filter(cuota => cuota.pagada).length
+  const cuotasPagadasSinMovimiento = todasLasCuotas.filter(cuota => cuota.pagada && !cuota.transactionId).length
   const totalCuotasTotales = todasLasCuotas.length
   const porcentajeCuotasPagadas = totalCuotasTotales > 0 ? (totalCuotasPagadas / totalCuotasTotales) * 100 : 0
 
