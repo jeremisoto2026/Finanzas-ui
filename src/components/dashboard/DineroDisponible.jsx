@@ -56,17 +56,22 @@ export default function DineroDisponible() {
         }).format(new Date()).slice(0, 7)
         const eligibleBudgets = (Array.isArray(budgets) ? budgets : [])
           .filter((item) => item.month >= currentMonth)
-        const targetMonth = eligibleBudgets.map((item) => item.month).sort()[0] || ''
-        const monthBudgets = eligibleBudgets.filter((item) => item.month === targetMonth)
-        const spendForBudget = (budget) => sumMoney(
+        const availableMonths = [...new Set(eligibleBudgets.map((item) => item.month))].sort()
+        const spendForBudget = (budget, month) => sumMoney(
           (Array.isArray(expenses) ? expenses : []).filter((expense) =>
-            expense.categoria === budget.category && String(expense.fecha || '').slice(0, 7) === targetMonth
+            expense.categoria === budget.category && String(expense.fecha || '').slice(0, 7) === month
           ),
           (expense) => expense.monto || 0
         )
+        const monthRemaining = (month) => sumMoney(
+          eligibleBudgets.filter((item) => item.month === month),
+          (item) => Math.max(0, Number(item.amount || 0) - spendForBudget(item, month))
+        )
+        const targetMonth = availableMonths.find((month) => monthRemaining(month) > 0) || ''
+        const monthBudgets = eligibleBudgets.filter((item) => item.month === targetMonth)
         const planned = sumMoney(monthBudgets, (item) => item.amount || 0)
-        const spent = sumMoney(monthBudgets, spendForBudget)
-        const remaining = sumMoney(monthBudgets, (item) => Math.max(0, Number(item.amount || 0) - spendForBudget(item)))
+        const spent = sumMoney(monthBudgets, (item) => spendForBudget(item, targetMonth))
+        const remaining = sumMoney(monthBudgets, (item) => Math.max(0, Number(item.amount || 0) - spendForBudget(item, targetMonth)))
         if (!cancelled) setBudgetReserve({ loading: false, month: targetMonth, planned, spent, remaining })
       } catch (reserveError) {
         if (!cancelled) setBudgetReserve({ loading: false, month: '', planned: 0, spent: 0, remaining: 0 })
