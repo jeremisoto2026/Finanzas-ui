@@ -56,10 +56,10 @@ export default function Compromisos() {
     ),
   }), [items])
 
-  const statusWarnings = items.filter((item) => (
+  const statusWarnings = useMemo(() => items.filter((item) => (
     item.status === 'settled'
     && /no consta como pagado|no se ha pagado|pendiente de pago|no consta pagado/i.test(String(item.notes || ''))
-  ))
+  )), [items])
 
   const update = async (item, status) => {
     const message = status === 'settled'
@@ -95,7 +95,7 @@ export default function Compromisos() {
   ]
 
   return (
-    <div className="min-h-screen bg-slate-950 p-4 md:p-6 text-slate-100">
+    <div className="mx-auto w-full max-w-7xl space-y-6 text-slate-100">
       <div className="mb-6">
         <div className="mb-2 flex items-center gap-3">
           <BanknotesIcon className="h-7 w-7 text-emerald-400" />
