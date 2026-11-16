@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { sumMonthlyEquivalent } from '@/lib/finance-core'
+import { addMonthsClamped, sumMonthlyEquivalent } from '@/lib/finance-core'
 import { 
   Settings, 
   Plus,
@@ -294,6 +294,9 @@ export default function Configuracion() {
   }
 
   const marcarCuotaPagada = async (compraId, cuotaNumero) => {
+    const confirmar = confirm('Esta acción marca la cuota como pagada en el plan, pero no crea un cargo en tu cuenta. Para cuadrar el saldo, debe existir también un movimiento de gasto. ¿Confirmas que ya se pagó?')
+    if (!confirmar) return
+
     try {
       const compra = comprasCuotas.find(c => c.id === compraId)
       if (!compra) return
@@ -421,15 +424,6 @@ export default function Configuracion() {
     return formatearPeriodo(String(fecha).slice(0, 7))
   }
 
-  // Función para resetear datos (ahora solo para datos locales)
-  const resetearDatos = () => {
-    if (confirm('¿Estás seguro de querer resetear todos los datos locales? Esto eliminará los datos cargados en memoria pero no los de Supabase.')) {
-      setPagosFijos([])
-      setComprasCuotas([])
-      window.location.reload()
-    }
-  }
-
   // ========== ESTADOS DE CARGA ==========
   if (loading) {
     return (
@@ -512,17 +506,15 @@ export default function Configuracion() {
         </div>
       </div>
 
-      {/* BOTÓN DE RESET (solo para datos locales) */}
-      <div className="mb-4 flex justify-end">
-        <button
-          onClick={resetearDatos}
-          className="flex items-center gap-2 px-3 py-2 text-xs bg-red-900/30 text-red-400 hover:bg-red-900/50 rounded-lg transition"
-          title="Resetear datos locales en memoria"
-        >
-          <RefreshCw className="h-3 w-3" />
-          Resetear datos locales
-        </button>
-      </div>
+      {cuotasPagadasSinMovimiento > 0 && (
+        <div className="mb-5 rounded-xl border border-amber-700/50 bg-amber-950/20 p-4 text-sm text-amber-100">
+          <p className="font-semibold">Revisión de cuotas: {cuotasPagadasSinMovimiento} marcadas como pagadas sin movimiento bancario vinculado</p>
+          <p className="mt-1 leading-6 text-amber-200/80">
+            Estas cuotas no se descuentan del saldo bancario ni se suman al gasto real automáticamente.
+            Comprueba si ya registraste cada cargo en Gastos antes de volver a introducirlo, para evitar duplicados.
+          </p>
+        </div>
+      )}
 
       {/* BOTONES PRINCIPALES */}
       <div className="mb-8 grid grid-cols-1 sm:grid-cols-2 gap-3">
