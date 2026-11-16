@@ -318,6 +318,7 @@ create index monthly_closings_user_period_idx on public.monthly_closings(user_id
 -- Supabase changed its Data API exposure defaults in 2026. Explicitly grant
 -- only this app's tables to authenticated users, never to the anon role.
 grant usage on schema public to authenticated;
+grant usage on type public.transaction_kind, public.transaction_status to authenticated;
 revoke all on table
   public.profiles, public.accounts, public.categories, public.import_batches,
   public.transfers, public.transactions, public.fixed_payments,
