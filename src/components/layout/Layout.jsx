@@ -5,6 +5,7 @@ import Dashboard from '@/pages/Dashboard'
 import Gastos from '@/pages/Gastos'
 import Ingresos from '@/pages/Ingresos'
 import Configuracion from '@/pages/Configuracion'
+import Deudas from '@/pages/Deudas'
 
 export default function Layout() {
   const [menuAbierto, setMenuAbierto] = useState(false)
@@ -47,6 +48,7 @@ export default function Layout() {
   {activePage === 'Gastos' && <Gastos />}
   {activePage === 'Ingresos' && <Ingresos />}
   {activePage === 'Configuración' && <Configuracion />}
+  {activePage === 'Deudas' && <Deudas />}
 </main>
       </div>
     </div>
