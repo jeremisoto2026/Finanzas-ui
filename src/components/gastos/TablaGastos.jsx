@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { sumMoney } from '@/lib/finance-core';
 import { 
   Download, 
   Filter,
@@ -275,7 +276,7 @@ export default function TablaGastos() {
 
   // 1. Total
   const total = useMemo(() => {
-    return gastosFiltrados.reduce((sum, gasto) => sum + (gasto.monto || 0), 0);
+    return sumMoney(gastosFiltrados, (gasto) => gasto.monto || 0);
   }, [gastosFiltrados]);
 
   // 2. Estadísticas por tipo de gasto
@@ -368,7 +369,7 @@ export default function TablaGastos() {
       <div className="mb-8">
         <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-white mb-1">Dashboard Financiero</h1>
+            <h1 className="text-2xl font-bold text-white mb-1">Gastos registrados</h1>
             <div className="flex items-center gap-3 mt-2">
               <span className="text-3xl font-bold text-red-400">€{total.toFixed(2)}</span>
               <div className="h-2 w-2 rounded-full bg-slate-600"></div>
