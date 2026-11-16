@@ -66,7 +66,7 @@ export function GastosProvider({ children }) {
     
     return pagosFijos.map(pago => {
       // Usar fechaRealPago si existe, sino fechaInicio
-      const fechaPagoStr = pago.fechaRealPago || pago.fechaInicio;
+      const fechaPagoStr = pago.fechaRealPago; // Próximo vencimiento no significa que esté pagado.
       if (!fechaPagoStr) return null;
       
       const fechaPago = new Date(fechaPagoStr);
@@ -111,9 +111,9 @@ export function GastosProvider({ children }) {
       // Filtrar SOLO cuotas PAGADAS con fecha HOY o PASADA
       compra.historialCuotas.forEach(cuota => {
         if (!cuota.pagada) return; // Solo cuotas pagadas
-        if (!cuota.fecha) return; // Necesita fecha
+        if (!cuota.fechaPago) return; // Solo contar cuando exista fecha real de pago confirmada.
         
-        const fechaCuota = new Date(cuota.fecha);
+        const fechaCuota = new Date(cuota.fechaPago);
         fechaCuota.setHours(0, 0, 0, 0);
         
         // Solo incluir si la fecha es hoy o pasada
@@ -122,7 +122,7 @@ export function GastosProvider({ children }) {
           
           gastosCuotas.push({
             id: `cuota-${compra.id}-${cuota.numero}`,
-            fecha: cuota.fecha,
+            fecha: cuota.fechaPago,
             concepto: `${compra.concepto}`,
             metodo: compra.metodo,
             categoria: compra.categoria,
