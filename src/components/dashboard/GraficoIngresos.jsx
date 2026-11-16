@@ -136,6 +136,14 @@ export default function GraficoIngresos({ modo = 'mesActual' }) {
     return { data, total }
   }, [ingresosFiltrados])
 
+  const accountTotalsByCurrency = useMemo(() => (
+    sumMoneyBy(
+      accounts,
+      (account) => account.currencyCode || 'EUR',
+      (account) => account.balance || 0
+    )
+  ), [accounts])
+
   const periodoTexto = modo === 'filtrados'
     ? (filtroMes ? monthLabel(filtroMes) : 'Todos los periodos')
     : monthLabel(mesActual)
@@ -260,11 +268,18 @@ export default function GraficoIngresos({ modo = 'mesActual' }) {
                   </span>
                 </div>
               ))}
-              <div className="flex items-center justify-between rounded-lg bg-slate-800/60 px-3 py-3">
-                <span className="text-sm font-medium text-slate-300">Total en cuentas</span>
-                <span className="text-base font-semibold tabular-nums text-emerald-300">
-                  {euro(accounts.reduce((sum, account) => sum + (account.currencyCode === 'EUR' ? Number(account.balance || 0) : 0), 0))}
-                </span>
+              <div className="rounded-lg bg-slate-800/60 px-3 py-3">
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Totales por moneda</p>
+                <div className="space-y-1.5">
+                  {Object.entries(accountTotalsByCurrency).map(([currency, amount]) => (
+                    <div key={currency} className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-slate-300">Total {currency}</span>
+                      <span className="text-base font-semibold tabular-nums text-emerald-300">
+                        {euro(amount, currency)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           )}
