@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
-import { LockKeyhole, LogIn, UserPlus, LoaderCircle, LogOut } from 'lucide-react'
+import { LockKeyhole, LogIn, UserPlus, Loader2, LogOut } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { GastosProvider } from '@/contexts/GastosContext'
 import Layout from '@/components/layout/Layout'
@@ -130,7 +130,7 @@ function AuthScreen() {
             disabled={busy}
             className="flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-3 font-semibold text-white transition hover:bg-emerald-500 disabled:cursor-wait disabled:opacity-60"
           >
-            {busy ? <LoaderCircle className="h-4 w-4 animate-spin" /> : mode === 'signin' ? <LogIn className="h-4 w-4" /> : <UserPlus className="h-4 w-4" />}
+            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : mode === 'signin' ? <LogIn className="h-4 w-4" /> : <UserPlus className="h-4 w-4" />}
             {busy ? 'Procesando…' : mode === 'signin' ? 'Iniciar sesión' : 'Crear cuenta'}
           </button>
         </form>
@@ -178,7 +178,7 @@ function AuthenticatedFinanceApp() {
   }
 
   if (!profileReady) {
-    return <main className="min-h-screen bg-slate-950 flex items-center justify-center text-slate-300"><LoaderCircle className="mr-2 h-5 w-5 animate-spin" /> Preparando tu espacio financiero…</main>
+    return <main className="min-h-screen bg-slate-950 flex items-center justify-center text-slate-300"><Loader2 className="mr-2 h-5 w-5 animate-spin" /> Preparando tu espacio financiero…</main>
   }
 
   return (
@@ -200,6 +200,6 @@ function AuthenticatedFinanceApp() {
 
 export function AuthGate() {
   const { user, loading } = useAuth()
-  if (loading) return <main className="min-h-screen bg-slate-950 flex items-center justify-center text-slate-300"><LoaderCircle className="mr-2 h-5 w-5 animate-spin" /> Comprobando sesión…</main>
+  if (loading) return <main className="min-h-screen bg-slate-950 flex items-center justify-center text-slate-300"><Loader2 className="mr-2 h-5 w-5 animate-spin" /> Comprobando sesión…</main>
   return user ? <AuthenticatedFinanceApp /> : <AuthScreen />
 }
