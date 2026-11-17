@@ -145,9 +145,9 @@ export default async function handler(req, res) {
       // debe diferenciarlas (por ejemplo, añadiendo una referencia).
       const normalizePlanName = (value) => String(value || '')
         .normalize('NFD')
-        .replace(/[\\u0300-\\u036f]/g, '')
+        .replace(/[\u0300-\u036f]/g, '')
         .trim()
-        .replace(/\\s+/g, ' ')
+        .replace(/\s+/g, ' ')
         .toLocaleLowerCase('es');
 
       const { data: matchingPlans, error: matchingPlansError } = await supabase
