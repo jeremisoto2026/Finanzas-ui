@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { addInstallmentDate, distributeInstallmentAmounts, localDateInputValue, sumMoney, sumMonthlyEquivalent } from '@/lib/finance-core'
+import NotificationSettings from '@/components/NotificationSettings'
 import { 
   Settings, 
   Plus,
@@ -1590,35 +1591,7 @@ export default function Configuracion() {
         )}
       </div>
 
-      {/* NOTIFICACIONES */}
-      <div className="mt-8 bg-slate-900/50 border border-slate-800 rounded-xl p-5">
-        <h3 className="text-sm font-semibold text-white mb-4 flex items-center gap-2">
-          <Bell className="h-4 w-4 text-amber-400" />
-          Recordatorios
-        </h3>
-        <div className="space-y-3">
-          <div className="flex items-center justify-between p-3 bg-slate-800/30 rounded-lg">
-            <div>
-              <div className="text-sm text-slate-300">Recordatorios de pagos fijos</div>
-              <div className="text-xs text-slate-500">Recibir notificación 3 días antes del vencimiento</div>
-            </div>
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input type="checkbox" className="sr-only peer" defaultChecked />
-              <div className="w-11 h-6 bg-slate-700 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-600"></div>
-            </label>
-          </div>
-          <div className="flex items-center justify-between p-3 bg-slate-800/30 rounded-lg">
-            <div>
-              <div className="text-sm text-slate-300">Recordatorios de cuotas</div>
-              <div className="text-xs text-slate-500">Aviso cuando se acerca el pago de una cuota</div>
-            </div>
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input type="checkbox" className="sr-only peer" defaultChecked />
-              <div className="w-11 h-6 bg-slate-700 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
-            </label>
-          </div>
-        </div>
-      </div>
+      <NotificationSettings />
     </div>
   )
 }
