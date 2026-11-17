@@ -624,7 +624,15 @@ export default function Configuracion() {
     (cuota) => cuota.monto || 0
   )
 
-  const categoriasPresupuesto = uniqueCategoryNames([...categoriasDisponibles, ...presupuestos.map((item) => item.category), presupuestoForm.category])
+  const categoriasConfiguracion = uniqueCategoryNames([
+    ...categoriasDisponibles,
+    ...presupuestos.map((item) => item.category),
+    ...pagosFijos.map((item) => item.categoria),
+    ...comprasCuotas.map((item) => item.categoria),
+    presupuestoForm.category,
+    pagoFijo.categoria,
+    compraCuotas.categoria,
+  ])
   const mesesPresupuesto = [...new Set(presupuestos.map(item => item.month))].sort((a, b) => b.localeCompare(a))
   const totalPresupuestoMesProximo = sumMoney(
     presupuestos.filter((item) => item.month === mesProximo),
@@ -873,17 +881,7 @@ export default function Configuracion() {
                   onChange={(e) => setPagoFijo({...pagoFijo, categoria: e.target.value})}
                   className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition"
                 >
-                  <option value="Alquiler">Alquiler</option>
-                  <option value="Servicios">Servicios</option>
-                  <option value="Entretenimiento">Entretenimiento</option>
-                  <option value="Salud">Salud</option>
-                  <option value="Transporte">Transporte</option>
-                  <option value="Alimentación">Alimentación</option>
-                  <option value="Telefonía">Telefonía</option>
-                  <option value="Tecnología">Tecnología</option>
-                  <option value="Educación">Educación</option>
-                  <option value="Hogar">Hogar</option>
-                  <option value="Otros">Otros</option>
+                  {categoriasConfiguracion.map((category) => <option key={category} value={category}>{category}</option>)}
                 </select>
               </div>
 
@@ -1117,13 +1115,7 @@ export default function Configuracion() {
                   onChange={(e) => setCompraCuotas({...compraCuotas, categoria: e.target.value})}
                   className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition"
                 >
-                  <option value="Tecnología">Tecnología</option>
-                  <option value="Hogar">Hogar</option>
-                  <option value="Transporte">Transporte</option>
-                  <option value="Educación">Educación</option>
-                  <option value="Salud">Salud</option>
-                  <option value="Entretenimiento">Entretenimiento</option>
-                  <option value="Otros">Otros</option>
+                  {categoriasConfiguracion.map((category) => <option key={category} value={category}>{category}</option>)}
                 </select>
               </div>
 
@@ -1330,7 +1322,7 @@ export default function Configuracion() {
           <div className="flex items-center justify-between"><h3 className="font-semibold text-white">{editingPresupuestoId ? 'Editar presupuesto' : 'Nuevo presupuesto'}</h3><button type="button" onClick={() => { setMostrarFormPresupuesto(false); setEditingPresupuestoId(null); }} className="text-sm text-slate-400 hover:text-white">Cerrar</button></div>
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <label className="text-sm text-slate-300">Mes<input type="month" required value={presupuestoForm.month} onChange={(e) => setPresupuestoForm({ ...presupuestoForm, month: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-white" /></label>
-            <label className="text-sm text-slate-300">Categoría<select required value={presupuestoForm.category} onChange={(e) => setPresupuestoForm({ ...presupuestoForm, category: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-white"><option value="" disabled>Selecciona una categoría</option>{categoriasPresupuesto.map((category) => <option key={category} value={category}>{category}</option>)}</select></label>
+            <label className="text-sm text-slate-300">Categoría<select required value={presupuestoForm.category} onChange={(e) => setPresupuestoForm({ ...presupuestoForm, category: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-white"><option value="" disabled>Selecciona una categoría</option>{categoriasConfiguracion.map((category) => <option key={category} value={category}>{category}</option>)}</select></label>
             <label className="text-sm text-slate-300">Importe planificado (€)<input type="number" min="0" step="0.01" required value={presupuestoForm.amount} onChange={(e) => setPresupuestoForm({ ...presupuestoForm, amount: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-white" /></label>
             <label className="text-sm text-slate-300">Notas<input value={presupuestoForm.notes} onChange={(e) => setPresupuestoForm({ ...presupuestoForm, notes: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-white" /></label>
           </div>
