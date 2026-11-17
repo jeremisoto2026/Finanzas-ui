@@ -19,6 +19,14 @@ async function isInstallmentLinked(supabase, userId, transactionId) {
   return Boolean(data)
 }
 
+function normalizeCategoryName(value) {
+  return String(value || '')
+    .normalize('NFKC')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .toLowerCase()
+}
+
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store')
 
@@ -26,6 +34,29 @@ export default async function handler(req, res) {
     const { supabase, user } = await createAuthenticatedClient(req)
 
     if (req.method === 'GET') {
+      if (req.query?.resource === 'categories') {
+        const { data, error } = await supabase
+          .from('categories')
+          .select('name')
+          .eq('user_id', user.id)
+          .eq('is_active', true)
+          .in('direction', ['expense', 'both'])
+          .order('name', { ascending: true })
+
+        if (error) throw error
+
+        const seen = new Set()
+        const categories = []
+        for (const row of data || []) {
+          const name = String(row.name || '').trim().replace(/\s+/g, ' ')
+          const key = normalizeCategoryName(name)
+          if (!name || seen.has(key)) continue
+          seen.add(key)
+          categories.push(name)
+        }
+        return res.status(200).json(categories)
+      }
+
       const { data, error } = await supabase
         .from('transactions')
         .select('id, account_id, amount, occurred_on, description, payment_method, categories(name), accounts(name)')

@@ -143,7 +143,7 @@ export default function Configuracion() {
 
   useEffect(() => {
     let activo = true
-    fetch('/api/categorias?direction=expense', { cache: 'no-store' })
+    fetch('/api/gastos?resource=categories', { cache: 'no-store' })
       .then((response) => {
         if (!response.ok) throw new Error('No se pudieron cargar las categorías.')
         return response.json()
