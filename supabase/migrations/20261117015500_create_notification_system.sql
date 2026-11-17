@@ -1,5 +1,5 @@
--- Finanzas-ui: real payment reminders and Web Push subscriptions.
--- Apply to the isolated Supabase preview branch first.
+-- Finanzas-ui: additive reminder infrastructure and Web Push subscriptions.
+-- Does not update, delete, or rewrite existing financial records.
 
 create extension if not exists pg_cron with schema pg_catalog;
 grant usage on schema cron to postgres;
@@ -157,7 +157,6 @@ begin
     headers := jsonb_build_object(
       'Content-Type', 'application/json',
       'apikey', config_row.publishable_key,
-      'Authorization', 'Bearer ' || config_row.publishable_key,
       'x-cron-secret', config_row.cron_secret
     ),
     body := jsonb_build_object('triggered_at', clock_timestamp()),
