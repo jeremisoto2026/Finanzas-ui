@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Bell, BellRing, Check, Clock3, LoaderCircle, Smartphone, Trash2 } from 'lucide-react'
+import { Bell, BellRing, Check, Clock3, Loader2, Smartphone, Trash2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 
 const DEFAULT_PREFERENCES = {
@@ -264,7 +264,7 @@ export default function NotificationSettings() {
               onClick={isSubscribed ? deactivatePush : activatePush}
               className={'mt-3 inline-flex items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ' + (isSubscribed ? 'border border-slate-600 text-slate-200 hover:bg-slate-800' : 'bg-emerald-600 text-white hover:bg-emerald-500')}
             >
-              {busyPush ? <LoaderCircle className="h-4 w-4 animate-spin" /> : isSubscribed ? <Trash2 className="h-4 w-4" /> : <BellRing className="h-4 w-4" />}
+              {busyPush ? <Loader2 className="h-4 w-4 animate-spin" /> : isSubscribed ? <Trash2 className="h-4 w-4" /> : <BellRing className="h-4 w-4" />}
               {busyPush ? 'Actualizando…' : isSubscribed ? 'Desactivar en este dispositivo' : 'Activar notificaciones push'}
             </button>
             {!publicKey && !isSubscribed && <p className="mt-2 text-[11px] text-amber-300">Pendiente de configurar la clave pública en Vercel.</p>}
@@ -329,7 +329,7 @@ export default function NotificationSettings() {
       <div className="flex items-center gap-2 text-xs text-slate-500">
         <Clock3 className="h-3.5 w-3.5" />
         El sistema comprobará los vencimientos automáticamente y evitará repetir el mismo aviso.
-        {saving && <span className="ml-auto inline-flex items-center gap-1 text-slate-300"><LoaderCircle className="h-3 w-3 animate-spin" /> Guardando</span>}
+        {saving && <span className="ml-auto inline-flex items-center gap-1 text-slate-300"><Loader2 className="h-3 w-3 animate-spin" /> Guardando</span>}
       </div>
 
       <div className="border-t border-slate-800 pt-4">
@@ -338,7 +338,7 @@ export default function NotificationSettings() {
           <button type="button" onClick={loadData} disabled={loading} className="text-xs text-emerald-300 hover:text-emerald-200 disabled:opacity-50">Actualizar</button>
         </div>
         {loading ? (
-          <div className="flex items-center gap-2 py-4 text-sm text-slate-400"><LoaderCircle className="h-4 w-4 animate-spin" /> Cargando avisos…</div>
+          <div className="flex items-center gap-2 py-4 text-sm text-slate-400"><Loader2 className="h-4 w-4 animate-spin" /> Cargando avisos…</div>
         ) : notifications.length === 0 ? (
           <p className="rounded-lg bg-slate-800/40 p-4 text-sm text-slate-400">Todavía no hay recordatorios. Cuando se acerque un vencimiento aparecerá aquí.</p>
         ) : (
