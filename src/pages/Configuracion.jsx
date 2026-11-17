@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { addInstallmentDate, distributeInstallmentAmounts, localDateInputValue, sumMoney, sumMonthlyEquivalent } from '@/lib/finance-core'
 import { 
   Settings, 
@@ -55,6 +55,8 @@ export default function Configuracion() {
   const [gastosRegistrados, setGastosRegistrados] = useState([])
   const [pagoCuotaDialog, setPagoCuotaDialog] = useState(null)
   const [guardandoPagoCuota, setGuardandoPagoCuota] = useState(false)
+  const [guardandoCompraCuotas, setGuardandoCompraCuotas] = useState(false)
+  const guardandoCompraCuotasRef = useRef(false)
   const [mensajeCuotas, setMensajeCuotas] = useState(null)
 
   // Estados para acordeones
@@ -334,6 +336,7 @@ export default function Configuracion() {
   }
 
   const guardarCompraCuotas = async () => {
+    if (guardandoCompraCuotasRef.current) return
     setMensajeCuotas(null)
     if (!compraCuotas.concepto.trim() || !String(compraCuotas.montoTotal).trim()) {
       setMensajeCuotas({ type: 'error', message: 'Completa el concepto y el importe total.' })
@@ -387,6 +390,8 @@ export default function Configuracion() {
       return
     }
 
+    guardandoCompraCuotasRef.current = true
+    setGuardandoCompraCuotas(true)
     try {
       setMensajeCuotas(null)
       const res = await fetch('/api/compras-cuotas', {
@@ -423,6 +428,9 @@ export default function Configuracion() {
     } catch (err) {
       console.error('Error guardando compra a cuotas:', err)
       setMensajeCuotas({ type: 'error', message: err.message || 'No se pudo guardar la compra a cuotas. Revisa los datos e inténtalo de nuevo.' })
+    } finally {
+      guardandoCompraCuotasRef.current = false
+      setGuardandoCompraCuotas(false)
     }
   }
 
@@ -1147,11 +1155,14 @@ export default function Configuracion() {
                 Cancelar
               </button>
               <button
+                type="button"
                 onClick={guardarCompraCuotas}
-                className="flex items-center gap-2 px-5 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition"
+                disabled={guardandoCompraCuotas}
+                aria-busy={guardandoCompraCuotas}
+                className="flex items-center gap-2 px-5 py-2.5 bg-purple-600 hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-purple-600 text-white rounded-lg font-medium transition"
               >
                 <Save className="h-4 w-4" />
-                {editingCompraCuotasId ? 'Guardar cambios' : 'Crear compra a cuotas'}
+                {guardandoCompraCuotas ? 'Guardando...' : editingCompraCuotasId ? 'Guardar cambios' : 'Crear compra a cuotas'}
               </button>
             </div>
           </div>
