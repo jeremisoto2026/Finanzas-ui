@@ -2,6 +2,8 @@
 -- Apply to the isolated Supabase preview branch first.
 
 create extension if not exists pg_cron with schema pg_catalog;
+grant usage on schema cron to postgres;
+grant all privileges on all tables in schema cron to postgres;
 create extension if not exists pg_net;
 
 create table if not exists public.notification_preferences (
@@ -162,9 +164,11 @@ begin
     timeout_milliseconds := 10000
   );
 end;
-$$;
+$;
 
-do $$
+revoke all on function private.invoke_reminder_worker() from public, anon, authenticated, service_role;
+
+do $
 begin
   if exists (select 1 from cron.job where jobname = 'finanzas-ui-reminders-hourly') then
     perform cron.unschedule('finanzas-ui-reminders-hourly');
@@ -172,7 +176,7 @@ begin
 
   perform cron.schedule(
     'finanzas-ui-reminders-hourly',
-    '5 * * * *',
+    '0 * * * *',
     'select private.invoke_reminder_worker();'
   );
 end;
