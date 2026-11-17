@@ -356,6 +356,9 @@ export default function NotificationSettings() {
                       {item.due_on ? 'Vence ' + dateLabel(item.due_on) : dateLabel(item.created_at?.slice(0, 10))}
                       {item.amount != null ? ' · ' + euro(item.amount, item.currency_code) : ''}
                     </div>
+                    <div className="mt-1 text-[11px] text-slate-500">
+                      {item.push_status === 'sent' ? 'Notificación enviada al dispositivo' : item.push_status === 'failed' ? 'No se pudo enviar el aviso' : 'Aviso pendiente de envío'}
+                    </div>
                   </div>
                   {!item.read_at && (
                     <button type="button" onClick={() => markAsRead(item.id)} className="shrink-0 text-xs text-emerald-300 hover:text-emerald-200">Marcar leído</button>
