@@ -8,7 +8,7 @@ Aplicación web de finanzas personales construida con React 18, Vite 5, Tailwind
 - La autenticación se realiza con Supabase Auth (correo y contraseña).
 - Las API de la aplicación validan el JWT del usuario y consultan PostgreSQL con políticas RLS.
 - Notion se conserva como fuente histórica temporal para preparar una importación controlada; las páginas originales no se modifican.
-- La integración de Vercel se mantiene separada de otros proyectos. Las variables de Supabase de esta rama están limitadas a Preview para feat/finance-core-hardening.
+- La integración de Vercel se mantiene separada de otros proyectos. Las variables de Supabase se configuran por separado para Preview y Production; las variables VITE_* deben estar presentes en el entorno que se despliega.
 - No se importan saldos bancarios ni movimientos de conversaciones sin conciliación. No hay datos financieros personales sembrados en la base nueva.
 
 ## Seguridad y fiabilidad
