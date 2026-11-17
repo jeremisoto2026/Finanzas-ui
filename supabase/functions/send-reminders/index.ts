@@ -197,6 +197,15 @@ Deno.serve(async (request) => {
     }
 
     const pendingSince = new Date(now.getTime() - 48 * 60 * 60 * 1000).toISOString()
+    const { error: expireError } = await supabase.from('notifications')
+      .update({
+        push_status: 'failed',
+        last_error: 'El aviso superó la ventana de reintentos de 48 horas.',
+      })
+      .eq('push_status', 'pending')
+      .lt('created_at', pendingSince)
+    if (expireError) throw expireError
+
     const { data: pending, error: pendingError } = await supabase.from('notifications')
       .select('id, user_id, reminder_key, title, body, due_on, amount, currency_code')
       .in('push_status', ['pending', 'failed'])
