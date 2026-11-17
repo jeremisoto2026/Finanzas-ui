@@ -101,6 +101,7 @@ revoke all on schema private from public, anon, authenticated;
 create table if not exists private.push_service_config (
   singleton boolean primary key default true check (singleton),
   project_url text not null,
+  publishable_key text not null,
   vapid_public_key text not null,
   vapid_private_key text not null,
   cron_secret text not null,
@@ -109,9 +110,10 @@ create table if not exists private.push_service_config (
 alter table private.push_service_config enable row level security;
 revoke all on private.push_service_config from public, anon, authenticated, service_role;
 
-create or replace function public.get_push_service_config()
+create or replace function public.get_push_service_config(p_cron_secret text)
 returns table (
   project_url text,
+  publishable_key text,
   vapid_public_key text,
   vapid_private_key text,
   cron_secret text
@@ -119,12 +121,13 @@ returns table (
 language sql
 security definer
 set search_path = ''
-as $$
-  select c.project_url, c.vapid_public_key, c.vapid_private_key, c.cron_secret
+as $
+  select c.project_url, c.publishable_key, c.vapid_public_key, c.vapid_private_key, c.cron_secret
   from private.push_service_config c
   where c.singleton = true
-    and (select auth.jwt() ->> 'role') = 'service_role';
-$$;
+    and p_cron_secret is not null
+    and c.cron_secret = p_cron_secret;
+$;
 
 revoke all on function public.get_push_service_config() from public, anon, authenticated;
 grant execute on function public.get_push_service_config() to service_role;
@@ -138,7 +141,7 @@ as $$
 declare
   config_row record;
 begin
-  select project_url, cron_secret
+  select project_url, publishable_key, cron_secret
   into config_row
   from private.push_service_config
   where singleton = true;
@@ -151,6 +154,8 @@ begin
     url := config_row.project_url || '/functions/v1/send-reminders',
     headers := jsonb_build_object(
       'Content-Type', 'application/json',
+      'apikey', config_row.publishable_key,
+      'Authorization', 'Bearer ' || config_row.publishable_key,
       'x-cron-secret', config_row.cron_secret
     ),
     body := jsonb_build_object('triggered_at', clock_timestamp()),
