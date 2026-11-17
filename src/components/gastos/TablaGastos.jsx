@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { monthKeyFromDate, sumMoney } from '@/lib/finance-core';
+import { uniqueCategoryNames } from '@/lib/category-utils';
 import { 
   Download, 
   Filter,
@@ -40,6 +41,7 @@ import {
 export default function TablaGastos() {
   // Movimientos de gasto contabilizados procedentes del libro mayor.
   const [gastosMensuales, setGastosMensuales] = useState([]);
+  const [categoriasDisponibles, setCategoriasDisponibles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [formOpen, setFormOpen] = useState(false);
@@ -87,13 +89,27 @@ export default function TablaGastos() {
     fetchGastos()
     return () => { cancelled = true }
   }, [])
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/categorias?direction=expense', { cache: 'no-store' })
+      .then((response) => {
+        if (!response.ok) throw new Error('No se pudieron cargar las categorías.')
+        return response.json()
+      })
+      .then((data) => {
+        if (!cancelled && Array.isArray(data)) setCategoriasDisponibles(data)
+      })
+      .catch((loadError) => console.error('No se pudieron cargar las categorías:', loadError))
+    return () => { cancelled = true }
+  }, [])
+
   const abrirNuevoGasto = () => {
     setEditingGastoId(null)
     setNuevoGasto({
       concepto: '',
       monto: '',
       fecha: new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Madrid' }),
-      categoria: 'Alimentación',
+      categoria: categoriasDisponibles.find((category) => category.toLowerCase() === 'alimentación') || categoriasDisponibles[0] || 'Otros',
       cuenta: 'Revolut',
       metodo: 'Tarjeta',
     })
@@ -206,6 +222,13 @@ export default function TablaGastos() {
   const todosLosGastos = useMemo(() => (
     gastosMensuales.map((gasto) => ({ ...gasto, origen: 'normal' }))
   ), [gastosMensuales]);
+
+  const categorias = useMemo(() => uniqueCategoryNames([
+    ...categoriasDisponibles,
+    ...gastosMensuales.map((gasto) => gasto.categoria),
+    nuevoGasto.categoria,
+    filtroCategoria,
+  ]), [categoriasDisponibles, gastosMensuales, nuevoGasto.categoria, filtroCategoria]);
 
   // Filtrar gastos combinados
   const gastosFiltrados = useMemo(() => {
@@ -382,9 +405,7 @@ export default function TablaGastos() {
               </label>
               <label className="text-sm font-medium text-slate-300">Categoría
                 <select value={nuevoGasto.categoria} onChange={(e) => setNuevoGasto({ ...nuevoGasto, categoria: e.target.value })} className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-3 text-white outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20">
-                  <optgroup label="Hogar y necesidades"><option>Alimentación</option><option>Vivienda</option><option>Alquiler</option><option>Hogar</option><option>Servicios</option><option>Telefonía</option></optgroup>
-                  <optgroup label="Personales y trabajo"><option>Transporte</option><option>Salud e higiene</option><option>Equipamiento de trabajo</option><option>Tecnología</option><option>Servicios legales</option><option>Educación</option></optgroup>
-                  <optgroup label="Otros compromisos"><option>Apoyo familiar</option><option>Venezuela</option><option>Cuotas</option><option>Ocio</option><option>Ocio y cigarrillos</option><option>Otros</option></optgroup>
+                  {categorias.map((category) => <option key={category} value={category}>{category}</option>)}
                 </select>
               </label>
               <label className="text-sm font-medium text-slate-300">Cuenta
@@ -498,15 +519,7 @@ export default function TablaGastos() {
                     className="w-full px-4 py-2.5 pl-10 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 transition"
                   >
                     <option value="">Todas las categorías</option>
-                    <option value="Vivienda">Vivienda</option>
-                    <option value="Alimentación">Alimentación</option>
-                    <option value="Transporte">Transporte</option>
-                    <option value="Entretenimiento">Entretenimiento</option>
-                    <option value="Salud">Salud</option>
-                    <option value="Tecnología">Tecnología</option>
-                    <option value="Hogar">Hogar</option>
-                    <option value="Familia">Familia</option>
-                    <option value="Otros">Otros</option>
+                    {categorias.map((category) => <option key={category} value={category}>{category}</option>)}
                   </select>
                   <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-500" />
                 </div>

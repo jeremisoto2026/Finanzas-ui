@@ -43,16 +43,30 @@ export function sendApiError(res, error, fallback = 'No se pudo completar la ope
   })
 }
 
+function normalizeCategoryName(value) {
+  return String(value || '')
+    .normalize('NFKC')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .toLowerCase()
+}
+
 export async function findOrCreateCategory(supabase, userId, label, direction = 'both') {
-  const name = String(label || '').trim()
+  const name = String(label || '').normalize('NFKC').trim().replace(/\s+/g, ' ')
   if (!name) return null
-  const { data: found, error: findError } = await supabase
-    .from('categories')
-    .select('id')
-    .eq('user_id', userId)
-    .eq('name', name)
-    .maybeSingle()
-  if (findError) throw findError
+  const normalizedName = normalizeCategoryName(name)
+
+  const findExisting = async () => {
+    const { data, error } = await supabase
+      .from('categories')
+      .select('id, name')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: true })
+    if (error) throw error
+    return (data || []).find((row) => normalizeCategoryName(row.name) === normalizedName) || null
+  }
+
+  const found = await findExisting()
   if (found) return found.id
 
   const { data: created, error: createError } = await supabase
@@ -62,10 +76,8 @@ export async function findOrCreateCategory(supabase, userId, label, direction = 
     .single()
   if (createError) {
     if (createError.code === '23505') {
-      const { data: retry, error: retryError } = await supabase
-        .from('categories').select('id').eq('user_id', userId).eq('name', name).single()
-      if (retryError) throw retryError
-      return retry.id
+      const retry = await findExisting()
+      if (retry) return retry.id
     }
     throw createError
   }

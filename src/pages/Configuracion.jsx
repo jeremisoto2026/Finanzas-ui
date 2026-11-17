@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { addInstallmentDate, distributeInstallmentAmounts, localDateInputValue, sumMoney, sumMonthlyEquivalent } from '@/lib/finance-core'
 import NotificationSettings from '@/components/NotificationSettings'
+import { uniqueCategoryNames } from '@/lib/category-utils'
 import { 
   Settings, 
   Plus,
@@ -50,6 +51,7 @@ export default function Configuracion() {
   const [pagosFijos, setPagosFijos] = useState([])
   const [comprasCuotas, setComprasCuotas] = useState([])
   const [presupuestos, setPresupuestos] = useState([])
+  const [categoriasDisponibles, setCategoriasDisponibles] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [cuentasDisponibles, setCuentasDisponibles] = useState([])
@@ -137,6 +139,20 @@ export default function Configuracion() {
     }
 
     cargarDatos()
+  }, [])
+
+  useEffect(() => {
+    let activo = true
+    fetch('/api/categorias?direction=expense', { cache: 'no-store' })
+      .then((response) => {
+        if (!response.ok) throw new Error('No se pudieron cargar las categorías.')
+        return response.json()
+      })
+      .then((data) => {
+        if (activo && Array.isArray(data)) setCategoriasDisponibles(data)
+      })
+      .catch((loadError) => console.error('No se pudieron cargar las categorías:', loadError))
+    return () => { activo = false }
   }, [])
 
   useEffect(() => {
@@ -263,7 +279,7 @@ export default function Configuracion() {
 
   const abrirNuevoPresupuesto = () => {
     setEditingPresupuestoId(null)
-    setPresupuestoForm({ month: localDateInputValue().slice(0, 7), category: 'Alimentación', amount: '', notes: '' })
+    setPresupuestoForm({ month: localDateInputValue().slice(0, 7), category: categoriasDisponibles.find((category) => category.toLowerCase() === 'alimentación') || categoriasDisponibles[0] || 'Otros', amount: '', notes: '' })
     setMostrarFormPresupuesto(true)
   }
 
@@ -608,6 +624,7 @@ export default function Configuracion() {
     (cuota) => cuota.monto || 0
   )
 
+  const categoriasPresupuesto = uniqueCategoryNames([...categoriasDisponibles, ...presupuestos.map((item) => item.category), presupuestoForm.category])
   const mesesPresupuesto = [...new Set(presupuestos.map(item => item.month))].sort((a, b) => b.localeCompare(a))
   const totalPresupuestoMesProximo = sumMoney(
     presupuestos.filter((item) => item.month === mesProximo),
@@ -1313,7 +1330,7 @@ export default function Configuracion() {
           <div className="flex items-center justify-between"><h3 className="font-semibold text-white">{editingPresupuestoId ? 'Editar presupuesto' : 'Nuevo presupuesto'}</h3><button type="button" onClick={() => { setMostrarFormPresupuesto(false); setEditingPresupuestoId(null); }} className="text-sm text-slate-400 hover:text-white">Cerrar</button></div>
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <label className="text-sm text-slate-300">Mes<input type="month" required value={presupuestoForm.month} onChange={(e) => setPresupuestoForm({ ...presupuestoForm, month: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-white" /></label>
-            <label className="text-sm text-slate-300">Categoría<input required value={presupuestoForm.category} onChange={(e) => setPresupuestoForm({ ...presupuestoForm, category: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-white" /></label>
+            <label className="text-sm text-slate-300">Categoría<select required value={presupuestoForm.category} onChange={(e) => setPresupuestoForm({ ...presupuestoForm, category: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-white"><option value="" disabled>Selecciona una categoría</option>{categoriasPresupuesto.map((category) => <option key={category} value={category}>{category}</option>)}</select></label>
             <label className="text-sm text-slate-300">Importe planificado (€)<input type="number" min="0" step="0.01" required value={presupuestoForm.amount} onChange={(e) => setPresupuestoForm({ ...presupuestoForm, amount: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-white" /></label>
             <label className="text-sm text-slate-300">Notas<input value={presupuestoForm.notes} onChange={(e) => setPresupuestoForm({ ...presupuestoForm, notes: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-white" /></label>
           </div>
