@@ -164,11 +164,11 @@ begin
     timeout_milliseconds := 10000
   );
 end;
-$;
+$$;
 
 revoke all on function private.invoke_reminder_worker() from public, anon, authenticated, service_role;
 
-do $
+do $$
 begin
   if exists (select 1 from cron.job where jobname = 'finanzas-ui-reminders-hourly') then
     perform cron.unschedule('finanzas-ui-reminders-hourly');
