@@ -917,6 +917,20 @@ export default function Configuracion() {
                 />
               </div>
 
+              <div className="md:col-span-2 flex items-center gap-3 rounded-lg border border-slate-700 bg-slate-800/50 p-3">
+                <input
+                  id="pago-fijo-notificacion"
+                  type="checkbox"
+                  checked={Boolean(pagoFijo.notificacion)}
+                  onChange={(e) => setPagoFijo({ ...pagoFijo, notificacion: e.target.checked })}
+                  className="h-4 w-4 rounded border-slate-600 bg-slate-900 text-emerald-500 focus:ring-emerald-500"
+                />
+                <label htmlFor="pago-fijo-notificacion" className="cursor-pointer">
+                  <span className="block text-sm font-medium text-slate-200">Recordarme este pago</span>
+                  <span className="block text-xs text-slate-400">Aviso automático antes de su próximo vencimiento</span>
+                </label>
+              </div>
+
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-slate-300 mb-2">Notas (opcional)</label>
                 <textarea rows={2} value={pagoFijo.notas || ''} onChange={(e) => setPagoFijo({ ...pagoFijo, notas: e.target.value })} className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white" />
