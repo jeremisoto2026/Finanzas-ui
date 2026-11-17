@@ -5,12 +5,14 @@ import {
   Cog6ToothIcon,
   BanknotesIcon,
   ClipboardDocumentCheckIcon,
+  DevicePhoneMobileIcon,
 } from '@heroicons/react/24/outline'
 
 const items = [
   { name: 'Dashboard', icon: HomeIcon },
   { name: 'Gastos', icon: ChartBarIcon },
   { name: 'Ingresos', icon: ArrowUpCircleIcon },
+  { name: 'Automatizaciones', icon: DevicePhoneMobileIcon },
   { name: 'Gestión financiera', icon: Cog6ToothIcon },
   { name: 'Deudas', icon: BanknotesIcon },
   { name: 'Compromisos', icon: ClipboardDocumentCheckIcon },

@@ -5,6 +5,7 @@ import Navbar from './Navbar'
 const Dashboard = lazy(() => import('@/pages/Dashboard'))
 const Gastos = lazy(() => import('@/pages/Gastos'))
 const Ingresos = lazy(() => import('@/pages/Ingresos'))
+const Automatizaciones = lazy(() => import('@/pages/Automatizaciones'))
 const Configuracion = lazy(() => import('@/pages/Configuracion'))
 const Deudas = lazy(() => import('@/pages/Deudas'))
 const Compromisos = lazy(() => import('@/pages/Compromisos'))
@@ -58,6 +59,7 @@ export default function Layout() {
             {activePage === 'Dashboard' && <Dashboard />}
             {activePage === 'Gastos' && <Gastos />}
             {activePage === 'Ingresos' && <Ingresos />}
+            {activePage === 'Automatizaciones' && <Automatizaciones />}
             {activePage === 'Gestión financiera' && <Configuracion />}
             {activePage === 'Deudas' && <Deudas />}
             {activePage === 'Compromisos' && <Compromisos />}

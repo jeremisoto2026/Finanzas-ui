@@ -1,5 +1,6 @@
 import { createAuthenticatedClient, findOrCreateCategory, findOrCreateAccount, sendApiError } from '../server/supabase.js'
 import { transactionForUi } from '../server/finance.js'
+import { handleMerchantResource } from '../server/merchant-capture.js'
 
 function isDateOnly(value) {
   const text = String(value || '').slice(0, 10)
@@ -32,6 +33,8 @@ export default async function handler(req, res) {
 
   try {
     const { supabase, user } = await createAuthenticatedClient(req)
+
+    if (await handleMerchantResource(req, res, supabase, user)) return
 
     if (req.method === 'GET') {
       if (req.query?.resource === 'categories') {
