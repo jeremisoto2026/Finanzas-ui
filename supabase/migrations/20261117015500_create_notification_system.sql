@@ -129,8 +129,8 @@ as $
     and c.cron_secret = p_cron_secret;
 $;
 
-revoke all on function public.get_push_service_config() from public, anon, authenticated;
-grant execute on function public.get_push_service_config() to service_role;
+revoke all on function public.get_push_service_config(text) from public, anon, authenticated;
+grant execute on function public.get_push_service_config(text) to service_role;
 
 create or replace function private.invoke_reminder_worker()
 returns void
