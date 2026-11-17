@@ -139,6 +139,42 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'La frecuencia indicada no está admitida para planes de cuotas.' })
       }
 
+      // Evita crear dos planes para la misma compra si se repite el envío,
+      // incluso cuando el primer registro se haya cancelado posteriormente.
+      // Para dos compras realmente distintas con los mismos datos, el concepto
+      // debe diferenciarlas (por ejemplo, añadiendo una referencia).
+      const normalizePlanName = (value) => String(value || '')
+        .normalize('NFD')
+        .replace(/[\\u0300-\\u036f]/g, '')
+        .trim()
+        .replace(/\\s+/g, ' ')
+        .toLocaleLowerCase('es');
+
+      const { data: matchingPlans, error: matchingPlansError } = await supabase
+        .from('installment_plans')
+        .select('id, name, status, created_at')
+        .eq('user_id', user.id)
+        .eq('total_amount', totalAmount)
+        .eq('installments_total', totalInstallments)
+        .eq('start_on', String(startOn).slice(0, 10))
+        .eq('frequency', frequency)
+        .order('created_at', { ascending: false })
+        .limit(25);
+      if (matchingPlansError) throw matchingPlansError;
+
+      const duplicatePlan = (matchingPlans || []).find((item) => (
+        normalizePlanName(item.name) === normalizePlanName(name)
+      ));
+      if (duplicatePlan) {
+        return res.status(409).json({
+          error: duplicatePlan.status === 'cancelled'
+            ? 'Ya existe un registro anterior de esta misma compra, aunque esté cancelado. Comprueba ese historial antes de crear otro plan. Si es otra compra distinta, añade una referencia al concepto.'
+            : 'Ya existe una compra con el mismo concepto, importe, número de cuotas y fecha de inicio. No se ha creado un duplicado.',
+          duplicatePlanId: duplicatePlan.id,
+          duplicatePlanStatus: duplicatePlan.status,
+        });
+      }
+
       const categoryId = await findOrCreateCategory(supabase, user.id, body.categoria, 'expense')
       const { data: plan, error: planError } = await supabase.from('installment_plans').insert({
         user_id: user.id,
