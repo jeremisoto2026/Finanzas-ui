@@ -2,7 +2,7 @@
 -- Apply to the isolated Supabase preview branch first.
 
 create extension if not exists pg_cron with schema pg_catalog;
-create extension if not exists pg_net with schema extensions;
+create extension if not exists pg_net;
 
 create table if not exists public.notification_preferences (
   user_id uuid primary key references auth.users(id) on delete cascade,
