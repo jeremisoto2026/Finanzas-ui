@@ -4,7 +4,10 @@ import { createClient } from 'npm:@supabase/supabase-js@2.119.0'
 import webpushModule from 'npm:web-push@3.6.7'
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')
-const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+const secretKeysRaw = Deno.env.get('SUPABASE_SECRET_KEYS')
+const serviceRoleKey = secretKeysRaw
+  ? (JSON.parse(secretKeysRaw) as Record<string, string>).default
+  : Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
 if (!supabaseUrl || !serviceRoleKey) {
   throw new Error('Missing Supabase server environment variables.')
 }
@@ -76,10 +79,14 @@ Deno.serve(async (request) => {
   if (request.method !== 'POST') return new Response('Method not allowed', { status: 405 })
 
   try {
-    const { data: configRows, error: configError } = await supabase.rpc('get_push_service_config')
+    const suppliedSecret = request.headers.get('x-cron-secret') || ''
+    if (!suppliedSecret) return new Response('Unauthorized', { status: 401 })
+
+    const { data: configRows, error: configError } = await supabase.rpc('get_push_service_config', {
+      p_cron_secret: suppliedSecret,
+    })
     if (configError) throw configError
     const config = Array.isArray(configRows) ? configRows[0] : configRows
-    const suppliedSecret = request.headers.get('x-cron-secret') || ''
 
     if (!config?.cron_secret || !safeEqual(suppliedSecret, config.cron_secret)) {
       return new Response('Unauthorized', { status: 401 })
