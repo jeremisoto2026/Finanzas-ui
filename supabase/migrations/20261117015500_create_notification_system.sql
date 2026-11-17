@@ -121,13 +121,13 @@ returns table (
 language sql
 security definer
 set search_path = ''
-as $
+as $$
   select c.project_url, c.publishable_key, c.vapid_public_key, c.vapid_private_key, c.cron_secret
   from private.push_service_config c
   where c.singleton = true
     and p_cron_secret is not null
     and c.cron_secret = p_cron_secret;
-$;
+$$;
 
 revoke all on function public.get_push_service_config(text) from public, anon, authenticated;
 grant execute on function public.get_push_service_config(text) to service_role;
