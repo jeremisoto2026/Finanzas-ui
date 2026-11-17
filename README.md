@@ -38,6 +38,22 @@ Funciones de servidor:
 
 La publishable key está diseñada para clientes públicos; el acceso real a cada fila lo restringen Auth y RLS. Nunca añadas service_role o una secret key a variables con prefijo VITE_.
 
+## Recordatorios automáticos
+
+- La migración `20261117015500_create_notification_system.sql` crea las preferencias de recordatorios, las suscripciones push por dispositivo y el historial de avisos.
+- La Edge Function `send-reminders` consulta los pagos fijos activos con `notification_enabled = true` y las cuotas que siguen en estado `scheduled` dentro de planes activos.
+- `pg_cron` ejecuta el comprobador cada hora. El envío se realiza a la hora local configurada, por defecto 09:00 en `Europe/Madrid`.
+- La clave pública VAPID se expone al navegador únicamente mediante `VITE_WEB_PUSH_PUBLIC_KEY`. La clave privada VAPID y el secreto del cron se guardan en `private.push_service_config`, nunca en variables `VITE_*` ni en el repositorio.
+- El navegador registra `public/sw.js` solo después de que el usuario pulse Activar y conceda permiso. En Android se recomienda abrir Finanzas en Chrome y añadirla a la pantalla de inicio.
+- El historial es idempotente mediante `notifications.user_id + reminder_key`; un aviso no se crea dos veces para el mismo vencimiento. Las cuotas pagadas/canceladas, los planes inactivos y los pagos fijos pausados/cancelados no generan avisos.
+
+Configuración de Vercel:
+- Preview: `VITE_WEB_PUSH_PUBLIC_KEY` (clave pública).
+- Production: la misma variable pública, después de validar Preview.
+- Nunca configurar ni publicar `VAPID_PRIVATE_KEY`, `CRON_SECRET` o una clave Supabase secreta en el frontend.
+
+La migración y la Edge Function deben validarse primero en una base aislada. No ejecutar esta migración contra la base de datos financiera de producción como prueba.
+
 ## Datos históricos de Notion
 
 Las bases originales de Notion se mantienen intactas. La importación debe hacerse con el usuario autenticado y debe guardar el ID original de cada registro en external_source y external_reference. Los saldos de la página resumen de Notion son una instantánea histórica y no deben tratarse como saldo bancario actual.
