@@ -9,7 +9,7 @@ const read = (path) => readFileSync(resolve(root, path), 'utf8')
 
 test('el registro automático solo funciona con banco, cuenta única y categoría válida', () => {
   const source = read('supabase/functions/notification-capture-sync/index.ts')
-  assert.match(source, /const accountLabel = bankSources\.length === 1/)
+  assert.match(source, /const bankAccountLabel = bankSources\.length === 1/)
   assert.match(source, /candidateAccounts\.length === 1/)
   assert.match(source, /Number\(savedRule\.confidence \|\| 0\) >= 0\.9/)
   assert.match(source, /if \(account\?\.id && categoryId\)/)
