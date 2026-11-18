@@ -58,8 +58,8 @@ jobs:
           VITE_SUPABASE_URL: "https://xebgscmovaffrqckzpyz.supabase.co"
           VITE_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_Mbxk3dAMZHoPKrh90zKHkw_yzzh22un"
 
-      - name: Copy web assets into Android
-        run: npx cap copy android
+      - name: Sync web assets and native Capacitor plugins into Android
+        run: npx cap sync android
         working-directory: .
 
       - name: Set up JDK 21
