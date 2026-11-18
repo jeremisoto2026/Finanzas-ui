@@ -59,13 +59,24 @@
     min-height: 100dvh;
   }
 
+  /*
+   * Keep safe-area padding in this component. Navbar must not add Tailwind
+   * py-* or min-h-* utilities that override these declarations.
+   */
   .app-topbar {
-    padding-top: max(0.75rem, env(safe-area-inset-top, 0px));
+    box-sizing: border-box;
+    padding-top: calc(0.75rem + env(safe-area-inset-top, 0px));
+    padding-bottom: 0.75rem;
     min-height: calc(4.25rem + env(safe-area-inset-top, 0px));
   }
 
+  /*
+   * The shared main element owns the bottom scroll clearance for every page.
+   * Do not apply py-* utilities to it: utilities would override this padding.
+   */
   .app-main {
-    padding-bottom: calc(9rem + env(safe-area-inset-bottom, 0px));
+    padding-bottom: calc(10rem + env(safe-area-inset-bottom, 0px));
+    scroll-padding-bottom: calc(10rem + env(safe-area-inset-bottom, 0px));
   }
 
   .app-bottom-nav {
@@ -124,6 +135,7 @@
 @media (min-width: 768px) {
   .app-main {
     padding-bottom: 2.5rem;
+    scroll-padding-bottom: 2.5rem;
   }
 }
 
