@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { BellRing, CheckCircle2, ShieldCheck, Smartphone, Settings2 } from 'lucide-react'
 import { LocalNotifications } from '@capacitor/local-notifications'
 import {
@@ -55,6 +55,8 @@ export default function FirstLoginPermissions({ userId }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
+  const autoPromptStarted = useRef(false)
+  const captureSettingsOpened = useRef(false)
 
   const finish = useCallback((result = 'completed') => {
     saveHandled(storageKey, result)
@@ -81,16 +83,47 @@ export default function FirstLoginPermissions({ userId }) {
     if (!visible) return undefined
 
     let active = true
-    const check = async () => {
+    const check = async (startWelcomeFlow = false) => {
       setChecking(true)
       try {
-        const current = await readPermissions()
+        let current = await readPermissions()
+
+        // Request Android's runtime notification permission immediately after
+        // the first authenticated login, rather than waiting for a settings tap.
+        if (
+          startWelcomeFlow &&
+          !autoPromptStarted.current &&
+          ['prompt', 'prompt-with-rationale'].includes(current.notificationStatus)
+        ) {
+          autoPromptStarted.current = true
+          const requested = await requestNativeReminderPermission()
+          current = { ...current, notificationStatus: requested.display || 'prompt' }
+        } else if (startWelcomeFlow) {
+          autoPromptStarted.current = true
+        }
+
         if (!active) return
         setNotificationStatus(current.notificationStatus)
         setCaptureEnabled(current.captureEnabled)
         setError('')
+
         if (current.notificationStatus === 'granted' && current.captureEnabled) {
           finish('completed')
+          return
+        }
+
+        // Notification Listener access is a protected Android setting, not a
+        // runtime dialog. Open the system screen once, after explaining it in
+        // this welcome flow; the user must still enable the Finanzas switch.
+        if (
+          startWelcomeFlow &&
+          current.notificationStatus === 'granted' &&
+          !current.captureEnabled &&
+          !captureSettingsOpened.current
+        ) {
+          captureSettingsOpened.current = true
+          setNotice('Las notificaciones están autorizadas. Android abrirá ahora «Acceso a notificaciones»: activa Finanzas y vuelve aquí.')
+          await openNotificationAccessSettings()
         }
       } catch (checkError) {
         if (active) setError(checkError.message || 'No se pudieron comprobar los permisos del dispositivo.')
@@ -100,10 +133,10 @@ export default function FirstLoginPermissions({ userId }) {
     }
 
     const onResume = () => {
-      if (document.visibilityState === 'visible') void check()
+      if (document.visibilityState === 'visible') void check(false)
     }
 
-    void check()
+    void check(true)
     window.addEventListener('focus', onResume)
     window.addEventListener('pageshow', onResume)
     document.addEventListener('visibilitychange', onResume)
