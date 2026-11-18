@@ -118,6 +118,12 @@ export default function TablaGastos() {
     setFormOpen(true)
   }
 
+  useEffect(() => {
+    const handleQuickCreate = () => abrirNuevoGasto()
+    window.addEventListener('finanzas:open-new-expense', handleQuickCreate)
+    return () => window.removeEventListener('finanzas:open-new-expense', handleQuickCreate)
+  }, [categoriasDisponibles])
+
   const editarGasto = (gasto) => {
     setEditingGastoId(gasto.id)
     setNuevoGasto({
