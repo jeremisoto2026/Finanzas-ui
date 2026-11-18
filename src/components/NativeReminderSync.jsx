@@ -40,11 +40,13 @@ export default function NativeReminderSync() {
       if (document.visibilityState === 'visible') void refresh()
     }
     window.addEventListener('focus', refresh)
+    window.addEventListener('finanzas:native-permissions-updated', refresh)
     document.addEventListener('visibilitychange', onVisibility)
 
     return () => {
       active = false
       window.removeEventListener('focus', refresh)
+      window.removeEventListener('finanzas:native-permissions-updated', refresh)
       document.removeEventListener('visibilitychange', onVisibility)
       authListener.subscription.unsubscribe()
     }
