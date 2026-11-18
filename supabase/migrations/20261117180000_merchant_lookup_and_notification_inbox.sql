@@ -31,7 +31,7 @@ create table if not exists public.merchant_lookup_cache (
   unique (user_id, merchant_key)
 );
 
-create table if not exists public.notification_capture_events (
+create table public.notification_capture_events (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
   source_app text not null check (source_app in ('revolut', 'google_wallet')),
@@ -47,6 +47,9 @@ create table if not exists public.notification_capture_events (
   parsed_amount numeric(14,2) check (parsed_amount is null or parsed_amount > 0),
   currency_code char(3) not null default 'EUR',
   category_id uuid,
+  account_label text,
+  payment_channel text check (payment_channel in ('revolut', 'google_wallet')),
+  card_last4 char(4) check (card_last4 is null or card_last4 ~ '^[0-9]{4}$'),
   matched_transaction_id uuid,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
@@ -66,6 +69,9 @@ create index if not exists notification_capture_events_user_time_idx
 create index if not exists notification_capture_events_pair_idx
   on public.notification_capture_events(user_id, pair_key)
   where pair_key is not null;
+create index if not exists notification_capture_events_pair_search_idx
+  on public.notification_capture_events(user_id, source_app, currency_code, parsed_amount, occurred_at desc)
+  where status = 'needs_review' and parsed_merchant is not null;
 
 alter table public.merchant_category_rules enable row level security;
 alter table public.merchant_lookup_cache enable row level security;

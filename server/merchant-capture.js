@@ -4,6 +4,7 @@ import {
   merchantKeyFromName,
   normalizeOsmResult,
 } from '../src/lib/merchant-classifier.js'
+import { canPairPaymentNotifications, parsePaymentNotification } from '../src/lib/notification-parser.js'
 
 const CACHE_DAYS = 30
 let lastNominatimRequestAt = 0
@@ -349,7 +350,7 @@ async function notificationCaptures(req, res, supabase, user) {
   if (req.method === 'GET') {
     const { data, error } = await supabase
       .from('notification_capture_events')
-      .select('id, source_app, notification_title, notification_text, occurred_at, status, created_at')
+      .select('id, source_app, notification_title, notification_text, occurred_at, status, created_at, parsed_merchant, parsed_amount, currency_code, account_label, payment_channel, card_last4, pair_key, categories(name)')
       .eq('user_id', user.id)
       .order('occurred_at', { ascending: false })
       .limit(20)
@@ -371,6 +372,14 @@ async function notificationCaptures(req, res, supabase, user) {
         text: row.notification_text,
         occurredAt: row.occurred_at,
         status: row.status,
+        merchant: row.parsed_merchant || '',
+        amount: row.parsed_amount == null ? null : Number(row.parsed_amount),
+        currencyCode: row.currency_code || 'EUR',
+        account: row.account_label || '',
+        paymentChannel: row.payment_channel || '',
+        cardLast4: row.card_last4 || null,
+        category: row.categories?.name || '',
+        pairKey: row.pair_key || null,
       })),
     })
     return
@@ -393,6 +402,23 @@ async function notificationCaptures(req, res, supabase, user) {
     }
     const occurredAt = occurredDate.toISOString()
 
+    const categories = await getExpenseCategories(supabase, user.id)
+    const parsed = parsePaymentNotification({ sourceApp, title, text, occurredAt }, categories)
+    let categoryId = null
+
+    if (parsed.categorySuggestion) {
+      const { data: category, error: categoryError } = await supabase
+        .from('categories')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+        .in('direction', ['expense', 'both'])
+        .ilike('name', parsed.categorySuggestion)
+        .maybeSingle()
+      if (categoryError) throw categoryError
+      categoryId = category?.id || null
+    }
+
     const fingerprint = createHash('sha256')
       .update([sourceApp, packageName, title, text, occurredAt].join('|'))
       .digest('hex')
@@ -407,8 +433,16 @@ async function notificationCaptures(req, res, supabase, user) {
         notification_title: title,
         notification_text: text,
         occurred_at: occurredAt,
+        status: parsed.isPayment ? 'needs_review' : 'received',
+        parsed_merchant: parsed.isPayment ? parsed.merchant : null,
+        parsed_amount: parsed.isPayment ? parsed.amount : null,
+        currency_code: parsed.isPayment ? parsed.currencyCode : 'EUR',
+        category_id: categoryId,
+        account_label: parsed.isPayment ? parsed.accountLabel : null,
+        payment_channel: parsed.isPayment ? parsed.paymentChannel : null,
+        card_last4: parsed.isPayment ? parsed.cardLast4 : null,
       })
-      .select('id, status')
+      .select('id, source_app, parsed_merchant, parsed_amount, currency_code, occurred_at, status, card_last4, account_label, payment_channel')
       .single()
 
     if (error) {
@@ -423,14 +457,84 @@ async function notificationCaptures(req, res, supabase, user) {
       throw error
     }
 
-    res.status(201).json({ available: true, duplicate: false, event: data })
+    let event = data
+    let paired = false
+
+    if (parsed.isPayment) {
+      const windowMs = 3 * 60 * 1000
+      const { data: candidates, error: candidateError } = await supabase
+        .from('notification_capture_events')
+        .select('id, source_app, parsed_merchant, parsed_amount, currency_code, occurred_at, status')
+        .eq('user_id', user.id)
+        .neq('id', data.id)
+        .neq('source_app', sourceApp)
+        .eq('parsed_amount', parsed.amount)
+        .eq('currency_code', parsed.currencyCode)
+        .eq('status', 'needs_review')
+        .gte('occurred_at', new Date(occurredDate.getTime() - windowMs).toISOString())
+        .lte('occurred_at', new Date(occurredDate.getTime() + windowMs).toISOString())
+        .order('occurred_at', { ascending: false })
+        .limit(30)
+
+      if (candidateError) throw candidateError
+
+      const match = (candidates || []).find((candidate) => canPairPaymentNotifications(
+        {
+          source_app: data.source_app,
+          parsed_merchant: data.parsed_merchant,
+          parsed_amount: data.parsed_amount,
+          currency_code: data.currency_code,
+          occurred_at: data.occurred_at,
+        },
+        candidate,
+        windowMs
+      ))
+
+      if (match) {
+        const pairKey = createHash('sha256')
+          .update([user.id, ...[data.id, match.id].sort()].join('|'))
+          .digest('hex')
+
+        const { error: pairError } = await supabase
+          .from('notification_capture_events')
+          .update({ status: 'paired', pair_key: pairKey })
+          .eq('user_id', user.id)
+          .in('id', [data.id, match.id])
+
+        if (pairError) throw pairError
+        event = { ...data, status: 'paired' }
+        paired = true
+      }
+    }
+
+    res.status(201).json({
+      available: true,
+      duplicate: false,
+      paired,
+      ledgerPosted: false,
+      event: {
+        id: event.id,
+        status: event.status,
+        merchant: event.parsed_merchant || '',
+        amount: event.parsed_amount == null ? null : Number(event.parsed_amount),
+        currencyCode: event.currency_code || 'EUR',
+        account: event.account_label || '',
+        paymentChannel: event.payment_channel || '',
+        cardLast4: event.card_last4 || null,
+        categorySuggestion: parsed.categorySuggestion || null,
+      },
+      message: paired
+        ? 'Las notificaciones de Revolut y Google Wallet se han unido como una sola compra pendiente de revisión. No se ha creado ningún gasto.'
+        : parsed.isPayment
+          ? 'Notificación de pago reconocida. Está pendiente de revisión y no ha modificado tus saldos.'
+          : 'Notificación recibida, pero no se ha podido reconocer un pago con seguridad.',
+    })
     return
   }
 
   res.setHeader('Allow', 'GET, POST')
   res.status(405).json({ error: 'Método no permitido.' })
 }
-
 export async function handleMerchantResource(req, res, supabase, user) {
   const resource = String(req.query?.resource || '')
   if (resource === 'merchant-lookup') {
