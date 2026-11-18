@@ -55,30 +55,176 @@ function jsonResponse(payload, status = 200) {
 // On Android, use the authenticated Supabase Edge Function rather than
 // calling Vercel's protected Preview deployment from the WebView.
 // Preview build is deliberately read-only: no POST/PATCH/DELETE calls are sent.
-async function fetchAndroidApi(parsedUrl, method) {
-  if (method !== 'GET') {
-    return jsonResponse({
-      error: 'Esta versión de prueba de Finanzas en Android está en modo consulta. Los cambios siguen disponibles desde la web.',
-    }, 405)
+async function createAndroidTransaction(parsedUrl, input, init, sourceRequest) {
+  let bodyValue = init?.body
+  if (bodyValue == null && sourceRequest) bodyValue = await sourceRequest.clone().text()
+
+  let body
+  try {
+    body = typeof bodyValue === 'string' ? JSON.parse(bodyValue || '{}') : (bodyValue || {})
+  } catch {
+    return jsonResponse({ error: 'No se pudo leer el formulario. Vuelve a intentarlo.' }, 400)
   }
 
-  const resource = getReadOnlyFinanceResource(parsedUrl.pathname, parsedUrl.search)
-  if (!resource) {
-    return jsonResponse({ error: 'Este apartado todavía no está habilitado en el modo de consulta de la APK.' }, 404)
+  const kind = parsedUrl.pathname === '/api/gastos' ? 'expense' : 'income'
+  const description = String(body.concepto || '').trim()
+  const amount = Number(body.monto)
+  const occurredOn = String(body.fecha || '').slice(0, 10)
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(occurredOn) ? new Date(occurredOn + 'T00:00:00.000Z') : null
+  if (!description || description.length > 180 || !Number.isFinite(amount) || amount <= 0 ||
+      !date || !Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== occurredOn) {
+    return jsonResponse({ error: 'Indica un concepto, un importe positivo y una fecha válida.' }, 400)
   }
 
   try {
-    const snapshot = await getAndroidDashboardSnapshot()
-    if (!Object.prototype.hasOwnProperty.call(snapshot, resource)) {
-      return jsonResponse({ error: 'El resumen solicitado no está disponible en esta versión.' }, 404)
+    const { data: authData, error: authError } = await supabase.auth.getUser()
+    if (authError || !authData?.user) return jsonResponse({ error: 'Tu sesión ha caducado. Inicia sesión de nuevo.' }, 401)
+    const userId = authData.user.id
+    const idempotencyKey = String(body.idempotencyKey || crypto.randomUUID())
+    const categoryName = String(body.categoria || (kind === 'income' ? 'Otros' : 'Otros')).normalize('NFKC').trim().replace(/\s+/g, ' ')
+    const accountName = String(body.cuenta || 'Revolut').normalize('NFKC').trim().replace(/\s+/g, ' ') || 'Revolut'
+
+    const mapTransaction = (row) => ({
+      id: row.id,
+      concepto: row.description || '',
+      monto: Number(row.amount || 0),
+      fecha: String(row.occurred_on || '').slice(0, 10),
+      categoria: row.categories?.name || '',
+      metodo: row.payment_method || '',
+      cuenta: row.accounts?.name || '',
+      cuentaId: row.account_id || null,
+      origen: 'normal',
+    })
+
+    // Replays of the same submit return the original transaction, not a duplicate.
+    const { data: existing, error: existingError } = await supabase.from('transactions')
+      .select('id, account_id, amount, occurred_on, description, payment_method, categories(name), accounts(name)')
+      .eq('user_id', userId)
+      .eq('idempotency_key', idempotencyKey)
+      .eq('kind', kind)
+      .eq('status', 'posted')
+      .maybeSingle()
+    if (existingError) throw existingError
+    if (existing) return jsonResponse(mapTransaction(existing), 200)
+
+    const normalizedCategory = categoryName.toLocaleLowerCase('es-ES')
+    const directions = kind === 'income' ? ['income', 'both'] : ['expense', 'both']
+    const { data: categoryRows, error: categoryReadError } = await supabase.from('categories')
+      .select('id, name')
+      .eq('user_id', userId)
+      .eq('is_active', true)
+      .in('direction', directions)
+      .order('created_at', { ascending: true })
+    if (categoryReadError) throw categoryReadError
+
+    let category = (categoryRows || []).find((row) =>
+      String(row.name || '').normalize('NFKC').trim().replace(/\s+/g, ' ').toLocaleLowerCase('es-ES') === normalizedCategory
+    )
+    if (!category) {
+      const { data: createdCategory, error: categoryInsertError } = await supabase.from('categories')
+        .insert({ user_id: userId, name: categoryName || 'Otros', direction: kind })
+        .select('id, name')
+        .single()
+      if (categoryInsertError && categoryInsertError.code === '23505') {
+        const { data: retryCategory, error: retryError } = await supabase.from('categories')
+          .select('id, name').eq('user_id', userId).ilike('name', categoryName).maybeSingle()
+        if (retryError) throw retryError
+        category = retryCategory
+      } else if (categoryInsertError) {
+        throw categoryInsertError
+      } else {
+        category = createdCategory
+      }
     }
-    return jsonResponse(snapshot[resource])
+    if (!category?.id) throw new Error('No se pudo preparar la categoría del movimiento.')
+
+    const { data: foundAccount, error: accountReadError } = await supabase.from('accounts')
+      .select('id, name')
+      .eq('user_id', userId)
+      .eq('name', accountName)
+      .maybeSingle()
+    if (accountReadError) throw accountReadError
+    let account = foundAccount
+    if (!account) {
+      const today = new Intl.DateTimeFormat('sv-SE', {
+        timeZone: 'Europe/Madrid', year: 'numeric', month: '2-digit', day: '2-digit',
+      }).format(new Date())
+      const { data: createdAccount, error: accountInsertError } = await supabase.from('accounts')
+        .insert({ user_id: userId, name: accountName, opening_balance: 0, opening_balance_date: today })
+        .select('id, name')
+        .single()
+      if (accountInsertError && accountInsertError.code === '23505') {
+        const { data: retryAccount, error: retryError } = await supabase.from('accounts')
+          .select('id, name').eq('user_id', userId).eq('name', accountName).single()
+        if (retryError) throw retryError
+        account = retryAccount
+      } else if (accountInsertError) {
+        throw accountInsertError
+      } else {
+        account = createdAccount
+      }
+    }
+
+    const { data: inserted, error: insertError } = await supabase.from('transactions').insert({
+      user_id: userId,
+      account_id: account.id,
+      category_id: category.id,
+      kind,
+      status: 'posted',
+      amount: Math.round((amount + Number.EPSILON) * 100) / 100,
+      occurred_on: occurredOn,
+      description,
+      payment_method: String(body.metodo || '').trim() || null,
+      idempotency_key: idempotencyKey,
+    }).select('id, account_id, amount, occurred_on, description, payment_method, categories(name), accounts(name)').single()
+
+    if (insertError) {
+      if (insertError.code === '23505') {
+        const { data: replay, error: replayError } = await supabase.from('transactions')
+          .select('id, account_id, amount, occurred_on, description, payment_method, categories(name), accounts(name)')
+          .eq('user_id', userId).eq('idempotency_key', idempotencyKey).eq('kind', kind).single()
+        if (replayError) throw replayError
+        return jsonResponse(mapTransaction(replay), 200)
+      }
+      throw insertError
+    }
+    return jsonResponse(mapTransaction(inserted), 201)
   } catch (error) {
-    console.error('No se pudo consultar el resumen financiero Android:', error)
-    return jsonResponse({
-      error: error?.message || 'No se pudo conectar con el servicio financiero seguro.',
-    }, 502)
+    console.error('No se pudo registrar el movimiento en Android:', error)
+    return jsonResponse({ error: error?.message || 'No se pudo guardar el movimiento de forma segura.' }, 400)
   }
+}
+
+async function fetchAndroidApi(parsedUrl, method, input, init, sourceRequest) {
+  if (method === 'GET') {
+    const resource = getReadOnlyFinanceResource(parsedUrl.pathname, parsedUrl.search)
+    if (!resource) {
+      return jsonResponse({ error: 'Este apartado todavía no está habilitado en el modo de consulta de la APK.' }, 404)
+    }
+
+    try {
+      const snapshot = await getAndroidDashboardSnapshot()
+      if (!Object.prototype.hasOwnProperty.call(snapshot, resource)) {
+        return jsonResponse({ error: 'El resumen solicitado no está disponible en esta versión.' }, 404)
+      }
+      return jsonResponse(snapshot[resource])
+    } catch (error) {
+      console.error('No se pudo consultar el resumen financiero Android:', error)
+      return jsonResponse({
+        error: error?.message || 'No se pudo conectar con el servicio financiero seguro.',
+      }, 502)
+    }
+  }
+
+  // Only new expense/income entries are enabled in this preview. Editing,
+  // voiding, account management and every other write route remain blocked.
+  if (method === 'POST' && ['/api/gastos', '/api/ingresos'].includes(parsedUrl.pathname)) {
+    return createAndroidTransaction(parsedUrl, input, init, sourceRequest)
+  }
+
+  return jsonResponse({
+    error: 'En esta versión de Finanzas Mobile puedes registrar gastos e ingresos nuevos. Las modificaciones y eliminaciones siguen disponibles desde la web.',
+  }, 405)
 }
 
 // On the web, the API remains same-origin and uses the user's JWT.
@@ -115,7 +261,7 @@ export function installAuthenticatedApiFetch() {
     const method = String(init.method || sourceRequest?.method || 'GET').toUpperCase()
 
     if (isAndroid) {
-      return fetchAndroidApi(parsedUrl, method)
+      return fetchAndroidApi(parsedUrl, method, input, init, sourceRequest)
     }
 
     const headers = new Headers(init.headers || sourceRequest?.headers)
