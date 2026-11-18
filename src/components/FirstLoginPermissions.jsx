@@ -230,8 +230,8 @@ export default function FirstLoginPermissions({ userId }) {
     <div
       className="fixed inset-0 z-[100] overflow-y-auto bg-[#080F1C]/[0.97] px-4 py-5 backdrop-blur-xl"
       style={{
-        paddingTop: 'calc(1.25rem + env(safe-area-inset-top, 0px))',
-        paddingBottom: 'calc(1.25rem + env(safe-area-inset-bottom, 0px))',
+        paddingTop: 'calc(1.25rem + var(--safe-area-inset-top, env(safe-area-inset-top, 0px)))',
+        paddingBottom: 'calc(1.25rem + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)))',
       }}
     >
       <div className="flex min-h-full items-center justify-center">
