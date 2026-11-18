@@ -98,6 +98,9 @@ export default function FirstLoginPermissions({ userId }) {
           autoPromptStarted.current = true
           const requested = await requestNativeReminderPermission()
           current = { ...current, notificationStatus: requested.display || 'prompt' }
+          if (current.notificationStatus === 'granted') {
+            window.dispatchEvent(new Event('finanzas:native-permissions-updated'))
+          }
         } else if (startWelcomeFlow) {
           autoPromptStarted.current = true
         }
@@ -247,7 +250,7 @@ export default function FirstLoginPermissions({ userId }) {
             Prepara tu móvil
           </h1>
           <p className="mt-3 text-center text-sm leading-6 text-slate-400">
-            En este primer acceso podemos activar los avisos de pagos y la detección de compras. Android te pedirá autorización y tú decides qué permisos conceder.
+            En este primer acceso, Finanzas solicitará automáticamente el permiso de notificaciones y después abrirá los ajustes de Android para que actives el acceso a avisos. Tú decides qué permisos conceder.
           </p>
 
           <div className="mt-6 space-y-3">
