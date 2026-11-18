@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase'
 import {
   DEFAULT_REMINDER_PREFERENCES,
   getNativeReminderData,
+  hasNativeReminderPlugin,
   requestNativeReminderPermission,
   syncNativeReminders,
 } from '@/lib/native-reminders'
@@ -41,12 +42,22 @@ export default function NativeReminderSettings() {
     setLoading(true)
     setError('')
     try {
-      const [{ data: { user }, error: userError }, devicePermission] = await Promise.all([
+      if (!hasNativeReminderPlugin()) {
+        throw new Error('Esta APK no tiene enlazado el servicio nativo de notificaciones. Instala la versión actualizada de Finanzas.')
+      }
+      const [{ data: { user }, error: userError }, checkedPermission] = await Promise.all([
         supabase.auth.getUser(),
         LocalNotifications.checkPermissions(),
       ])
       if (userError) throw userError
       if (!user) throw new Error('Tu sesión ha caducado. Vuelve a iniciar sesión.')
+
+      // Ask for Android's native permission the first time the user opens Avisos.
+      // This is a contextual request at the point of use, not a surprise at login.
+      let devicePermission = checkedPermission
+      if (['prompt', 'prompt-with-rationale'].includes(devicePermission.display)) {
+        devicePermission = await LocalNotifications.requestPermissions()
+      }
       setPermission(devicePermission.display || 'prompt')
       const data = await getNativeReminderData(supabase, user.id)
       setPreferences(data.preferences)
@@ -216,7 +227,7 @@ export default function NativeReminderSettings() {
           </div>
           <button type="button" onClick={activate} disabled={loading || saving} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-500 disabled:opacity-50">
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <BellRing className="h-4 w-4" />}
-            {permission === 'granted' ? 'Actualizar permiso' : 'Activar notificaciones'}
+            {permission === 'granted' ? 'Comprobar notificaciones' : 'Volver a solicitar permiso'}
           </button>
         </div>
         <div className="grid gap-3 border-t border-slate-800/80 bg-slate-950/30 p-4 sm:grid-cols-2">
