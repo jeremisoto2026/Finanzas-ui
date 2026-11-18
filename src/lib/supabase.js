@@ -1,13 +1,10 @@
 import { Capacitor } from '@capacitor/core'
 import { createClient } from '@supabase/supabase-js'
 import { getAndroidCreateKind, getReadOnlyFinanceResource } from '@/lib/native-dashboard-api'
+import { resolveSupabaseClientConfig } from '@/lib/supabase-config'
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-const supabasePublishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
-
-if (!supabaseUrl || !supabasePublishableKey) {
-  throw new Error('Faltan VITE_SUPABASE_URL o VITE_SUPABASE_PUBLISHABLE_KEY. Configura las variables del proyecto Finanzas-ui.')
-}
+const { url: supabaseUrl, publishableKey: supabasePublishableKey } =
+  resolveSupabaseClientConfig(import.meta.env)
 
 export const supabase = createClient(supabaseUrl, supabasePublishableKey, {
   auth: {
