@@ -1,3 +1,4 @@
+import { Capacitor } from '@capacitor/core'
 import { useState, useMemo, useEffect } from 'react';
 import { localDateInputValue, monthKeyFromDate, parseDateOnlyLocal, sumMoney, sumMoneyBy } from '@/lib/finance-core';
 
@@ -39,6 +40,7 @@ const normalizeIncomeCategory = (value) => String(value || '').trim().normalize(
 const FIXED_INCOME_CATEGORIES = new Set(['sueldo', 'pension', 'alquiler recibido', 'subsidio', 'nomina'])
 
 export default function TablaIngresos() {
+  const isAndroidApp = Capacitor.getPlatform() === 'android'
   // Estados para los ingresos registrados en Supabase
   const [ingresosMensuales, setIngresosMensuales] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -1090,9 +1092,9 @@ export default function TablaIngresos() {
                     <th className="px-6 py-3 text-right text-xs font-medium text-slate-400 uppercase tracking-wider">
                       Monto
                     </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-slate-400 uppercase tracking-wider">
+                    {!isAndroidApp && (<th className="px-6 py-3 text-right text-xs font-medium text-slate-400 uppercase tracking-wider">
                       Acciones
-                    </th>
+                    </th>)}
                   </tr>
                 </thead>
                 
@@ -1146,12 +1148,14 @@ export default function TablaIngresos() {
                             </span>
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right">
-                          <div className="inline-flex items-center gap-1">
-                            <button type="button" disabled={saving} onClick={() => editarIngreso(ingreso)} className="rounded-lg bg-slate-800 p-2 text-sky-300 hover:bg-slate-700 disabled:opacity-50" title="Editar ingreso"><Pencil className="h-4 w-4" /></button>
-                            <button type="button" disabled={saving} onClick={() => eliminarIngreso(ingreso)} className="rounded-lg bg-rose-950/30 p-2 text-rose-300 hover:bg-rose-900/40 disabled:opacity-50" title="Anular ingreso"><Trash2 className="h-4 w-4" /></button>
-                          </div>
-                        </td>
+                        {!isAndroidApp && (
+                          <td className="px-6 py-4 whitespace-nowrap text-right">
+                                                    <div className="inline-flex items-center gap-1">
+                                                      <button type="button" disabled={saving} onClick={() => editarIngreso(ingreso)} className="rounded-lg bg-slate-800 p-2 text-sky-300 hover:bg-slate-700 disabled:opacity-50" title="Editar ingreso"><Pencil className="h-4 w-4" /></button>
+                                                      <button type="button" disabled={saving} onClick={() => eliminarIngreso(ingreso)} className="rounded-lg bg-rose-950/30 p-2 text-rose-300 hover:bg-rose-900/40 disabled:opacity-50" title="Anular ingreso"><Trash2 className="h-4 w-4" /></button>
+                                                    </div>
+                                                  </td>
+                          )}
                       </tr>
                     );
                   })}
