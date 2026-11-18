@@ -1,3 +1,4 @@
+import { handleCors } from '../server/cors.js'
 import { createAuthenticatedClient, findOrCreateCategory, findOrCreateAccount, sendApiError } from '../server/supabase.js'
 import { transactionForUi } from '../server/finance.js'
 import { handleMerchantResource } from '../server/merchant-capture.js'
@@ -29,6 +30,7 @@ function normalizeCategoryName(value) {
 }
 
 export default async function handler(req, res) {
+  if (handleCors(req, res)) return;
   res.setHeader('Cache-Control', 'no-store')
 
   try {

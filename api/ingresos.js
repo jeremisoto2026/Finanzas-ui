@@ -1,3 +1,4 @@
+import { handleCors } from '../server/cors.js'
 import { createAuthenticatedClient, findOrCreateCategory, findOrCreateAccount, sendApiError } from '../server/supabase.js'
 import { transactionForUi } from '../server/finance.js'
 
@@ -9,6 +10,7 @@ function isDateOnly(value) {
 }
 
 export default async function handler(req, res) {
+  if (handleCors(req, res)) return;
   res.setHeader('Cache-Control', 'no-store')
 
   try {
