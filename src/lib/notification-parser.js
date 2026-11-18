@@ -60,15 +60,17 @@ export function parsePaymentNotification({ sourceApp, title = '', text = '', occ
   const body = String(text || '').trim()
   const combined = [heading, body].filter(Boolean).join('\n')
 
-  if (!['revolut', 'google_wallet'].includes(app)) {
+  if (!['revolut', 'bbva', 'google_wallet'].includes(app)) {
     return { isPayment: false, reason: 'Aplicación no admitida.' }
   }
 
   let amount = null
   let merchant = ''
   let cardLast4 = null
+  let accountLabel = null
 
   if (app === 'revolut') {
+    accountLabel = 'Revolut'
     const match = body.match(/has\s+pagado\s+([\d.,]+)\s*(?:€|EUR)\s+en\s+(.+?)(?=\r?\n|saldo del pocket|saldo disponible|⚠|🔨|⚒|$)/iu)
     if (match) {
       amount = parseLocalizedAmount(match[1])
@@ -78,15 +80,27 @@ export function parsePaymentNotification({ sourceApp, title = '', text = '', occ
     if (!merchant && heading) merchant = cleanMerchant(heading)
   }
 
+  if (app === 'bbva') {
+    const signal = /\b(compra|compraste|pago con tarjeta|pago realizado|compra realizada|operaci[oó]n de tarjeta)\b/i.test(combined)
+    const match = body.match(/([\d.,]+)\s*(?:€|EUR)/i)
+    if (signal && match) amount = parseLocalizedAmount(match[1])
+    const merchantMatch = body.match(/\b(?:en|a)\s+(.+?)(?=\r?\n|saldo|\s+tarjeta|$)/i)
+    merchant = cleanMerchant(merchantMatch?.[1] || (heading && !/^(bbva|notificación|compra|pago)$/i.test(heading) ? heading : ''))
+    accountLabel = 'BBVA'
+  }
+
   if (app === 'google_wallet') {
-    const match = combined.match(/([\d.]+(?:,\d{1,2})?|\d+(?:\.\d{1,2})?)\s*(?:€|EUR)\s+con\s+Revolut\b/i)
+    const match = combined.match(/([\d.,]+)\s*(?:€|EUR)\s+(?:con\s+.+|en\s+.+)/i)
     if (match) amount = parseLocalizedAmount(match[1])
 
     const cardMatch = combined.match(/(?:visa|mastercard|maestro|amex)\s*[•·*\s]*([0-9]{4})/i) ||
       combined.match(/[•·*]{2,}\s*([0-9]{4})/)
     if (cardMatch) cardLast4 = cardMatch[1]
 
-    merchant = cleanMerchant(heading)
+    const issuer = combined.match(/\bcon\s+(Revolut|BBVA)\b/i)
+    accountLabel = issuer ? (issuer[1].toLowerCase() === 'bbva' ? 'BBVA' : 'Revolut') : null
+    const walletMerchant = combined.match(/\b(?:en|at)\s+(.+?)(?=\r?\n|$)/i)?.[1]
+    merchant = cleanMerchant(heading || walletMerchant || '')
   }
 
   const categorySuggestion = merchant ? categoryForMerchant(merchant, categories) : null
@@ -110,7 +124,7 @@ export function parsePaymentNotification({ sourceApp, title = '', text = '', occ
     currencyCode: 'EUR',
     merchant,
     merchantKey,
-    accountLabel: 'Revolut',
+    accountLabel,
     paymentChannel: app,
     cardLast4: app === 'google_wallet' ? cardLast4 : null,
     occurredAt,
@@ -128,8 +142,10 @@ export function parsePaymentNotification({ sourceApp, title = '', text = '', occ
 export function canPairPaymentNotifications(left, right, windowMs = 3 * 60 * 1000) {
   if (!left || !right) return false
   if (left.source_app === right.source_app) return false
-  if (!['revolut', 'google_wallet'].includes(left.source_app) ||
-      !['revolut', 'google_wallet'].includes(right.source_app)) return false
+  const bankApps = ['revolut', 'bbva']
+  const walletBankPair = left.source_app === 'google_wallet' && bankApps.includes(right.source_app) ||
+    right.source_app === 'google_wallet' && bankApps.includes(left.source_app)
+  if (!walletBankPair) return false
   if (!left.parsed_merchant || !right.parsed_merchant) return false
   if (Number(left.parsed_amount) !== Number(right.parsed_amount)) return false
   if (String(left.currency_code || 'EUR') !== String(right.currency_code || 'EUR')) return false
