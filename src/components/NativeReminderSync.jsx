@@ -34,8 +34,7 @@ export default function NativeReminderSync() {
         void cancelNativeReminders().catch((error) => {
           console.warn('No se pudieron cancelar los avisos al cerrar sesión:', error?.message || error)
         })
-      } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-        void refresh()
+      }
       }
     })
     const onVisibility = () => {
