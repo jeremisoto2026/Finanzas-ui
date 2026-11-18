@@ -1,11 +1,11 @@
 import {
   ArrowRight,
   BellRing,
-  Bot,
+  Settings,
   CreditCard,
   Smartphone,
   Wallet,
-  HandCoins,
+  DollarSign,
 } from 'lucide-react'
 
 const sections = [
@@ -14,7 +14,7 @@ const sections = [
     description: 'Organiza cuentas, compromisos y planificación.',
     items: [
       { page: 'Gestión financiera', title: 'Pagos y presupuestos', description: 'Pagos fijos, cuotas y planificación mensual.', icon: Wallet },
-      { page: 'Deudas', title: 'Deudas', description: 'Control de dinero pendiente de cobrar o devolver.', icon: HandCoins },
+      { page: 'Deudas', title: 'Deudas', description: 'Control de dinero pendiente de cobrar o devolver.', icon: DollarSign },
       { page: 'Compromisos', title: 'Compromisos y reposiciones', description: 'Reservas y dinero que quieres reponer.', icon: CreditCard },
     ],
   },
@@ -22,7 +22,7 @@ const sections = [
     title: 'Automatización',
     description: 'Reduce tareas manuales y mantén tu control financiero al día.',
     items: [
-      { page: 'Automatizaciones', title: 'Automatizaciones', description: 'Reglas y procesos automáticos de Finanzas.', icon: Bot },
+      { page: 'Automatizaciones', title: 'Automatizaciones', description: 'Reglas y procesos automáticos de Finanzas.', icon: Settings },
     ],
   },
   {
