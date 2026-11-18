@@ -1,7 +1,9 @@
+import { handleCors } from '../server/cors.js'
 import { createAuthenticatedClient, sendApiError } from '../server/supabase.js'
 import { roundMoney } from '../server/finance.js'
 
 export default async function handler(req, res) {
+  if (handleCors(req, res)) return;
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST')
     return res.status(405).json({ error: 'Método no permitido.' })
