@@ -5,6 +5,7 @@ import { GastosProvider } from '@/contexts/GastosContext'
 import Layout from '@/components/layout/Layout'
 import NotificationCaptureSync from '@/components/NotificationCaptureSync'
 import NativeReminderSync from '@/components/NativeReminderSync'
+import FirstLoginPermissions from '@/components/FirstLoginPermissions'
 
 const AuthContext = createContext(null)
 
@@ -191,6 +192,7 @@ function AuthenticatedFinanceApp() {
     <GastosProvider>
       <NotificationCaptureSync />
       <NativeReminderSync />
+      <FirstLoginPermissions userId={user.id} />
       <div className="relative">
         <Layout onSignOut={() => signOut()} />
       </div>
