@@ -112,6 +112,7 @@ export default function TablaGastos() {
       categoria: categoriasDisponibles.find((category) => category.toLowerCase() === 'alimentación') || categoriasDisponibles[0] || 'Otros',
       cuenta: 'Revolut',
       metodo: 'Tarjeta',
+      idempotencyKey: crypto.randomUUID(),
     })
     setFormError('')
     setFormOpen(true)
@@ -146,7 +147,7 @@ export default function TablaGastos() {
         method: editingGastoId ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ...(editingGastoId ? { id: editingGastoId } : { idempotencyKey: crypto.randomUUID() }),
+          ...(editingGastoId ? { id: editingGastoId } : { idempotencyKey: nuevoGasto.idempotencyKey || crypto.randomUUID() }),
           ...nuevoGasto,
           monto: amount,
         }),
