@@ -9,6 +9,12 @@
     "LocalNotifications": {
       "smallIcon": "ic_stat_finanzas",
       "iconColor": "#18B887"
+    },
+    "SystemBars": {
+      "insetsHandling": "native",
+      "initialViewportFitValueHint": "cover",
+      "style": "DARK",
+      "hidden": false
     }
   }
 }
