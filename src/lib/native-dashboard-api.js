@@ -17,3 +17,10 @@ export function getReadOnlyFinanceResource(pathname, search = '') {
 
   return READ_ONLY_DASHBOARD_ROUTES[pathname] || null
 }
+
+
+export function getAndroidCreateKind(pathname) {
+  if (pathname === '/api/gastos') return 'expense'
+  if (pathname === '/api/ingresos') return 'income'
+  return null
+}
