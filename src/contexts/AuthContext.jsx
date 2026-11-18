@@ -3,6 +3,7 @@ import { LockKeyhole, LogIn, UserPlus, Loader2, LogOut } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { GastosProvider } from '@/contexts/GastosContext'
 import Layout from '@/components/layout/Layout'
+import NotificationCaptureSync from '@/components/NotificationCaptureSync'
 
 const AuthContext = createContext(null)
 
@@ -187,6 +188,7 @@ function AuthenticatedFinanceApp() {
 
   return (
     <GastosProvider>
+      <NotificationCaptureSync />
       <div className="relative">
         <div className="flex justify-end bg-slate-950 px-4 pt-3">
           <button
