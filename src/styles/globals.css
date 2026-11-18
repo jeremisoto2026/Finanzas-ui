@@ -3,6 +3,11 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    --finance-safe-area-top: var(--safe-area-inset-top, var(--finance-safe-area-top));
+    --finance-safe-area-bottom: var(--safe-area-inset-bottom, var(--finance-safe-area-bottom));
+  }
+
   html {
     color-scheme: dark;
     scroll-behavior: smooth;
@@ -65,9 +70,9 @@
    */
   .app-topbar {
     box-sizing: border-box;
-    padding-top: calc(0.75rem + env(safe-area-inset-top, 0px));
+    padding-top: calc(0.75rem + var(--finance-safe-area-top));
     padding-bottom: 0.75rem;
-    min-height: calc(4.25rem + env(safe-area-inset-top, 0px));
+    min-height: calc(4.25rem + var(--finance-safe-area-top));
   }
 
   /*
@@ -75,8 +80,8 @@
    * Do not apply py-* utilities to it: utilities would override this padding.
    */
   .app-main {
-    padding-bottom: calc(10rem + env(safe-area-inset-bottom, 0px));
-    scroll-padding-bottom: calc(10rem + env(safe-area-inset-bottom, 0px));
+    padding-bottom: calc(10rem + var(--finance-safe-area-bottom));
+    scroll-padding-bottom: calc(10rem + var(--finance-safe-area-bottom));
   }
 
   .app-bottom-nav {
@@ -88,7 +93,7 @@
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 0.25rem;
-    padding: 0.55rem 0.65rem calc(env(safe-area-inset-bottom, 0px) + 0.55rem);
+    padding: 0.55rem 0.65rem calc(var(--finance-safe-area-bottom) + 0.55rem);
     border-top: 1px solid rgba(51, 65, 85, 0.7);
     background: rgba(8, 15, 28, 0.94);
     -webkit-backdrop-filter: blur(22px);
