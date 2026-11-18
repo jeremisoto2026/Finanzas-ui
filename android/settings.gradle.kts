@@ -23,3 +23,6 @@ dependencyResolutionManagement {
 rootProject.name = "FinanzasMobile"
 include(":app", ":capacitor-android")
 project(":capacitor-android").projectDir = file("../node_modules/@capacitor/android/capacitor")
+
+include(":capacitor-local-notifications")
+project(":capacitor-local-notifications").projectDir = file("../node_modules/@capacitor/local-notifications/android")
