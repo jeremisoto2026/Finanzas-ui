@@ -90,6 +90,7 @@ export default function TablaIngresos() {
     setNuevoIngreso({
       concepto: '', monto: '', fecha: localDateInputValue(),
       categoria: 'Nómina', cuenta: 'Revolut', metodo: 'Transferencia',
+      idempotencyKey: crypto.randomUUID(),
     })
     setFormError('')
     setFormOpen(true)
@@ -124,7 +125,7 @@ export default function TablaIngresos() {
         method: editingIngresoId ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ...(editingIngresoId ? { id: editingIngresoId } : { idempotencyKey: crypto.randomUUID() }),
+          ...(editingIngresoId ? { id: editingIngresoId } : { idempotencyKey: nuevoIngreso.idempotencyKey || crypto.randomUUID() }),
           ...nuevoIngreso,
           monto: amount,
         }),
@@ -139,6 +140,7 @@ export default function TablaIngresos() {
       setNuevoIngreso({
         concepto: '', monto: '', fecha: localDateInputValue(),
         categoria: 'Nómina', cuenta: 'Revolut', metodo: 'Transferencia',
+        idempotencyKey: crypto.randomUUID(),
       })
       setEditingIngresoId(null)
       setFormOpen(false)
