@@ -73,7 +73,7 @@ export default function Layout({ onSignOut }) {
       <div className="min-w-0 flex-1">
         <Navbar activePage={activePage} onAdd={abrirNuevoGasto} onSignOut={onSignOut} />
 
-        <main className="app-main mx-auto min-w-0 w-full max-w-[1600px] px-3 py-5 sm:px-5 md:px-7 md:py-7 xl:px-9">
+        <main className="app-main mx-auto min-w-0 w-full max-w-[1600px] px-3 pt-5 sm:px-5 md:px-7 md:pt-7 xl:px-9">
           <Suspense fallback={<LoadingView />}>
             <PageContent activePage={activePage} onNavigate={cambiarPagina} />
           </Suspense>
