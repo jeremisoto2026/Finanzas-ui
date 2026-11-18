@@ -6,6 +6,7 @@ const Dashboard = lazy(() => import('@/pages/Dashboard'))
 const Gastos = lazy(() => import('@/pages/Gastos'))
 const Ingresos = lazy(() => import('@/pages/Ingresos'))
 const Automatizaciones = lazy(() => import('@/pages/Automatizaciones'))
+const CapturasAutomaticas = lazy(() => import('@/pages/CapturasAutomaticas'))
 const Configuracion = lazy(() => import('@/pages/Configuracion'))
 const Deudas = lazy(() => import('@/pages/Deudas'))
 const Compromisos = lazy(() => import('@/pages/Compromisos'))
@@ -60,6 +61,7 @@ export default function Layout() {
             {activePage === 'Gastos' && <Gastos />}
             {activePage === 'Ingresos' && <Ingresos />}
             {activePage === 'Automatizaciones' && <Automatizaciones />}
+            {activePage === 'Capturas automáticas' && <CapturasAutomaticas />}
             {activePage === 'Gestión financiera' && <Configuracion />}
             {activePage === 'Deudas' && <Deudas />}
             {activePage === 'Compromisos' && <Compromisos />}

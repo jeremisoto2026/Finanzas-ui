@@ -18,5 +18,6 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "FinanzasCompanion"
-include(":app")
+rootProject.name = "FinanzasMobile"
+include(":app", ":capacitor-android")
+project(":capacitor-android").projectDir = file("../node_modules/@capacitor/android/capacitor")

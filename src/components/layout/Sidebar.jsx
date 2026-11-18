@@ -6,6 +6,7 @@ import {
   BanknotesIcon,
   ClipboardDocumentCheckIcon,
   DevicePhoneMobileIcon,
+  CreditCardIcon,
 } from '@heroicons/react/24/outline'
 
 const items = [
@@ -13,6 +14,7 @@ const items = [
   { name: 'Gastos', icon: ChartBarIcon },
   { name: 'Ingresos', icon: ArrowUpCircleIcon },
   { name: 'Automatizaciones', icon: DevicePhoneMobileIcon },
+  { name: 'Capturas automáticas', icon: CreditCardIcon },
   { name: 'Gestión financiera', icon: Cog6ToothIcon },
   { name: 'Deudas', icon: BanknotesIcon },
   { name: 'Compromisos', icon: ClipboardDocumentCheckIcon },

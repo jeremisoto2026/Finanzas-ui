@@ -5,16 +5,18 @@ plugins {
 
 android {
     namespace = "com.finanzas.companion"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.finanzas.companion"
+        // A separate application ID lets the full APK be tested without overwriting
+        // the currently installed personal connector or its encrypted local captures.
+        applicationId = "com.finanzas.mobile"
         minSdk = 26
-        targetSdk = 35
+        targetSdk = 36
         versionCode = 1
-        versionName = "0.1.0-personal"
+        versionName = "1.0.0-preview"
 
-        // This is a public Supabase publishable key. RLS remains the security boundary.
+        // Public Supabase values only. RLS remains the security boundary.
         buildConfigField("String", "SUPABASE_URL", "\"https://xebgscmovaffrqckzpyz.supabase.co\"")
         buildConfigField("String", "SUPABASE_PUBLISHABLE_KEY", "\"sb_publishable_Mbxk3dAMZHoPKrh90zKHkw_yzzh22un\"")
     }
@@ -24,12 +26,12 @@ android {
     }
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
+        sourceCompatibility = JavaVersion.VERSION_21
+        targetCompatibility = JavaVersion.VERSION_21
     }
 
     kotlinOptions {
-        jvmTarget = "17"
+        jvmTarget = "21"
     }
 
     testOptions {
@@ -38,6 +40,8 @@ android {
 }
 
 dependencies {
-    implementation("androidx.core:core-ktx:1.15.0")
+    implementation(project(":capacitor-android"))
+    implementation("androidx.core:core-ktx:1.17.0")
+    implementation("androidx.appcompat:appcompat:1.7.1")
     testImplementation("junit:junit:4.13.2")
 }
