@@ -3,7 +3,6 @@ import {
   BellRing,
   Settings,
   CreditCard,
-  Smartphone,
   Wallet,
   DollarSign,
 } from 'lucide-react'
@@ -30,7 +29,6 @@ const sections = [
     description: 'Configura las funciones que trabajan junto a tu teléfono.',
     items: [
       { page: 'Recordatorios', title: 'Notificaciones y recordatorios', description: 'Avisos de vencimientos, cuotas y pagos próximos.', icon: BellRing },
-      { page: 'Capturas automáticas', title: 'Capturas automáticas', description: 'Revisión de compras detectadas en Revolut y Google Wallet.', icon: Smartphone },
     ],
   },
 ]

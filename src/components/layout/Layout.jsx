@@ -27,8 +27,8 @@ function PageContent({ activePage, onNavigate }) {
   if (activePage === 'Ingresos') return <Ingresos />
   if (activePage === 'Ajustes') return <Ajustes onNavigate={onNavigate} />
   if (activePage === 'Recordatorios') return <Recordatorios />
-  if (activePage === 'Automatizaciones') return <Automatizaciones />
-  if (activePage === 'Capturas automáticas') return <CapturasAutomaticas />
+  if (activePage === 'Automatizaciones') return <Automatizaciones onNavigate={onNavigate} />
+  if (activePage === 'Compras pendientes') return <CapturasAutomaticas />
   if (activePage === 'Gestión financiera') return <Configuracion />
   if (activePage === 'Deudas') return <Deudas />
   if (activePage === 'Compromisos') return <Compromisos />
@@ -86,7 +86,7 @@ export default function Layout({ onSignOut }) {
           const active = activePage === item.name || (item.name === 'Ajustes' && [
             'Recordatorios',
             'Automatizaciones',
-            'Capturas automáticas',
+            'Compras pendientes',
             'Gestión financiera',
             'Deudas',
             'Compromisos',

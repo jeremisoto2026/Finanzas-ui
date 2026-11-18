@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { merchantKeyFromName } from '@/lib/merchant-classifier'
+import { getLocalCaptureState, isFinanzasAndroid, openNotificationAccessSettings } from '@/lib/native-captures'
 import {
   AlertCircle,
   BellRing,
@@ -70,7 +71,7 @@ function confidenceLabel(value) {
   return 'Baja'
 }
 
-export default function Automatizaciones() {
+export default function Automatizaciones({ onNavigate }) {
   const [categories, setCategories] = useState([])
   const [rules, setRules] = useState([])
   const [merchant, setMerchant] = useState('')
@@ -86,6 +87,16 @@ export default function Automatizaciones() {
   const [cloudRulesAvailable, setCloudRulesAvailable] = useState(false)
   const [notificationInboxAvailable, setNotificationInboxAvailable] = useState(false)
   const [captureEvents, setCaptureEvents] = useState([])
+  const [notificationPermissionEnabled, setNotificationPermissionEnabled] = useState(false)
+  const [localCaptureCount, setLocalCaptureCount] = useState(0)
+  const [openingNotificationSettings, setOpeningNotificationSettings] = useState(false)
+  const isNativeAndroid = isFinanzasAndroid()
+  const pendingPurchaseCount = useMemo(() => {
+    const keys = new Set(captureEvents
+      .filter((event) => ['needs_review', 'paired'].includes(event.status))
+      .map((event) => event.pairKey || event.pair_key || event.id))
+    return keys.size
+  }, [captureEvents])
 
   useEffect(() => {
     let active = true
@@ -136,9 +147,31 @@ export default function Automatizaciones() {
       }
     }
 
+    if (isNativeAndroid) {
+      getLocalCaptureState()
+        .then((state) => {
+          if (!active) return
+          setNotificationPermissionEnabled(Boolean(state?.permissionEnabled))
+          setLocalCaptureCount(Array.isArray(state?.captures) ? state.captures.length : 0)
+        })
+        .catch((captureError) => console.warn('No se pudo consultar el lector de pagos:', captureError?.message || captureError))
+    }
+
     load()
     return () => { active = false }
-  }, [])
+  }, [isNativeAndroid])
+
+  async function openAndroidNotificationSettings() {
+    setOpeningNotificationSettings(true)
+    setError('')
+    try {
+      await openNotificationAccessSettings()
+    } catch (settingsError) {
+      setError(settingsError?.message || 'No se pudieron abrir los ajustes de Android.')
+    } finally {
+      setOpeningNotificationSettings(false)
+    }
+  }
 
   async function searchMerchant(event) {
     event.preventDefault()
@@ -312,7 +345,7 @@ export default function Automatizaciones() {
         </div>
         <h1 className="mt-2 text-2xl font-bold tracking-tight text-white sm:text-3xl">Automatizaciones y reglas</h1>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">
-          Configura cómo Finanzas detecta avisos de pago, sugiere comercios y prepara categorías. Las compras capturadas quedan pendientes de tu revisión: no se crean gastos ni se alteran saldos por sí solas.
+          Finanzas detecta avisos compatibles, identifica el banco y el comercio, y registra automáticamente las compras fiables. Solo te pedirá intervenir cuando no pueda determinar la cuenta o la categoría con seguridad.
         </p>
       </header>
 
@@ -323,7 +356,7 @@ export default function Automatizaciones() {
           </div>
           <h2 className="mt-3 text-sm font-semibold text-white">1. Captura de avisos</h2>
           <p className="mt-1 text-xs leading-5 text-slate-400">
-            Con el acceso de Android activado, el servicio nativo detecta avisos compatibles de Revolut y Google Wallet y guarda los datos reconocidos de forma cifrada en el móvil, aunque cierres la pantalla de Finanzas.
+            El servicio nativo filtra avisos compatibles de Revolut, BBVA y Google Wallet. Guarda únicamente los datos necesarios de forma cifrada y puede seguir capturando con la pantalla de Finanzas cerrada.
           </p>
         </article>
 
@@ -341,9 +374,9 @@ export default function Automatizaciones() {
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/10 text-amber-300">
             <ShieldCheck className="h-5 w-5" />
           </div>
-          <h2 className="mt-3 text-sm font-semibold text-white">3. Revisión antes de registrar</h2>
+          <h2 className="mt-3 text-sm font-semibold text-white">3. Registro inteligente</h2>
           <p className="mt-1 text-xs leading-5 text-slate-400">
-            Al volver a abrir Finanzas, las capturas locales se sincronizan y aparecen para revisar. Tú decides si registras el gasto; no se modifica ningún saldo automáticamente.
+            Cuando banco, cuenta y categoría están identificados, Finanzas registra un único gasto. Los casos dudosos quedan pendientes para que selecciones los datos que faltan.
           </p>
         </article>
       </section>
@@ -516,58 +549,34 @@ export default function Automatizaciones() {
               <div className="rounded-xl bg-violet-500/10 p-2.5 text-violet-300">
                 <Smartphone className="h-5 w-5" />
               </div>
-              <div>
-                <h2 className="font-semibold text-white">Conexión del teléfono</h2>
-                <p className="mt-0.5 text-xs text-slate-500">POCO F8 Pro · Android</p>
+              <div className="min-w-0">
+                <h2 className="font-semibold text-white">Detección en segundo plano</h2>
+                <p className="mt-0.5 text-xs text-slate-500">Revolut · BBVA · Google Wallet</p>
               </div>
             </div>
-            <div className="mt-4 flex items-center gap-2 rounded-lg border border-amber-900/50 bg-amber-950/20 px-3 py-2 text-xs text-amber-200">
-              <BellRing className="h-4 w-4" />
-              {notificationInboxAvailable ? 'Buzón de capturas disponible' : 'Formato de avisos identificado'}
+            <div className="mt-4 flex items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-950/60 px-3 py-3">
+              <div className="flex items-center gap-2 text-xs text-slate-300">
+                <BellRing className="h-4 w-4 text-slate-400" />
+                Permiso de notificaciones
+              </div>
+              <span className={notificationPermissionEnabled ? "text-xs font-semibold text-emerald-300" : "text-xs font-semibold text-amber-300"}>
+                {isNativeAndroid ? (notificationPermissionEnabled ? "Activado" : "Pendiente") : "Solo APK Android"}
+              </span>
             </div>
-            <div className="mt-3 space-y-2 text-xs text-slate-400">
-              <div className="flex items-center justify-between gap-2"><span>Revolut</span><span className="text-amber-300">Por conectar</span></div>
-              <div className="flex items-center justify-between gap-2"><span>Google Wallet</span><span className="text-amber-300">Por conectar</span></div>
-            </div>
-            <p className="mt-4 text-[11px] leading-5 text-slate-500">
-              El formato de los dos avisos ya está identificado. Falta instalar el lector Android y verificar los identificadores internos de Revolut y Google Wallet para filtrar exclusivamente esas aplicaciones.
+            <p className="mt-3 text-xs leading-5 text-slate-400">
+              Capturas cifradas en este móvil: {localCaptureCount}. Los avisos de otras aplicaciones se ignoran.
+              Las compras fiables se registran solas; las dudosas quedan pendientes.
             </p>
-            <div className="mt-3 flex items-start gap-2 text-[11px] leading-5 text-slate-500">
-              <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-400" />
-              Solo se permitirá capturar Revolut y Google Wallet. No se leerán otras aplicaciones.
-            </div>
-            <div className="mt-4 space-y-2">
-              <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Últimas notificaciones capturadas</div>
-              {captureEvents.length === 0 ? (
-                <p className="rounded-lg border border-dashed border-slate-800 p-3 text-[11px] leading-5 text-slate-500">
-                  Todavía no hay avisos recibidos por el lector. La captura de pantalla que has enviado sirve para validar el formato, pero no se importa como movimiento ni como evento del teléfono.
-                </p>
-              ) : (
-                captureEvents.reduce((groups, event) => {
-                  const key = event.pairKey || event.id
-                  const existing = groups.find((item) => item.key === key)
-                  if (!existing) groups.push({ key, event })
-                  else if (!existing.event.cardLast4 && event.cardLast4) existing.event = event
-                  return groups
-                }, []).slice(0, 5).map(({ key, event }) => (
-                  <div key={key} className="rounded-lg border border-slate-800 bg-slate-950/60 p-3">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-xs font-medium text-slate-200">{event.merchant || event.title}</span>
-                      <span className={event.status === 'paired' ? 'text-[10px] text-emerald-300' : 'text-[10px] text-amber-300'}>
-                        {event.status === 'paired' ? 'Avisos unidos' : 'Pendiente de revisión'}
-                      </span>
-                    </div>
-                    {event.amount != null && (
-                      <div className="mt-1 text-sm font-semibold tabular-nums text-white">{Number(event.amount).toFixed(2)} {event.currencyCode || 'EUR'}</div>
-                    )}
-                    <div className="mt-1 text-[10px] text-slate-500">
-                      {event.account || 'Cuenta pendiente'}
-                      {event.cardLast4 ? ` · Visa ••${event.cardLast4}` : ''}
-                      {event.category ? ` · ${event.category}` : ''}
-                    </div>
-                  </div>
-                ))
+            <div className="mt-4 flex flex-wrap gap-2">
+              {isNativeAndroid && (
+                <button type="button" onClick={openAndroidNotificationSettings} disabled={openingNotificationSettings} className="rounded-lg border border-slate-700 px-3 py-2 text-xs font-semibold text-slate-200 hover:bg-slate-800 disabled:opacity-50">
+                  {openingNotificationSettings ? "Abriendo ajustes…" : "Permisos Android"}
+                </button>
               )}
+              <button type="button" onClick={() => onNavigate?.("Compras pendientes")} className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-500">
+                {pendingPurchaseCount > 0 ? `Revisar ${pendingPurchaseCount} compra(s)` : "Ver compras pendientes"}
+                <ChevronRight className="h-3.5 w-3.5" />
+              </button>
             </div>
           </div>
         </div>
