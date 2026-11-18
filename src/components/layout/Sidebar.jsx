@@ -4,9 +4,6 @@ import {
   ArrowUpCircleIcon,
   Cog6ToothIcon,
   BanknotesIcon,
-  ClipboardDocumentCheckIcon,
-  DevicePhoneMobileIcon,
-  CreditCardIcon,
 } from '@heroicons/react/24/outline'
 import { BellRing } from 'lucide-react'
 
@@ -14,12 +11,7 @@ const items = [
   { name: 'Dashboard', icon: HomeIcon },
   { name: 'Gastos', icon: ChartBarIcon },
   { name: 'Ingresos', icon: ArrowUpCircleIcon },
-  { name: 'Automatizaciones', icon: DevicePhoneMobileIcon },
-  { name: 'Capturas automáticas', icon: CreditCardIcon },
-  { name: 'Recordatorios', icon: BellRing },
-  { name: 'Gestión financiera', icon: Cog6ToothIcon },
-  { name: 'Deudas', icon: BanknotesIcon },
-  { name: 'Compromisos', icon: ClipboardDocumentCheckIcon },
+  { name: 'Ajustes', icon: Cog6ToothIcon },
 ]
 
 export default function Sidebar({ mobile = false, activePage, setActivePage }) {
@@ -35,7 +27,7 @@ export default function Sidebar({ mobile = false, activePage, setActivePage }) {
         </div>
         <div className="min-w-0">
           <h2 className="text-base font-semibold tracking-tight text-white">Finanzas</h2>
-          <p className="mt-0.5 text-[11px] text-slate-500">Control financiero personal</p>
+          <p className="mt-0.5 text-[11px] text-slate-500">Finanzas personales y familiares</p>
         </div>
       </div>
 
