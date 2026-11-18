@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { getReadOnlyFinanceResource } from '../src/lib/native-dashboard-api.js'
+import { getAndroidCreateKind, getReadOnlyFinanceResource } from '../src/lib/native-dashboard-api.js'
 
 test('maps Dashboard read routes to the secure snapshot fields', () => {
   assert.equal(getReadOnlyFinanceResource('/api/cuentas'), 'accounts')
@@ -16,4 +16,12 @@ test('maps Dashboard read routes to the secure snapshot fields', () => {
 test('maps expense category lookups and rejects unknown API routes', () => {
   assert.equal(getReadOnlyFinanceResource('/api/gastos', '?resource=categories'), 'expenseCategories')
   assert.equal(getReadOnlyFinanceResource('/api/no-disponible'), null)
+})
+
+
+test('allows only expense and income creation from Android', () => {
+  assert.equal(getAndroidCreateKind('/api/gastos'), 'expense')
+  assert.equal(getAndroidCreateKind('/api/ingresos'), 'income')
+  assert.equal(getAndroidCreateKind('/api/cuentas'), null)
+  assert.equal(getAndroidCreateKind('/api/transferencias'), null)
 })
