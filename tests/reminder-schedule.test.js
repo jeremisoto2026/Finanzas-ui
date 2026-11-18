@@ -49,6 +49,7 @@ test('schedules only enabled upcoming payments and optional same-day reminders',
   )
   assert.equal(new Set(schedule.map((item) => item.id)).size, schedule.length)
   assert.ok(schedule.every((item) => item.isExactNotification === false))
+  assert.ok(schedule.every((item) => item.schedule.allowWhileIdle === true))
 })
 
 test('does not recreate reminders whose local reminder time has already passed', () => {
