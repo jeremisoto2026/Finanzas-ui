@@ -222,7 +222,7 @@ export default function NativeReminderSettings() {
               </span>
             </div>
             <p className="mt-1 text-sm leading-6 text-slate-400">
-              Los avisos se programan en Android y pueden aparecer aunque cierres Finanzas. No dependen de mantener la web abierta.
+              Los recordatorios se guardan como alarmas nativas de Android y pueden entregarse aunque cierres Finanzas. No dependen de mantener la web abierta. El modo ahorro/Doze puede espaciar varios avisos o retrasar alguno.
             </p>
           </div>
           <button type="button" onClick={activate} disabled={loading || saving} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-500 disabled:opacity-50">
@@ -321,7 +321,7 @@ export default function NativeReminderSettings() {
         <div className="flex flex-col gap-3 border-t border-slate-800 pt-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="text-xs text-slate-400">
             <p className="flex items-center gap-2"><Clock3 className="h-4 w-4 text-emerald-400" /> {scheduledCount == null ? 'Recordatorios pendientes de calcular' : scheduledCount + ' recordatorios de pagos y cuotas programados en este móvil'}</p>
-            <p className="mt-1">La cifra es el total actual de alertas para vencimientos futuros, no un límite de notificaciones. Android puede retrasar avisos no exactos por ahorro de batería.</p>
+            <p className="mt-1">La cifra es el total actual de alertas para vencimientos futuros, no un límite de notificaciones. Android puede retrasar avisos por ahorro de batería. «Forzar detención» desde los ajustes del sistema puede cancelar las alarmas hasta que vuelvas a abrir Finanzas.</p>
           </div>
           <button type="button" onClick={testNotification} disabled={loading || saving || permission !== 'granted'} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-700 px-4 py-2.5 text-sm font-semibold text-slate-200 transition hover:bg-slate-800 disabled:opacity-40">
             <BellRing className="h-4 w-4" /> Enviar notificación de prueba
