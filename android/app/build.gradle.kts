@@ -13,8 +13,8 @@ android {
         applicationId = "com.finanzas.mobile"
         minSdk = 26
         targetSdk = 36
-        versionCode = 5
-        versionName = "1.0.4-preview"
+        versionCode = 6
+        versionName = "1.0.5-preview"
 
         // Public Supabase values only. RLS remains the security boundary.
         buildConfigField("String", "SUPABASE_URL", "\"https://xebgscmovaffrqckzpyz.supabase.co\"")
@@ -41,6 +41,7 @@ android {
 
 dependencies {
     implementation(project(":capacitor-android"))
+    implementation(project(":capacitor-local-notifications"))
     implementation("androidx.core:core-ktx:1.17.0")
     implementation("androidx.appcompat:appcompat:1.7.1")
     testImplementation("junit:junit:4.13.2")
