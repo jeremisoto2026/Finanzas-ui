@@ -11,7 +11,7 @@
       "iconColor": "#18B887"
     },
     "SystemBars": {
-      "insetsHandling": "native",
+      "insetsHandling": "css",
       "initialViewportFitValueHint": "cover",
       "style": "DARK",
       "hidden": false
