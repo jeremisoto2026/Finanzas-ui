@@ -88,7 +88,7 @@ function reminderCandidate({ sourceType, sourceId, dueOn, title, amount, currenc
 
   return {
     id: stableNotificationId(reminderKey),
-    title,
+    title: isSameDay ? title.replace(/^Próximo pago:/, 'Hoy vence:').replace(/^Próxima cuota:/, 'Hoy vence:') : title,
     body,
     schedule: { at, allowWhileIdle: false },
     channelId: 'finanzas-reminders',
