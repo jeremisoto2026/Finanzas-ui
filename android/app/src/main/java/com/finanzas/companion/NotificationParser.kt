@@ -2,9 +2,15 @@ package com.finanzas.companion
 
 import java.util.Locale
 
-enum class NotificationSource(val packageName: String, val label: String) {
-    REVOLUT("com.revolut.revolut", "Revolut"),
-    GOOGLE_WALLET("com.google.android.apps.walletnfcrel", "Google Wallet");
+enum class NotificationSource(
+    val packageName: String,
+    val label: String,
+    val accountName: String?,
+    val isBank: Boolean
+) {
+    REVOLUT("com.revolut.revolut", "Revolut", "Revolut", true),
+    BBVA("com.bbva.bbvacontigo", "BBVA", "BBVA", true),
+    GOOGLE_WALLET("com.google.android.apps.walletnfcrel", "Google Wallet", null, false);
 
     companion object {
         fun fromPackage(packageName: String): NotificationSource? =
@@ -19,7 +25,7 @@ data class ParsedPayment(
     val amountCents: Long,
     val currencyCode: String = "EUR",
     val occurredAtMillis: Long,
-    val accountName: String = "Revolut",
+    val accountName: String?,
     val cardLast4: String? = null,
     val categorySuggestion: String? = null,
     val notificationKey: String? = null
@@ -31,7 +37,27 @@ object NotificationParser {
         RegexOption.IGNORE_CASE
     )
     private val walletPayment = Regex(
-        """([\d.,]+)\s*(?:€|EUR)\s+con\s+Revolut\b""",
+        """([\d.,]+)\s*(?:€|EUR)\s+(?:con\s+.+|en\s+.+)""",
+        RegexOption.IGNORE_CASE
+    )
+    private val walletIssuer = Regex(
+        """\bcon\s+(Revolut|BBVA)\b""",
+        RegexOption.IGNORE_CASE
+    )
+    private val amountPattern = Regex(
+        """([\d.,]+)\s*(?:€|EUR)""",
+        RegexOption.IGNORE_CASE
+    )
+    private val bbvaPurchaseSignal = Regex(
+        """\b(compra|compraste|pago con tarjeta|pago realizado|compra realizada|operaci[oó]n de tarjeta)\b""",
+        RegexOption.IGNORE_CASE
+    )
+    private val bbvaMerchant = Regex(
+        """\b(?:en|a)\s+(.+?)(?=\r?\n|saldo|\s+tarjeta|$)""",
+        RegexOption.IGNORE_CASE
+    )
+    private val genericNotificationTitle = Regex(
+        """^(bbva|notificaci[oó]n|compra|pago|google wallet|wallet|revolut)$""",
         RegexOption.IGNORE_CASE
     )
     private val cardEnding = Regex(
@@ -54,19 +80,44 @@ object NotificationParser {
         val merchant: String
         val cardLast4: String?
 
+        val accountName: String?
+
         when (source) {
             NotificationSource.REVOLUT -> {
                 val match = revolutPayment.find(body) ?: return null
                 amountText = match.groupValues[1]
                 merchant = cleanMerchant(match.groupValues[2])
                 cardLast4 = null
+                accountName = "Revolut"
+            }
+            NotificationSource.BBVA -> {
+                val combined = "$heading\\n$body"
+                if (!bbvaPurchaseSignal.containsMatchIn(combined)) return null
+                val match = amountPattern.find(body) ?: return null
+                amountText = match.groupValues[1]
+                val merchantMatch = bbvaMerchant.find(body)
+                val headingMerchant = heading.takeIf {
+                    it.isNotBlank() && !genericNotificationTitle.matches(it.trim())
+                }
+                merchant = cleanMerchant(merchantMatch?.groupValues?.getOrNull(1) ?: headingMerchant.orEmpty())
+                cardLast4 = cardEnding.find(combined)?.groupValues?.getOrNull(1)
+                accountName = "BBVA"
             }
             NotificationSource.GOOGLE_WALLET -> {
-                val combined = "$heading\n$body"
+                val combined = "$heading\\n$body"
                 val match = walletPayment.find(combined) ?: return null
                 amountText = match.groupValues[1]
-                merchant = cleanMerchant(heading)
+                val walletMerchant = Regex(
+                    """\\b(?:en|at)\\s+(.+?)(?=\\r?\\n|$)""",
+                    RegexOption.IGNORE_CASE
+                ).find(combined)?.groupValues?.getOrNull(1)
+                merchant = cleanMerchant(heading.takeIf {
+                    it.isNotBlank() && !genericNotificationTitle.matches(it.trim())
+                } ?: walletMerchant.orEmpty())
                 cardLast4 = cardEnding.find(combined)?.groupValues?.getOrNull(1)
+                accountName = walletIssuer.find(combined)?.groupValues?.getOrNull(1)?.let {
+                    if (it.equals("BBVA", true)) "BBVA" else "Revolut"
+                }
             }
         }
 
@@ -104,6 +155,7 @@ object NotificationParser {
             .lineSequence()
             .firstOrNull()
             .orEmpty()
+            .replace(Regex("(?i)^(?:compra|pago|has pagado|pago con tarjeta|compra realizada)(?:\\s+(?:en|de))?\\s*"), "")
             .replace(Regex("[^\\p{L}\\p{N} .&'’()-]"), " ")
             .replace(Regex("\\s+"), " ")
             .trim()
