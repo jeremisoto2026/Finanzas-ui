@@ -18,6 +18,23 @@ export async function getLocalCaptureState() {
   return LocalCaptures.getCaptureState()
 }
 
+export async function updateNativeAuthSession(session) {
+  if (!isFinanzasAndroid()) return
+  if (!session?.access_token || !session?.refresh_token || !session?.user?.id) return
+  return LocalCaptures.updateAuthSession({
+    userId: session.user.id,
+    email: session.user.email || '',
+    accessToken: session.access_token,
+    refreshToken: session.refresh_token,
+    expiresAtMillis: Number(session.expires_at || 0) * 1000,
+  })
+}
+
+export async function clearNativeAuthSession() {
+  if (!isFinanzasAndroid()) return
+  return LocalCaptures.clearAuthSession()
+}
+
 export async function openNotificationAccessSettings() {
   if (!isFinanzasAndroid()) {
     throw new Error('Esta función está disponible en la aplicación Android.')

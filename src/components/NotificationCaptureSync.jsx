@@ -4,11 +4,14 @@ import {
   isFinanzasAndroid,
   listenForCaptureChanges,
   syncLocalCaptures,
+  updateNativeAuthSession,
+  clearNativeAuthSession,
 } from '@/lib/native-captures'
+import { supabase } from '@/lib/supabase'
 
 /**
- * Synchronizes only normalized captures from the current Android app.
- * It never creates, edits, or deletes ledger transactions.
+ * Foreground fallback. Native WorkManager handles the same sync while the
+ * WebView is closed; the server posts a gasto only after account/category checks.
  */
 export default function NotificationCaptureSync() {
   const running = useRef(false)
@@ -63,12 +66,31 @@ export default function NotificationCaptureSync() {
 
     let active = true
     let listenerHandle = null
+    const syncNativeSession = async (session) => {
+      try {
+        if (session) await updateNativeAuthSession(session)
+        else await clearNativeAuthSession()
+      } catch (error) {
+        console.warn('No se pudo mantener la sesión nativa cifrada:', error?.message || error)
+      }
+    }
     const refresh = () => {
       if (active) void syncLatest()
     }
     const onVisibilityChange = () => {
       if (document.visibilityState === 'visible') refresh()
     }
+
+    supabase.auth.getSession().then(({ data, error }) => {
+      if (error) throw error
+      if (active) void syncNativeSession(data?.session || null)
+    }).catch((error) => {
+      console.warn('No se pudo recuperar la sesión para la sincronización en segundo plano:', error?.message || error)
+    })
+    const { data: authState } = supabase.auth.onAuthStateChange((_event, session) => {
+      void syncNativeSession(session || null)
+      if (session) refresh()
+    })
 
     refresh()
     listenForCaptureChanges(refresh)
@@ -83,6 +105,7 @@ export default function NotificationCaptureSync() {
 
     return () => {
       active = false
+      authState.subscription.unsubscribe()
       listenerHandle?.remove()
       window.removeEventListener('focus', refresh)
       document.removeEventListener('visibilitychange', onVisibilityChange)
