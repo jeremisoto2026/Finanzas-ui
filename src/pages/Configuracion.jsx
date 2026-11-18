@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
 import { addInstallmentDate, distributeInstallmentAmounts, localDateInputValue, sumMoney, sumMonthlyEquivalent } from '@/lib/finance-core'
-import NotificationSettings from '@/components/NotificationSettings'
 import { uniqueCategoryNames } from '@/lib/category-utils'
 import { 
   Settings, 
@@ -1613,8 +1612,6 @@ export default function Configuracion() {
           </div>
         )}
       </div>
-
-      <NotificationSettings />
     </div>
   )
 }
