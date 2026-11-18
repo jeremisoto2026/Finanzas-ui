@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { LocalNotifications } from '@capacitor/local-notifications'
 import { supabase } from '@/lib/supabase'
-import { getNativeReminderData, isFinanzasAndroid, syncNativeReminders } from '@/lib/native-reminders'
+import { cancelNativeReminders, getNativeReminderData, isFinanzasAndroid, syncNativeReminders } from '@/lib/native-reminders'
 
 /** Refreshes pending native reminders when the signed-in app becomes active. */
 export default function NativeReminderSync() {
@@ -29,6 +29,15 @@ export default function NativeReminderSync() {
     }
 
     void refresh()
+    const { data: authListener } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_OUT') {
+        void cancelNativeReminders().catch((error) => {
+          console.warn('No se pudieron cancelar los avisos al cerrar sesión:', error?.message || error)
+        })
+      } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        void refresh()
+      }
+    })
     const onVisibility = () => {
       if (document.visibilityState === 'visible') void refresh()
     }
@@ -39,6 +48,7 @@ export default function NativeReminderSync() {
       active = false
       window.removeEventListener('focus', refresh)
       document.removeEventListener('visibilitychange', onVisibility)
+      authListener.subscription.unsubscribe()
     }
   }, [])
 
