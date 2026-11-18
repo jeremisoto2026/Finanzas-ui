@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
+import { Capacitor } from '@capacitor/core'
+import NativeReminderSettings from '@/components/NativeReminderSettings'
 import { Bell, BellRing, Check, Clock3, Loader2, Smartphone, Trash2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 
@@ -50,7 +52,7 @@ function Switch({ checked, onChange, disabled = false, label }) {
   )
 }
 
-export default function NotificationSettings() {
+function WebPushNotificationSettings() {
   const [preferences, setPreferences] = useState(DEFAULT_PREFERENCES)
   const [notifications, setNotifications] = useState([])
   const [loading, setLoading] = useState(true)
@@ -371,4 +373,10 @@ export default function NotificationSettings() {
       </div>
     </section>
   )
+}
+
+
+export default function NotificationSettings() {
+  if (Capacitor.getPlatform() === 'android') return <NativeReminderSettings />
+  return <WebPushNotificationSettings />
 }
