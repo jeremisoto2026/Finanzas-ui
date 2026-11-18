@@ -65,8 +65,6 @@ class NotificationParserTest {
             NotificationParser.normalizeMerchantKey("Mercadona")
         )
     }
-}
-
 
     @Test
     fun parsesBbvaPurchaseAndIdentifiesBbvaAccount() {
@@ -106,3 +104,4 @@ class NotificationParserTest {
         assertNotNull(result)
         assertEquals("BBVA", result?.accountName)
     }
+}
