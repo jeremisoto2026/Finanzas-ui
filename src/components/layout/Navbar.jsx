@@ -1,6 +1,6 @@
-import { BellRing, LogOut, Menu, Plus, Wallet } from 'lucide-react'
+import { LogOut, Plus, Wallet } from 'lucide-react'
 
-export default function Navbar({ onMenu, onAdd, onSignOut, activePage = 'Dashboard' }) {
+export default function Navbar({ onAdd, onSignOut, activePage = 'Dashboard' }) {
   return (
     <header className="app-topbar sticky top-0 z-30 flex min-h-[4.25rem] items-center justify-between border-b border-slate-800/80 bg-[#080F1C]/90 px-4 py-3 backdrop-blur-xl sm:px-6 md:px-8">
       <div className="flex min-w-0 items-center gap-3">
@@ -19,15 +19,7 @@ export default function Navbar({ onMenu, onAdd, onSignOut, activePage = 'Dashboa
           <span className="hidden sm:inline">Nuevo gasto</span>
           <span className="sm:hidden">Añadir</span>
         </button>
-        <button type="button" onClick={onMenu} aria-label="Abrir más herramientas" className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-800 bg-slate-900/80 text-slate-300 transition hover:border-slate-700 hover:text-white md:hidden">
-          <Menu className="h-5 w-5" />
-        </button>
         <button type="button" onClick={onSignOut} className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-800 px-3 text-xs font-medium text-slate-400 transition hover:bg-slate-900 hover:text-white" aria-label="Cerrar sesión"><LogOut className="h-4 w-4" /><span className="hidden lg:inline">Salir</span></button>
-        <div className="hidden items-center gap-2 rounded-full border border-slate-800 bg-slate-900/60 px-3 py-2 text-[11px] text-slate-400 sm:flex">
-          <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.55)]" />
-          Libro sincronizado
-        </div>
-        <BellRing className="hidden h-4 w-4 text-slate-500 md:block" />
       </div>
     </header>
   )
