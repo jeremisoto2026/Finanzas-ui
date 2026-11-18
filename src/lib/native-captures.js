@@ -25,6 +25,13 @@ export async function openNotificationAccessSettings() {
   return LocalCaptures.openNotificationSettings()
 }
 
+export async function openAppNotificationSettings() {
+  if (!isFinanzasAndroid()) {
+    throw new Error('Esta función está disponible en la aplicación Android.')
+  }
+  return LocalCaptures.openAppNotificationSettings()
+}
+
 export async function clearLocalCaptures() {
   if (!isFinanzasAndroid()) {
     throw new Error('Esta función está disponible en la aplicación Android.')
