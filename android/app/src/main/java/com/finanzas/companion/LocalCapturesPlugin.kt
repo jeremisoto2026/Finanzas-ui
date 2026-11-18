@@ -71,7 +71,7 @@ class LocalCapturesPlugin : Plugin() {
                 put("available", true)
                 put("permissionEnabled", permissionEnabled)
                 put("captures", rows)
-                put("syncEnabled", false)
+                put("syncEnabled", true)
             }
             call.resolve(result)
         } catch (error: Exception) {
