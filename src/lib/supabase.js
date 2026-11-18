@@ -1,6 +1,6 @@
 import { Capacitor } from '@capacitor/core'
 import { createClient } from '@supabase/supabase-js'
-import { getReadOnlyFinanceResource } from '@/lib/native-dashboard-api'
+import { getAndroidCreateKind, getReadOnlyFinanceResource } from '@/lib/native-dashboard-api'
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabasePublishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
@@ -66,7 +66,7 @@ async function createAndroidTransaction(parsedUrl, input, init, sourceRequest) {
     return jsonResponse({ error: 'No se pudo leer el formulario. Vuelve a intentarlo.' }, 400)
   }
 
-  const kind = parsedUrl.pathname === '/api/gastos' ? 'expense' : 'income'
+  const kind = getAndroidCreateKind(parsedUrl.pathname)
   const description = String(body.concepto || '').trim()
   const amount = Number(body.monto)
   const occurredOn = String(body.fecha || '').slice(0, 10)
@@ -81,7 +81,7 @@ async function createAndroidTransaction(parsedUrl, input, init, sourceRequest) {
     if (authError || !authData?.user) return jsonResponse({ error: 'Tu sesión ha caducado. Inicia sesión de nuevo.' }, 401)
     const userId = authData.user.id
     const idempotencyKey = String(body.idempotencyKey || crypto.randomUUID())
-    const categoryName = String(body.categoria || (kind === 'income' ? 'Otros' : 'Otros')).normalize('NFKC').trim().replace(/\s+/g, ' ')
+    const categoryName = String(body.categoria || 'Otros').normalize('NFKC').trim().replace(/\s+/g, ' ') || 'Otros'
     const accountName = String(body.cuenta || 'Revolut').normalize('NFKC').trim().replace(/\s+/g, ' ') || 'Revolut'
 
     const mapTransaction = (row) => ({
@@ -188,6 +188,8 @@ async function createAndroidTransaction(parsedUrl, input, init, sourceRequest) {
       }
       throw insertError
     }
+    dashboardSnapshotPromise = null
+    dashboardSnapshotExpiresAt = 0
     return jsonResponse(mapTransaction(inserted), 201)
   } catch (error) {
     console.error('No se pudo registrar el movimiento en Android:', error)
@@ -218,7 +220,7 @@ async function fetchAndroidApi(parsedUrl, method, input, init, sourceRequest) {
 
   // Only new expense/income entries are enabled in this preview. Editing,
   // voiding, account management and every other write route remain blocked.
-  if (method === 'POST' && ['/api/gastos', '/api/ingresos'].includes(parsedUrl.pathname)) {
+  if (method === 'POST' && getAndroidCreateKind(parsedUrl.pathname)) {
     return createAndroidTransaction(parsedUrl, input, init, sourceRequest)
   }
 
