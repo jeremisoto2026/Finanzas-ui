@@ -609,7 +609,7 @@ export default function TablaGastos() {
                 <tbody className="divide-y divide-slate-800">
                   {gastosFiltrados.length === 0 ? (
                     <tr>
-                      <td colSpan="7" className="px-6 py-8 text-center">
+                      <td colSpan={isAndroidApp ? 6 : 7} className="px-6 py-8 text-center">
                         <div className="text-slate-500">
                           <Receipt className="h-12 w-12 mx-auto mb-3 opacity-50" />
                           <p>No hay gastos para mostrar</p>
