@@ -8,6 +8,7 @@ import {
   DevicePhoneMobileIcon,
   CreditCardIcon,
 } from '@heroicons/react/24/outline'
+import { BellRing } from 'lucide-react'
 
 const items = [
   { name: 'Dashboard', icon: HomeIcon },
@@ -15,6 +16,7 @@ const items = [
   { name: 'Ingresos', icon: ArrowUpCircleIcon },
   { name: 'Automatizaciones', icon: DevicePhoneMobileIcon },
   { name: 'Capturas automáticas', icon: CreditCardIcon },
+  { name: 'Recordatorios', icon: BellRing },
   { name: 'Gestión financiera', icon: Cog6ToothIcon },
   { name: 'Deudas', icon: BanknotesIcon },
   { name: 'Compromisos', icon: ClipboardDocumentCheckIcon },
@@ -33,7 +35,7 @@ export default function Sidebar({ mobile = false, activePage, setActivePage }) {
         </div>
         <div className="min-w-0">
           <h2 className="text-base font-semibold tracking-tight text-white">Finanzas</h2>
-          <p className="mt-0.5 text-[11px] text-slate-500">Control personal y familiar</p>
+          <p className="mt-0.5 text-[11px] text-slate-500">Control financiero personal</p>
         </div>
       </div>
 
@@ -51,7 +53,7 @@ export default function Sidebar({ mobile = false, activePage, setActivePage }) {
               type="button"
               aria-current={isActive ? 'page' : undefined}
               onClick={() => setActivePage(item.name)}
-              className={`group relative flex w-full items-center gap-3 rounded-xl border px-3 py-3 text-left text-sm font-medium transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400
+              className={`group relative flex w-full items-center gap-3 rounded-xl border px-3 py-3.5 text-left text-sm font-medium transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400
                 ${isActive
                   ? 'border-emerald-500/20 bg-emerald-500/[0.09] text-emerald-200 shadow-sm shadow-emerald-950/30'
                   : 'border-transparent text-slate-400 hover:border-slate-800/80 hover:bg-slate-900/80 hover:text-slate-100'}
