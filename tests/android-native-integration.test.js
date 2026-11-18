@@ -23,11 +23,16 @@ test('Android manifest requests the runtime notification permission', () => {
   assert.match(manifest, /android\.permission\.POST_NOTIFICATIONS/)
 })
 
-test('Capacitor uses native edge-to-edge insets and viewport fit', () => {
+test('Capacitor injects CSS edge-to-edge insets and viewport fit', () => {
   const config = JSON.parse(read('capacitor.config.json'))
   const mainActivity = read('android/app/src/main/java/com/finanzas/companion/MainActivity.kt')
+  const styles = read('src/styles/globals.css')
 
-  assert.equal(config.plugins.SystemBars.insetsHandling, 'native')
+  assert.equal(config.plugins.SystemBars.insetsHandling, 'css')
   assert.equal(config.plugins.SystemBars.initialViewportFitValueHint, 'cover')
   assert.match(mainActivity, /WindowCompat\.setDecorFitsSystemWindows\(window, false\)/)
+  assert.match(styles, /--safe-area-inset-top/)
+  assert.match(styles, /--safe-area-inset-bottom/)
+  assert.match(styles, /env\(safe-area-inset-top, 0px\)/)
+  assert.match(styles, /env\(safe-area-inset-bottom, 0px\)/)
 })
