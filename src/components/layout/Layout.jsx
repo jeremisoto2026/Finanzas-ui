@@ -69,7 +69,7 @@ function LoadingView() {
   )
 }
 
-export default function Layout() {
+export default function Layout({ onSignOut }) {
   const [activePage, setActivePage] = useState('Dashboard')
   const [moreOpen, setMoreOpen] = useState(false)
 
@@ -86,7 +86,7 @@ export default function Layout() {
       <Sidebar activePage={activePage} setActivePage={cambiarPagina} />
 
       <div className="min-w-0 flex-1">
-        <Navbar activePage={activePage} onMenu={() => setMoreOpen(true)} onAdd={() => cambiarPagina('Gastos')} />
+        <Navbar activePage={activePage} onMenu={() => setMoreOpen(true)} onAdd={() => cambiarPagina('Gastos')} onSignOut={onSignOut} />
 
         <main className="app-main mx-auto min-w-0 w-full max-w-[1600px] px-3 py-5 sm:px-5 md:px-7 md:py-7 xl:px-9">
           <Suspense fallback={<LoadingView />}>
