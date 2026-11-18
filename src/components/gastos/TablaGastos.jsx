@@ -44,6 +44,8 @@ export default function TablaGastos() {
   // Movimientos de gasto contabilizados procedentes del libro mayor.
   const [gastosMensuales, setGastosMensuales] = useState([]);
   const [categoriasDisponibles, setCategoriasDisponibles] = useState([]);
+  const [cuentasUsuario, setCuentasUsuario] = useState([]);
+  const [cuentasLoading, setCuentasLoading] = useState(true);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [formOpen, setFormOpen] = useState(false);
@@ -56,7 +58,7 @@ export default function TablaGastos() {
     monto: '',
     fecha: new Date().toISOString().slice(0, 10),
     categoria: 'Otros',
-    cuenta: 'Revolut',
+    cuentaId: '',
     metodo: 'Tarjeta'
   });
 
@@ -105,6 +107,24 @@ export default function TablaGastos() {
     return () => { cancelled = true }
   }, [])
 
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/cuentas', { cache: 'no-store' })
+      .then((response) => {
+        if (!response.ok) throw new Error('No se pudieron cargar tus cuentas.')
+        return response.json()
+      })
+      .then((data) => {
+        if (!cancelled) setCuentasUsuario(Array.isArray(data) ? data : [])
+      })
+      .catch((loadError) => {
+        console.error('No se pudieron cargar las cuentas para registrar gastos:', loadError)
+        if (!cancelled) setCuentasUsuario([])
+      })
+      .finally(() => { if (!cancelled) setCuentasLoading(false) })
+    return () => { cancelled = true }
+  }, [])
+
   const abrirNuevoGasto = () => {
     setEditingGastoId(null)
     setNuevoGasto({
@@ -112,7 +132,7 @@ export default function TablaGastos() {
       monto: '',
       fecha: new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Madrid' }),
       categoria: categoriasDisponibles.find((category) => category.toLowerCase() === 'alimentación') || categoriasDisponibles[0] || 'Otros',
-      cuenta: 'Revolut',
+      cuentaId: '',
       metodo: 'Tarjeta',
       idempotencyKey: crypto.randomUUID(),
     })
@@ -133,7 +153,7 @@ export default function TablaGastos() {
       monto: String(gasto.monto ?? ''),
       fecha: String(gasto.fecha || '').slice(0, 10),
       categoria: gasto.categoria || 'Otros',
-      cuenta: gasto.cuenta || 'Revolut',
+      cuentaId: gasto.cuentaId || '',
       metodo: gasto.metodo || 'Tarjeta',
     })
     setFormError('')
@@ -145,6 +165,10 @@ export default function TablaGastos() {
     const amount = Number(nuevoGasto.monto)
     if (!nuevoGasto.concepto.trim() || !Number.isFinite(amount) || amount <= 0 || !nuevoGasto.fecha) {
       setFormError('Completa el concepto, un importe positivo y la fecha.')
+      return
+    }
+    if (!nuevoGasto.cuentaId || !cuentasUsuario.some((account) => account.id === nuevoGasto.cuentaId)) {
+      setFormError('Selecciona una cuenta válida desde la que salió el dinero.')
       return
     }
 
@@ -417,8 +441,12 @@ export default function TablaGastos() {
                   {categorias.map((category) => <option key={category} value={category}>{category}</option>)}
                 </select>
               </label>
-              <label className="text-sm font-medium text-slate-300">Cuenta
-                <select value={nuevoGasto.cuenta} onChange={(e) => setNuevoGasto({ ...nuevoGasto, cuenta: e.target.value })} className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-3 text-white outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"><option>Revolut</option><option>BBVA</option><option>Efectivo</option></select>
+              <label className="text-sm font-medium text-slate-300">¿De qué cuenta salió el dinero?
+                <select required value={nuevoGasto.cuentaId} onChange={(e) => setNuevoGasto({ ...nuevoGasto, cuentaId: e.target.value })} disabled={cuentasLoading || cuentasUsuario.length === 0} className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-3 text-white outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 disabled:opacity-60">
+                  <option value="">{cuentasLoading ? 'Cargando cuentas…' : cuentasUsuario.length ? 'Selecciona una cuenta' : 'No hay cuentas disponibles'}</option>
+                  {cuentasUsuario.map((account) => <option key={account.id} value={account.id}>{account.name} · {account.currencyCode || 'EUR'}</option>)}
+                </select>
+                <span className="mt-1 block text-xs font-normal text-slate-500">El importe se descontará del saldo de esta cuenta.</span>
               </label>
               <label className="text-sm font-medium text-slate-300">Método de pago
                 <select value={nuevoGasto.metodo} onChange={(e) => setNuevoGasto({ ...nuevoGasto, metodo: e.target.value })} className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-3 text-white outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"><option>Tarjeta</option><option>Transferencia</option><option>Bizum</option><option>Efectivo</option></select>

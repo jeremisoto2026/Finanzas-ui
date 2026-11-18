@@ -1,5 +1,5 @@
 import { handleCors } from '../server/cors.js'
-import { createAuthenticatedClient, findOrCreateCategory, findOrCreateAccount, sendApiError } from '../server/supabase.js'
+import { createAuthenticatedClient, findOrCreateCategory, findOwnedAccountId, sendApiError } from '../server/supabase.js'
 import { transactionForUi } from '../server/finance.js'
 
 function isDateOnly(value) {
@@ -38,7 +38,7 @@ export default async function handler(req, res) {
       }
 
       const categoryId = await findOrCreateCategory(supabase, user.id, body.categoria || 'Otros', 'income')
-      const accountId = await findOrCreateAccount(supabase, user.id, body.cuenta || 'Revolut')
+      const accountId = await findOwnedAccountId(supabase, user.id, body.cuentaId)
       const { data, error } = await supabase.from('transactions').insert({
         user_id: user.id,
         account_id: accountId,
@@ -75,7 +75,7 @@ export default async function handler(req, res) {
         patch.occurred_on = date
       }
       if (body.categoria !== undefined) patch.category_id = await findOrCreateCategory(supabase, user.id, body.categoria, 'income')
-      if (body.cuenta !== undefined) patch.account_id = await findOrCreateAccount(supabase, user.id, body.cuenta)
+      if (body.cuentaId !== undefined) patch.account_id = await findOwnedAccountId(supabase, user.id, body.cuentaId)
       if (body.metodo !== undefined) patch.payment_method = String(body.metodo || '').trim() || null
       if (!Object.keys(patch).length) return res.status(400).json({ error: 'No hay cambios para guardar.' })
       const { data, error } = await supabase.from('transactions').update(patch)

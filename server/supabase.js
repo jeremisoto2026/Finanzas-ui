@@ -84,6 +84,29 @@ export async function findOrCreateCategory(supabase, userId, label, direction = 
   return created.id
 }
 
+export async function findOwnedAccountId(supabase, userId, accountId) {
+  const id = String(accountId || '').trim()
+  if (!id) {
+    const error = new Error('Selecciona una cuenta antes de guardar el movimiento.')
+    error.statusCode = 400
+    throw error
+  }
+
+  const { data, error: lookupError } = await supabase
+    .from('accounts')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('id', id)
+    .maybeSingle()
+  if (lookupError) throw lookupError
+  if (!data?.id) {
+    const error = new Error('La cuenta seleccionada no existe o no pertenece a tu usuario.')
+    error.statusCode = 400
+    throw error
+  }
+  return data.id
+}
+
 export async function findOrCreateAccount(supabase, userId, label) {
   const name = String(label || 'Sin asignar').trim() || 'Sin asignar'
   const { data: found, error: findError } = await supabase
