@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import {
   BellRing,
   CheckCircle2,
-  CircleAlert,
+  AlertCircle,
   Loader2,
   RefreshCw,
   ShieldCheck,
@@ -179,7 +179,7 @@ export default function CapturasAutomaticas() {
             </div>
           </div>
           <span className={'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold ' + (permissionEnabled ? 'bg-emerald-500/10 text-emerald-300' : 'bg-amber-500/10 text-amber-300')}>
-            {permissionEnabled ? <CheckCircle2 className="h-4 w-4" /> : <CircleAlert className="h-4 w-4" />}
+            {permissionEnabled ? <CheckCircle2 className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
             {permissionEnabled ? 'Acceso activado' : 'Permiso pendiente'}
           </span>
         </div>
