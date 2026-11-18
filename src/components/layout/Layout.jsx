@@ -1,16 +1,15 @@
 import { lazy, Suspense, useState } from 'react'
 import {
   BellRing,
-  CalendarClock,
-  ChartNoAxesCombined,
-  CircleEllipsis,
+  TrendingUp,
+  MoreHorizontal,
   CreditCard,
-  HandCoins,
+  DollarSign,
   Home,
-  ReceiptText,
-  Settings2,
+  Receipt,
+  Settings,
   Smartphone,
-  WalletCards,
+  Wallet,
   X,
 } from 'lucide-react'
 import Sidebar from './Sidebar'
@@ -28,16 +27,16 @@ const Recordatorios = lazy(() => import('@/pages/Recordatorios'))
 
 const primaryItems = [
   { name: 'Dashboard', label: 'Inicio', icon: Home },
-  { name: 'Gastos', label: 'Gastos', icon: ReceiptText },
-  { name: 'Ingresos', label: 'Ingresos', icon: ChartNoAxesCombined },
+  { name: 'Gastos', label: 'Gastos', icon: Receipt },
+  { name: 'Ingresos', label: 'Ingresos', icon: TrendingUp },
   { name: 'Recordatorios', label: 'Avisos', icon: BellRing },
 ]
 
 const moreItems = [
-  { name: 'Automatizaciones', description: 'Reglas y procesos automáticos', icon: Settings2 },
+  { name: 'Automatizaciones', description: 'Reglas y procesos automáticos', icon: Settings },
   { name: 'Capturas automáticas', description: 'Compras detectadas en el móvil', icon: Smartphone },
-  { name: 'Gestión financiera', description: 'Pagos fijos, cuotas y presupuestos', icon: WalletCards },
-  { name: 'Deudas', description: 'Dinero por cobrar o devolver', icon: HandCoins },
+  { name: 'Gestión financiera', description: 'Pagos fijos, cuotas y presupuestos', icon: Wallet },
+  { name: 'Deudas', description: 'Dinero por cobrar o devolver', icon: DollarSign },
   { name: 'Compromisos', description: 'Reservas y dinero por reponer', icon: CreditCard },
 ]
 
@@ -118,7 +117,7 @@ export default function Layout({ onSignOut }) {
           onClick={() => setMoreOpen(true)}
           className={'mobile-nav-item ' + (isMoreActive || moreOpen ? 'is-active' : '')}
         >
-          <CircleEllipsis className="h-5 w-5" />
+          <MoreHorizontal className="h-5 w-5" />
           <span>Más</span>
         </button>
       </nav>
