@@ -20,6 +20,7 @@ import { supabase } from '@/lib/supabase'
 
 const SOURCE_LABELS = {
   revolut: 'Revolut',
+  bbva: 'BBVA',
   google_wallet: 'Google Wallet',
 }
 
@@ -60,9 +61,10 @@ function groupRemoteEvents(events) {
         occurredAt: first.occurred_at,
         sources,
         categorySuggestion: first.category_suggestion || null,
-        accountLabel: first.account_label || 'Revolut',
+        eventIds: items.map((item) => item.id),
+        accountLabel: items.find((item) => item.account_label)?.account_label || null,
         paymentChannel: first.payment_channel || null,
-        cardLast4: first.card_last4 || null,
+        cardLast4: items.find((item) => item.card_last4)?.card_last4 || null,
         isPaired: sources.length > 1 || items.some((item) => item.status === 'paired'),
       }
     })
@@ -74,6 +76,11 @@ export default function CapturasAutomaticas() {
   const [permissionEnabled, setPermissionEnabled] = useState(false)
   const [localCaptures, setLocalCaptures] = useState([])
   const [remoteEvents, setRemoteEvents] = useState([])
+  const [accounts, setAccounts] = useState([])
+  const [categories, setCategories] = useState([])
+  const [accountSelections, setAccountSelections] = useState({})
+  const [categorySelections, setCategorySelections] = useState({})
+  const [savingReviewId, setSavingReviewId] = useState(null)
   const [loading, setLoading] = useState(true)
   const [syncing, setSyncing] = useState(false)
   const [error, setError] = useState('')
@@ -95,15 +102,36 @@ export default function CapturasAutomaticas() {
         setLocalCaptures([])
       }
 
-      const { data, error: queryError } = await supabase
-        .from('notification_capture_events')
-        .select('id, source_app, pair_key, notification_title, parsed_merchant, parsed_amount, currency_code, category_suggestion, account_label, payment_channel, card_last4, occurred_at, status')
-        .in('status', ['paired', 'needs_review'])
-        .order('occurred_at', { ascending: false })
-        .limit(200)
+      const { data: authData, error: authError } = await supabase.auth.getUser()
+      if (authError) throw authError
+      if (!authData?.user) throw new Error('Inicia sesión para consultar las compras pendientes.')
 
-      if (queryError) throw queryError
-      setRemoteEvents(Array.isArray(data) ? data : [])
+      const [eventsResult, accountsResult, categoriesResult] = await Promise.all([
+        supabase
+          .from('notification_capture_events')
+          .select('id, source_app, pair_key, notification_title, parsed_merchant, parsed_amount, currency_code, category_id, category_suggestion, account_label, payment_channel, card_last4, occurred_at, status')
+          .in('status', ['paired', 'needs_review'])
+          .order('occurred_at', { ascending: false })
+          .limit(200),
+        supabase
+          .from('accounts')
+          .select('id, name, currency_code')
+          .eq('user_id', authData.user.id)
+          .order('name', { ascending: true }),
+        supabase
+          .from('categories')
+          .select('id, name')
+          .eq('user_id', authData.user.id)
+          .eq('is_active', true)
+          .in('direction', ['expense', 'both'])
+          .order('name', { ascending: true }),
+      ])
+      if (eventsResult.error) throw eventsResult.error
+      if (accountsResult.error) throw accountsResult.error
+      if (categoriesResult.error) throw categoriesResult.error
+      setRemoteEvents(Array.isArray(eventsResult.data) ? eventsResult.data : [])
+      setAccounts((accountsResult.data || []).filter((account) => String(account.currency_code || 'EUR').toUpperCase() === 'EUR'))
+      setCategories(categoriesResult.data || [])
     } catch (loadError) {
       setError(loadError?.message || 'No se pudieron consultar las capturas.')
     } finally {
@@ -172,11 +200,118 @@ export default function CapturasAutomaticas() {
 
       const result = await syncLocalCaptures(captures)
       await loadCaptures(false)
-      setNotice(`Sincronización completada: ${result.syncedCaptures || captures.length} compras y ${result.syncedEvents || 0} avisos recibidos. No se ha creado ningún gasto.`)
+      setNotice(`Sincronización completada: ${result.autoPosted || 0} gastos registrados automáticamente y ${result.pendingReview || 0} compras pendientes de revisión.`)
     } catch (syncError) {
       setError(syncError?.message || 'No se pudieron sincronizar las capturas.')
     } finally {
       setSyncing(false)
+    }
+  }
+
+  const registerPendingPurchase = async (item) => {
+    const accountId = accountSelections[item.id] || accounts.find((account) =>
+      item.accountLabel && account.name.trim().toLocaleLowerCase('es') === item.accountLabel.trim().toLocaleLowerCase('es')
+    )?.id || ''
+    const categoryId = categorySelections[item.id] || categories.find((category) =>
+      item.categorySuggestion && category.name.trim().toLocaleLowerCase('es') === item.categorySuggestion.trim().toLocaleLowerCase('es')
+    )?.id || ''
+
+    if (!accountId || !accounts.some((account) => account.id === accountId)) {
+      setError('Selecciona la cuenta donde se realizó el cargo.')
+      return
+    }
+    if (!categoryId || !categories.some((category) => category.id === categoryId)) {
+      setError('Selecciona una categoría para registrar el gasto.')
+      return
+    }
+
+    setSavingReviewId(item.id)
+    setError('')
+    setNotice('')
+    try {
+      const { data: authData, error: authError } = await supabase.auth.getUser()
+      if (authError || !authData?.user) throw new Error('Tu sesión ha caducado. Inicia sesión de nuevo.')
+      const userId = authData.user.id
+      const idempotencyKey = item.eventIds?.[0]
+      if (!idempotencyKey) throw new Error('No se encontró el identificador de esta compra.')
+
+      let transaction
+      const { data: existing, error: existingError } = await supabase
+        .from('transactions')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('idempotency_key', idempotencyKey)
+        .eq('kind', 'expense')
+        .maybeSingle()
+      if (existingError) throw existingError
+      transaction = existing
+      if (!transaction?.id) {
+        const occurredOn = new Intl.DateTimeFormat('sv-SE', {
+          timeZone: 'Europe/Madrid',
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+        }).format(new Date(item.occurredAt))
+        const { data: inserted, error: insertError } = await supabase
+          .from('transactions')
+          .insert({
+            user_id: userId,
+            account_id: accountId,
+            category_id: categoryId,
+            kind: 'expense',
+            status: 'posted',
+            amount: Math.round((item.amount + Number.EPSILON) * 100) / 100,
+            occurred_on: occurredOn,
+            description: item.merchant,
+            payment_method: 'Tarjeta',
+            idempotency_key: idempotencyKey,
+          })
+          .select('id')
+          .single()
+        if (insertError) throw insertError
+        transaction = inserted
+      }
+
+      const { error: updateError } = await supabase
+        .from('notification_capture_events')
+        .update({
+          status: 'posted',
+          matched_transaction_id: transaction.id,
+          account_label: accounts.find((account) => account.id === accountId)?.name || null,
+          category_id: categoryId,
+        })
+        .eq('user_id', userId)
+        .in('id', item.eventIds)
+      if (updateError) throw updateError
+
+      setNotice(`Gasto de ${formatAmount(item.amount, item.currencyCode)} registrado en ${accounts.find((account) => account.id === accountId)?.name || 'la cuenta seleccionada'}.`)
+      await loadCaptures(false)
+    } catch (saveError) {
+      setError(saveError?.message || 'No se pudo registrar esta compra.')
+    } finally {
+      setSavingReviewId(null)
+    }
+  }
+
+  const ignorePendingPurchase = async (item) => {
+    setSavingReviewId(item.id)
+    setError('')
+    setNotice('')
+    try {
+      const { data: authData, error: authError } = await supabase.auth.getUser()
+      if (authError || !authData?.user) throw new Error('Tu sesión ha caducado. Inicia sesión de nuevo.')
+      const { error: updateError } = await supabase
+        .from('notification_capture_events')
+        .update({ status: 'ignored' })
+        .eq('user_id', authData.user.id)
+        .in('id', item.eventIds)
+      if (updateError) throw updateError
+      setNotice('Compra descartada de la bandeja de revisión.')
+      await loadCaptures(false)
+    } catch (ignoreError) {
+      setError(ignoreError?.message || 'No se pudo descartar la compra.')
+    } finally {
+      setSavingReviewId(null)
     }
   }
 
@@ -185,8 +320,8 @@ export default function CapturasAutomaticas() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-400">Automatización</p>
-          <h1 className="mt-2 text-2xl font-bold text-white">Capturas automáticas</h1>
-          <p className="mt-1 text-sm text-slate-400">Pagos detectados por Revolut y Google Wallet, pendientes de revisión.</p>
+          <h1 className="mt-2 text-2xl font-bold text-white">Compras pendientes de revisión</h1>
+          <p className="mt-1 text-sm text-slate-400">Solo aparecen las compras que Finanzas no pudo registrar con suficiente seguridad.</p>
         </div>
         <button
           type="button"
@@ -211,7 +346,7 @@ export default function CapturasAutomaticas() {
               </div>
               <div>
                 <h2 className="font-semibold text-white">Acceso a notificaciones</h2>
-                <p className="mt-1 text-xs text-slate-400">Finanzas solo procesa las notificaciones de Revolut y Google Wallet.</p>
+                <p className="mt-1 text-xs text-slate-400">Finanzas procesa avisos compatibles de Revolut, BBVA y Google Wallet. Las demás aplicaciones se ignoran.</p>
               </div>
             </div>
             <span className={'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold ' + (permissionEnabled ? 'bg-emerald-500/10 text-emerald-300' : 'bg-amber-500/10 text-amber-300')}>
@@ -258,7 +393,7 @@ export default function CapturasAutomaticas() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-lg font-semibold text-white">Bandeja de revisión</h2>
-            <p className="mt-1 text-xs text-slate-400">Una compra aparece una sola vez aunque llegue por las dos aplicaciones.</p>
+            <p className="mt-1 text-xs text-slate-400">Una compra aparece una sola vez aunque llegue por el banco y por Google Wallet.</p>
           </div>
           <span className="rounded-full bg-amber-500/10 px-3 py-1.5 text-xs font-semibold text-amber-300">
             {reviewItems.length} pendientes
@@ -273,7 +408,7 @@ export default function CapturasAutomaticas() {
           <div className="py-12 text-center">
             <Smartphone className="mx-auto h-8 w-8 text-slate-600" />
             <p className="mt-3 text-sm text-slate-300">Todavía no hay compras pendientes de revisión.</p>
-            <p className="mt-1 text-xs text-slate-500">Cuando se sincronice un pago compatible, aparecerá aquí.</p>
+            <p className="mt-1 text-xs text-slate-500">Los pagos identificados se registran solos. Aquí solo verás los casos que necesitan tu ayuda.</p>
           </div>
         ) : (
           <div className="mt-4 space-y-3">
@@ -304,6 +439,32 @@ export default function CapturasAutomaticas() {
                 <p className="mt-2 text-xs text-slate-500">
                   {[item.accountLabel, item.cardLast4 ? 'Tarjeta ··' + item.cardLast4 : null].filter(Boolean).join(' · ')}
                 </p>
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <label className="text-xs font-medium text-slate-300">Cuenta del cargo
+                    <select
+                      value={accountSelections[item.id] ?? accounts.find((account) => item.accountLabel && account.name.trim().toLocaleLowerCase('es') === item.accountLabel.trim().toLocaleLowerCase('es'))?.id ?? ''}
+                      onChange={(event) => setAccountSelections((current) => ({ ...current, [item.id]: event.target.value }))}
+                      className="mt-1.5 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-white"
+                    >
+                      <option value="">Selecciona una cuenta</option>
+                      {accounts.map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}
+                    </select>
+                  </label>
+                  <label className="text-xs font-medium text-slate-300">Categoría del gasto
+                    <select
+                      value={categorySelections[item.id] ?? categories.find((category) => item.categorySuggestion && category.name.trim().toLocaleLowerCase('es') === item.categorySuggestion.trim().toLocaleLowerCase('es'))?.id ?? ''}
+                      onChange={(event) => setCategorySelections((current) => ({ ...current, [item.id]: event.target.value }))}
+                      className="mt-1.5 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-white"
+                    >
+                      <option value="">Selecciona una categoría</option>
+                      {categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
+                    </select>
+                  </label>
+                </div>
+                <div className="mt-4 flex flex-wrap justify-end gap-2">
+                  <button type="button" onClick={() => ignorePendingPurchase(item)} disabled={savingReviewId === item.id} className="rounded-lg border border-slate-700 px-3 py-2 text-xs font-semibold text-slate-300 hover:bg-slate-800 disabled:opacity-50">Descartar</button>
+                  <button type="button" onClick={() => registerPendingPurchase(item)} disabled={savingReviewId === item.id || accounts.length === 0 || categories.length === 0} className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-500 disabled:opacity-50">{savingReviewId === item.id ? 'Guardando…' : 'Registrar gasto'}</button>
+                </div>
               </article>
             ))}
           </div>
@@ -316,10 +477,10 @@ export default function CapturasAutomaticas() {
           <div>
             <h2 className="text-sm font-semibold text-white">Privacidad y seguridad</h2>
             <p className="mt-1 text-xs leading-relaxed text-slate-400">
-              Solo se sincronizan el comercio, importe, fecha, cuenta Revolut, origen del aviso, últimos cuatro dígitos
-              de la tarjeta y categoría sugerida. No se envía el texto completo de la notificación. Cada captura se
-              guarda vinculada a tu sesión y protegida por RLS. Las compras quedan pendientes: no se crean gastos ni
-              se modifican tus saldos automáticamente.
+              Solo se sincronizan el comercio, importe, fecha, banco identificado, últimos cuatro dígitos de la
+              tarjeta y categoría sugerida. No se envía el texto completo de la notificación. Cuando banco y categoría
+              coinciden con datos fiables, Finanzas registra automáticamente un único gasto; los casos ambiguos
+              permanecen pendientes para que elijas la cuenta y categoría. Todo se guarda bajo tu sesión y RLS.
             </p>
           </div>
         </div>
