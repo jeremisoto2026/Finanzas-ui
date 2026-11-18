@@ -89,6 +89,10 @@ object NotificationParser {
     fun normalizeMerchantKey(value: String): String {
         return value
             .uppercase(Locale.ROOT)
+            .replace(
+                Regex("\\b(?:COMPRA|TARJETA|PAGO|PAGADO|PAYMENT|CONTACTLESS|TPV|POS|REVOLUT|GOOGLE|WALLET)\\b"),
+                " "
+            )
             .replace(Regex("[^\\p{L}\\p{N}]+"), " ")
             .replace(Regex("\\b\\d{2,}\\b"), " ")
             .trim()
