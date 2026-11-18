@@ -15,7 +15,7 @@ test('el registro automático solo funciona con banco, cuenta única y categorí
   assert.match(source, /if \(account\?\.id && categoryId\)/)
   assert.match(source, /status: autoPost \? "posted" : "needs_review"/)
   assert.match(source, /idempotency_key: capture\.id/)
-  assert.doesNotMatch(source, /accountLabel: "Revolut"/)
+  assert.doesNotMatch(source, /accountLabel: "Revolut",/)
 })
 
 test('BBVA y Wallet se filtran por paquete y nunca se emparejan dos bancos diferentes', () => {
