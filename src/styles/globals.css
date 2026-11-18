@@ -61,7 +61,7 @@
 
   .app-topbar {
     padding-top: max(0.75rem, env(safe-area-inset-top, 0px));
-    min-height: calc(4.25rem + env(safe-area-inset-top));
+    min-height: calc(4.25rem + env(safe-area-inset-top, 0px));
   }
 
   .app-main {
