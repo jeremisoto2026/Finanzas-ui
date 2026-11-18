@@ -13,7 +13,7 @@ data class LocalCapture(
     val amountCents: Long,
     val currencyCode: String,
     val occurredAtMillis: Long,
-    val accountName: String,
+    val accountName: String?,
     val cardLast4: String?,
     val categorySuggestion: String?,
     val sources: Set<NotificationSource>,
@@ -52,16 +52,29 @@ class CaptureStore(context: Context) {
         }
 
         val possiblePairIndex = items.indexOfFirst { item ->
+            val crossAppWalletPair =
+                (payment.source == NotificationSource.GOOGLE_WALLET && item.sources.any { it.isBank }) ||
+                (payment.source.isBank && NotificationSource.GOOGLE_WALLET in item.sources)
+            val previousBank = item.sources.firstOrNull { it.isBank }?.accountName
+            val conflictingIssuer =
+                (previousBank != null && payment.source.isBank && previousBank != payment.accountName) ||
+                (payment.source == NotificationSource.GOOGLE_WALLET &&
+                    payment.accountName != null && previousBank != null && payment.accountName != previousBank)
             item.merchantKey == payment.merchantKey &&
                 item.amountCents == payment.amountCents &&
                 item.currencyCode == payment.currencyCode &&
                 payment.source !in item.sources &&
+                crossAppWalletPair &&
+                !conflictingIssuer &&
                 abs(item.occurredAtMillis - payment.occurredAtMillis) <= PAIR_WINDOW_MS
         }
 
         if (possiblePairIndex >= 0) {
             val previous = items[possiblePairIndex]
+            val trustedBank = previous.sources.firstOrNull { it.isBank }?.accountName
+                ?: payment.source.takeIf { it.isBank }?.accountName
             val merged = previous.copy(
+                accountName = trustedBank ?: previous.accountName ?: payment.accountName,
                 cardLast4 = previous.cardLast4 ?: payment.cardLast4,
                 categorySuggestion = previous.categorySuggestion ?: payment.categorySuggestion,
                 sources = previous.sources + payment.source,
@@ -117,7 +130,15 @@ class CaptureStore(context: Context) {
                             amountCents = item.optLong("amountCents"),
                             currencyCode = item.optString("currencyCode", "EUR"),
                             occurredAtMillis = item.optLong("occurredAtMillis"),
-                            accountName = item.optString("accountName", "Revolut"),
+                            accountName = run {
+                                val stored = item.optString("accountName").takeIf { it.isNotBlank() && it != "null" }
+                                if (sources.any { it.isBank }) {
+                                    stored ?: sources.firstOrNull { it.isBank }?.accountName
+                                } else if (NotificationSource.GOOGLE_WALLET in sources) {
+                                    // Older builds incorrectly labeled Wallet-only captures as Revolut.
+                                    null
+                                } else stored
+                            },
                             cardLast4 = if (item.isNull("cardLast4")) null else item.optString("cardLast4").takeIf { it.isNotBlank() },
                             categorySuggestion = if (item.isNull("categorySuggestion")) null else item.optString("categorySuggestion").takeIf { it.isNotBlank() },
                             sources = sources,
@@ -155,7 +176,7 @@ class CaptureStore(context: Context) {
                         .put("amountCents", item.amountCents)
                         .put("currencyCode", item.currencyCode)
                         .put("occurredAtMillis", item.occurredAtMillis)
-                        .put("accountName", item.accountName)
+                        .put("accountName", item.accountName ?: JSONObject.NULL)
                         .put("cardLast4", item.cardLast4 ?: JSONObject.NULL)
                         .put("categorySuggestion", item.categorySuggestion ?: JSONObject.NULL)
                         .put("sources", sources)
