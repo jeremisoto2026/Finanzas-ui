@@ -52,6 +52,11 @@ jobs:
       - name: Build web application
         run: npm run build
         working-directory: .
+        env:
+          # These are the public Supabase project URL and publishable key.
+          # Vite embeds VITE_* values into the APK at build time; they are not server secrets.
+          VITE_SUPABASE_URL: "https://xebgscmovaffrqckzpyz.supabase.co"
+          VITE_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_Mbxk3dAMZHoPKrh90zKHkw_yzzh22un"
 
       - name: Copy web assets into Android
         run: npx cap copy android
