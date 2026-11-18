@@ -1,0 +1,53 @@
+name: Android companion CI
+
+on:
+  push:
+    branches:
+      - feat/finance-core-hardening
+    paths:
+      - "android/**"
+      - ".github/workflows/android-companion.yml"
+  pull_request:
+    paths:
+      - "android/**"
+      - ".github/workflows/android-companion.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-android:
+    name: Build personal Android connector
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: android
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.10.2"
+
+      - name: Run parser unit tests
+        run: gradle --no-daemon :app:testDebugUnitTest
+
+      - name: Assemble debug APK
+        run: gradle --no-daemon :app:assembleDebug
+
+      - name: Upload personal test APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: finanzas-companion-poco-f8-pro-debug
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14

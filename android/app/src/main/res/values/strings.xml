@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">Finanzas · Conector personal</string>
+    <string name="listener_label">Captura selectiva de Finanzas</string>
+    <string name="listener_description">Lee únicamente las notificaciones de pago de Revolut y Google Wallet para reconocer compras en este teléfono.</string>
+</resources>
