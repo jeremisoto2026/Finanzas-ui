@@ -7,7 +7,7 @@ import {
   RefreshCw,
   ShieldCheck,
   Smartphone,
-  CloudUpload,
+  Upload,
 } from 'lucide-react'
 import {
   getLocalCaptureState,
@@ -233,7 +233,7 @@ export default function CapturasAutomaticas() {
               disabled={syncing || loading || !permissionEnabled}
               className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {syncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <CloudUpload className="h-4 w-4" />}
+              {syncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
               {syncing ? 'Sincronizando…' : 'Sincronizar ahora'}
             </button>
             <span className="text-xs text-slate-500">{localCaptures.length} capturas guardadas cifradas en este móvil</span>
