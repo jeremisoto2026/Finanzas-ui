@@ -91,7 +91,7 @@ object NotificationParser {
                 accountName = "Revolut"
             }
             NotificationSource.BBVA -> {
-                val combined = "$heading\\n$body"
+                val combined = "$heading\n$body"
                 if (!bbvaPurchaseSignal.containsMatchIn(combined)) return null
                 val match = amountPattern.find(body) ?: return null
                 amountText = match.groupValues[1]
@@ -104,11 +104,11 @@ object NotificationParser {
                 accountName = "BBVA"
             }
             NotificationSource.GOOGLE_WALLET -> {
-                val combined = "$heading\\n$body"
+                val combined = "$heading\n$body"
                 val match = walletPayment.find(combined) ?: return null
                 amountText = match.groupValues[1]
                 val walletMerchant = Regex(
-                    """\\b(?:en|at)\\s+(.+?)(?=\\r?\\n|$)""",
+                    """\b(?:en|at)\s+(.+?)(?=\r?\n|$)""",
                     RegexOption.IGNORE_CASE
                 ).find(combined)?.groupValues?.getOrNull(1)
                 merchant = cleanMerchant(heading.takeIf {
@@ -131,6 +131,7 @@ object NotificationParser {
             merchantKey = key,
             amountCents = cents,
             occurredAtMillis = occurredAtMillis,
+            accountName = accountName,
             cardLast4 = cardLast4,
             categorySuggestion = suggestCategory(merchant),
             notificationKey = notificationKey
