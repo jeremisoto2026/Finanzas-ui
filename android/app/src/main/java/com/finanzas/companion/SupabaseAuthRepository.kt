@@ -55,6 +55,26 @@ class SupabaseAuthRepository(context: Context) {
         return CompanionUser(userId, userEmail)
     }
 
+    @Synchronized
+    fun persistSession(
+        userId: String,
+        email: String,
+        accessToken: String,
+        refreshToken: String,
+        expiresAtMillis: Long
+    ) {
+        require(userId.isNotBlank() && accessToken.isNotBlank() && refreshToken.isNotBlank()) {
+            "La sesión de Finanzas está incompleta."
+        }
+        val stored = JSONObject()
+            .put("userId", userId)
+            .put("email", email)
+            .put("accessToken", accessToken)
+            .put("refreshToken", refreshToken)
+            .put("expiresAt", expiresAtMillis)
+        secureStore.putString(SESSION_KEY, stored.toString())
+    }
+
     fun currentUser(): CompanionUser? {
         val session = readSession() ?: return null
         val id = session.optString("userId")
@@ -68,10 +88,7 @@ class SupabaseAuthRepository(context: Context) {
         secureStore.remove(SESSION_KEY)
     }
 
-    /**
-     * Reserved for the authenticated sync phase. The current prototype does not
-     * send notification contents or financial events to any remote endpoint.
-     */
+    /** Returns a valid access token, refreshing it through the encrypted refresh token when needed. */
     @Synchronized
     @Throws(Exception::class)
     fun validAccessTokenForFutureSync(): String? {

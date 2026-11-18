@@ -41,7 +41,8 @@ class NotificationCaptureService : NotificationListenerService() {
             notificationKey = "\${sbn.packageName}:\${sbn.key}"
         ) ?: return
 
-        captureStore.add(parsed)
+        val result = captureStore.add(parsed)
+        if (!result.wasDuplicate) CaptureSyncScheduler.enqueue(applicationContext)
         CaptureEvents.onChanged?.invoke()
     }
 

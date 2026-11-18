@@ -16,6 +16,9 @@ class LocalCapturesPlugin : Plugin() {
     private val captureStore: CaptureStore by lazy {
         CaptureStore(getContext().applicationContext)
     }
+    private val authRepository: SupabaseAuthRepository by lazy {
+        SupabaseAuthRepository(getContext().applicationContext)
+    }
 
     override fun load() {
         CaptureEvents.onChanged = {
@@ -58,7 +61,7 @@ class LocalCapturesPlugin : Plugin() {
                     put("amountCents", capture.amountCents)
                     put("currencyCode", capture.currencyCode)
                     put("occurredAtMillis", capture.occurredAtMillis)
-                    put("accountName", capture.accountName)
+                    put("accountName", capture.accountName ?: JSONObject.NULL)
                     put("cardLast4", capture.cardLast4 ?: JSONObject.NULL)
                     put("categorySuggestion", capture.categorySuggestion ?: JSONObject.NULL)
                     put("sources", sources)
@@ -76,6 +79,34 @@ class LocalCapturesPlugin : Plugin() {
             call.resolve(result)
         } catch (error: Exception) {
             call.reject("No se pudieron leer las capturas locales.", error)
+        }
+    }
+
+    @PluginMethod
+    fun updateAuthSession(call: PluginCall) {
+        try {
+            authRepository.persistSession(
+                userId = call.getString("userId").orEmpty(),
+                email = call.getString("email").orEmpty(),
+                accessToken = call.getString("accessToken").orEmpty(),
+                refreshToken = call.getString("refreshToken").orEmpty(),
+                expiresAtMillis = call.getLong("expiresAtMillis") ?: 0L
+            )
+            CaptureSyncScheduler.enqueue(getContext().applicationContext)
+            call.resolve(JSObject().apply { put("success", true) })
+        } catch (error: Exception) {
+            call.reject("No se pudo preparar la sincronización segura.", error)
+        }
+    }
+
+    @PluginMethod
+    fun clearAuthSession(call: PluginCall) {
+        try {
+            authRepository.signOut()
+            CaptureSyncScheduler.cancel(getContext().applicationContext)
+            call.resolve(JSObject().apply { put("success", true) })
+        } catch (error: Exception) {
+            call.reject("No se pudo cerrar la sesión nativa.", error)
         }
     }
 
