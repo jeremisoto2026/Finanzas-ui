@@ -11,7 +11,9 @@
 - Reconoce importe, comercio, tarjeta (solo últimos cuatro dígitos) y hora cuando aparecen en el aviso.
 - Agrupa los dos avisos de una compra si coinciden comercio, importe y hora dentro de tres minutos.
 - Conserva las capturas localmente cifradas con una clave Android Keystore.
-- **No envía notificaciones a Internet, no crea gastos y no modifica saldos en esta fase.**
+- Sincroniza a Finanzas únicamente las capturas ya interpretadas (comercio, importe, fecha, cuenta, origen, últimos cuatro dígitos y categoría sugerida), usando la sesión autenticada de la cuenta.
+- No transmite el texto completo de las notificaciones ni notificaciones de otras aplicaciones.
+- Las compras se guardan en una bandeja independiente, pendientes de revisión. **No crea gastos ni modifica saldos automáticamente.**
 
 ## Inicio de sesión
 
@@ -37,6 +39,12 @@ El APK de depuración estará en:
 
 El workflow `Android companion CI` compila y publica el APK como artefacto privado del flujo de GitHub Actions. No crea una versión de Google Play.
 
-## Próxima fase (no incluida en el modo local)
+## Sincronización de capturas (Preview)
 
-Después de validar el filtro y el reconocimiento en el POCO, se diseñará la sincronización autenticada con Finanzas. Esa fase necesitará una migración y un endpoint del backend; no está activada ahora para mantener intactos los datos financieros existentes.
+- La APK sincroniza la cola local cifrada al abrir Finanzas, al entrar una captura nueva mientras la app está activa y al volver a primer plano.
+- La sincronización llama a la Edge Function autenticada `notification-capture-sync` con JWT y `verify_jwt=true`.
+- El servidor valida el usuario y escribe únicamente en `notification_capture_events`, una tabla independiente protegida con RLS por propietario.
+- La huella por usuario, captura y aplicación hace que los reintentos sean idempotentes. Si Revolut y Google Wallet se emparejan, se muestran como una sola compra.
+- No hay escrituras en `transactions`, `accounts`, ingresos, gastos ni saldos durante la sincronización.
+- Las capturas locales se conservan cifradas en el teléfono; no se borran después de sincronizar.
+- La bandeja permite revisar lo recibido, pero la confirmación para crear un gasto se implementará y probará en una fase separada.
