@@ -90,7 +90,7 @@ function reminderCandidate({ sourceType, sourceId, dueOn, title, amount, currenc
     id: stableNotificationId(reminderKey),
     title: isSameDay ? title.replace(/^Próximo pago:/, 'Hoy vence:').replace(/^Próxima cuota:/, 'Hoy vence:') : title,
     body,
-    schedule: { at, allowWhileIdle: false },
+    schedule: { at, allowWhileIdle: true },
     channelId: 'finanzas-reminders',
     smallIcon: 'ic_stat_finanzas',
     iconColor: '#18B887',
