@@ -310,11 +310,43 @@ export default function Automatizaciones() {
         <div className="flex items-center gap-2 text-sm text-emerald-300">
           <Sparkles className="h-4 w-4" /> Automatización inteligente
         </div>
-        <h1 className="mt-2 text-2xl font-bold tracking-tight text-white sm:text-3xl">Pagos automáticos</h1>
+        <h1 className="mt-2 text-2xl font-bold tracking-tight text-white sm:text-3xl">Automatizaciones y reglas</h1>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">
-          Prepara el reconocimiento de comercios y la futura captura de pagos de Revolut y Google Wallet. Esta pantalla no crea gastos ni modifica saldos.
+          Configura cómo Finanzas detecta avisos de pago, sugiere comercios y prepara categorías. Las compras capturadas quedan pendientes de tu revisión: no se crean gastos ni se alteran saldos por sí solas.
         </p>
       </header>
+
+      <section aria-label="Cómo funcionan las automatizaciones" className="grid gap-3 md:grid-cols-3">
+        <article className="rounded-2xl border border-slate-800 bg-slate-900/65 p-4">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-500/10 text-sky-300">
+            <Smartphone className="h-5 w-5" />
+          </div>
+          <h2 className="mt-3 text-sm font-semibold text-white">1. Captura de avisos</h2>
+          <p className="mt-1 text-xs leading-5 text-slate-400">
+            Con el acceso de Android activado, el servicio nativo detecta avisos compatibles de Revolut y Google Wallet y guarda los datos reconocidos de forma cifrada en el móvil, aunque cierres la pantalla de Finanzas.
+          </p>
+        </article>
+
+        <article className="rounded-2xl border border-slate-800 bg-slate-900/65 p-4">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-300">
+            <Store className="h-5 w-5" />
+          </div>
+          <h2 className="mt-3 text-sm font-semibold text-white">2. Reglas de comercios</h2>
+          <p className="mt-1 text-xs leading-5 text-slate-400">
+            Busca un establecimiento, confirma su categoría y guarda una regla para reutilizarla. Las búsquedas externas solo se realizan cuando pulsas «Buscar comercio».
+          </p>
+        </article>
+
+        <article className="rounded-2xl border border-slate-800 bg-slate-900/65 p-4">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/10 text-amber-300">
+            <ShieldCheck className="h-5 w-5" />
+          </div>
+          <h2 className="mt-3 text-sm font-semibold text-white">3. Revisión antes de registrar</h2>
+          <p className="mt-1 text-xs leading-5 text-slate-400">
+            Al volver a abrir Finanzas, las capturas locales se sincronizan y aparecen para revisar. Tú decides si registras el gasto; no se modifica ningún saldo automáticamente.
+          </p>
+        </article>
+      </section>
 
       {error && (
         <div role="alert" className="flex items-start gap-3 rounded-xl border border-rose-900/60 bg-rose-950/30 p-3 text-sm text-rose-200">
