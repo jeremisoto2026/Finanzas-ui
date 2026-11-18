@@ -29,6 +29,7 @@ function Switch({ checked, onChange, label, disabled }) {
 
 export default function NativeReminderSettings() {
   const [preferences, setPreferences] = useState(DEFAULT_REMINDER_PREFERENCES)
+  const [fixedPayments, setFixedPayments] = useState([])
   const [permission, setPermission] = useState('prompt')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -49,6 +50,7 @@ export default function NativeReminderSettings() {
       setPermission(devicePermission.display || 'prompt')
       const data = await getNativeReminderData(supabase, user.id)
       setPreferences(data.preferences)
+      setFixedPayments(data.fixedPayments)
       if (devicePermission.display === 'granted') {
         const result = await syncNativeReminders(data)
         setScheduledCount(result.scheduled)
@@ -113,6 +115,36 @@ export default function NativeReminderSettings() {
       setNotice('Preferencias guardadas y avisos actualizados.')
     } catch (saveError) {
       setError(saveError.message || 'No se pudieron guardar las preferencias.')
+      await load()
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const savePaymentReminder = async (paymentId, enabled) => {
+    setSaving(true)
+    setError('')
+    setNotice('')
+    try {
+      const { data: { user }, error: userError } = await supabase.auth.getUser()
+      if (userError) throw userError
+      if (!user) throw new Error('Tu sesión ha caducado. Vuelve a iniciar sesión.')
+      const { error: updateError } = await supabase.from('fixed_payments')
+        .update({ notification_enabled: enabled, updated_at: new Date().toISOString() })
+        .eq('id', paymentId)
+        .eq('user_id', user.id)
+      if (updateError) throw updateError
+      setFixedPayments((current) => current.map((item) =>
+        item.id === paymentId ? { ...item, notification_enabled: enabled } : item
+      ))
+      if (permission === 'granted') {
+        const data = await getNativeReminderData(supabase, user.id)
+        const result = await syncNativeReminders(data)
+        setScheduledCount(result.scheduled)
+      }
+      setNotice(enabled ? 'Aviso activado para este pago.' : 'Aviso desactivado para este pago.')
+    } catch (updateError) {
+      setError(updateError.message || 'No se pudo actualizar el aviso del pago.')
       await load()
     } finally {
       setSaving(false)
@@ -211,6 +243,35 @@ export default function NativeReminderSettings() {
             <p className="mt-1 text-xs leading-5 text-slate-400">Alquiler, teléfono, abogado y otros compromisos con aviso activado.</p>
           </div>
           <Switch checked={preferences.fixed_payments_enabled} disabled={loading || saving} label="Recordatorios de pagos fijos" onChange={(value) => savePreferences({ fixed_payments_enabled: value })} />
+        </div>
+
+        <div className="space-y-3 rounded-xl border border-slate-800 bg-slate-950/35 p-4">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-medium text-slate-100">Avisos por pago fijo</p>
+              <p className="mt-1 text-xs text-slate-400">Elige qué pagos deben generar recordatorio.</p>
+            </div>
+            <span className="rounded-full bg-slate-800 px-2.5 py-1 text-[11px] text-slate-300">{fixedPayments.filter((item) => item.notification_enabled).length}/{fixedPayments.length}</span>
+          </div>
+          {fixedPayments.length === 0 ? (
+            <p className="rounded-lg bg-slate-800/45 p-3 text-xs text-slate-400">No hay pagos fijos activos configurados.</p>
+          ) : (
+            <div className="divide-y divide-slate-800/80">
+              {fixedPayments.map((payment) => (
+                <div key={payment.id} className="flex items-center justify-between gap-3 py-3 first:pt-1 last:pb-1">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-slate-200">{payment.name}</p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      {new Intl.NumberFormat('es-ES', { style: 'currency', currency: payment.currency_code || 'EUR' }).format(Number(payment.amount || 0))}
+                      {payment.next_due_on ? ' · Próximo: ' + new Date(String(payment.next_due_on).slice(0, 10) + 'T12:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }) : ''}
+                    </p>
+                  </div>
+                  <Switch checked={Boolean(payment.notification_enabled)} disabled={loading || saving || permission !== 'granted'} label={'Aviso para ' + payment.name} onChange={(value) => savePaymentReminder(payment.id, value)} />
+                </div>
+              ))}
+            </div>
+          )}
+          {permission !== 'granted' && <p className="text-[11px] text-amber-300">Activa primero las notificaciones del dispositivo para cambiar estos avisos.</p>}
         </div>
 
         <div className="flex items-center justify-between gap-4 rounded-xl bg-slate-800/45 p-4">
