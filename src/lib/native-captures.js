@@ -1,4 +1,5 @@
 import { Capacitor, registerPlugin } from '@capacitor/core'
+import { supabase } from '@/lib/supabase'
 
 const LocalCaptures = registerPlugin('LocalCaptures')
 
@@ -34,4 +35,30 @@ export async function clearLocalCaptures() {
 export function listenForCaptureChanges(callback) {
   if (!isFinanzasAndroid()) return Promise.resolve({ remove: async () => {} })
   return LocalCaptures.addListener('capturesChanged', callback)
+}
+
+
+/**
+ * Uploads parsed local payment captures to the authenticated inbox.
+ * The original notification text is never sent; only normalized purchase
+ * fields already extracted by the Android listener are synchronized.
+ */
+export async function syncLocalCaptures(captures = []) {
+  if (!isFinanzasAndroid()) {
+    throw new Error('La sincronización de capturas está disponible en Finanzas Android.')
+  }
+
+  if (!Array.isArray(captures) || captures.length === 0) {
+    return { ok: true, syncedCaptures: 0, syncedEvents: 0 }
+  }
+
+  const { data, error } = await supabase.functions.invoke('notification-capture-sync', {
+    body: { captures },
+  })
+
+  if (error) throw error
+  if (!data?.ok) {
+    throw new Error(data?.error || 'No se pudieron sincronizar las capturas.')
+  }
+  return data
 }
