@@ -93,7 +93,7 @@ export default function NativeReminderSettings() {
       const data = await getNativeReminderData(supabase, user.id)
       const resultSync = await syncNativeReminders(data)
       setScheduledCount(resultSync.scheduled)
-      setNotice('Notificaciones permitidas. Finanzas ha programado ' + resultSync.scheduled + ' avisos futuros.')
+      setNotice(resultSync.scheduled + ' recordatorios de pagos y cuotas están programados en este móvil. Esta cifra indica las alertas que hay actualmente calculadas para tus vencimientos; no es un límite de notificaciones.')
     } catch (activateError) {
       setError(activateError.message || 'No se pudieron activar los recordatorios.')
     } finally {
@@ -320,8 +320,8 @@ export default function NativeReminderSettings() {
 
         <div className="flex flex-col gap-3 border-t border-slate-800 pt-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="text-xs text-slate-400">
-            <p className="flex items-center gap-2"><Clock3 className="h-4 w-4 text-emerald-400" /> {scheduledCount == null ? 'Avisos pendientes por calcular' : scheduledCount + ' avisos locales programados'}</p>
-            <p className="mt-1">Android puede retrasar avisos no exactos por ahorro de batería.</p>
+            <p className="flex items-center gap-2"><Clock3 className="h-4 w-4 text-emerald-400" /> {scheduledCount == null ? 'Recordatorios pendientes de calcular' : scheduledCount + ' recordatorios de pagos y cuotas programados en este móvil'}</p>
+            <p className="mt-1">La cifra es el total actual de alertas para vencimientos futuros, no un límite de notificaciones. Android puede retrasar avisos no exactos por ahorro de batería.</p>
           </div>
           <button type="button" onClick={testNotification} disabled={loading || saving || permission !== 'granted'} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-700 px-4 py-2.5 text-sm font-semibold text-slate-200 transition hover:bg-slate-800 disabled:opacity-40">
             <BellRing className="h-4 w-4" /> Enviar notificación de prueba
