@@ -8,6 +8,7 @@ on:
     paths:
       - "android/**"
       - "src/**"
+      - "tests/**"
       - "package.json"
       - "capacitor.config.json"
       - "index.html"
