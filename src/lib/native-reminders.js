@@ -19,6 +19,10 @@ export function isFinanzasAndroid() {
   return Capacitor.getPlatform() === 'android'
 }
 
+export function hasNativeReminderPlugin() {
+  return isFinanzasAndroid() && Capacitor.isPluginAvailable('LocalNotifications')
+}
+
 export async function getNativeReminderData(supabase, userId) {
   const [preferencesResult, fixedResult, installmentsResult] = await Promise.all([
     supabase.from('notification_preferences')
@@ -49,6 +53,7 @@ export async function getNativeReminderData(supabase, userId) {
 
 export async function requestNativeReminderPermission() {
   if (!isFinanzasAndroid()) return { display: 'unsupported' }
+  if (!hasNativeReminderPlugin()) throw new Error('El módulo nativo de notificaciones no está integrado en esta APK. Instala la última versión de Finanzas.')
   let permission = await LocalNotifications.checkPermissions()
   if (permission.display !== 'granted') {
     permission = await LocalNotifications.requestPermissions()
@@ -68,6 +73,7 @@ export async function cancelNativeReminders() {
 
 export async function syncNativeReminders(data) {
   if (!isFinanzasAndroid()) return { scheduled: 0, permission: 'unsupported' }
+  if (!hasNativeReminderPlugin()) throw new Error('El módulo nativo de notificaciones no está integrado en esta APK.')
 
   const permission = await LocalNotifications.checkPermissions()
   if (permission.display !== 'granted') {
