@@ -79,13 +79,20 @@ export default function Layout({ onSignOut }) {
   }
 
   const isMoreActive = moreItems.some((item) => item.name === activePage)
+  const abrirNuevoGasto = async () => {
+    await import('@/pages/Gastos')
+    cambiarPagina('Gastos')
+    window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
+      window.dispatchEvent(new Event('finanzas:open-new-expense'))
+    }))
+  }
 
   return (
     <div className="app-shell min-h-screen text-slate-100 md:flex">
       <Sidebar activePage={activePage} setActivePage={cambiarPagina} />
 
       <div className="min-w-0 flex-1">
-        <Navbar activePage={activePage} onMenu={() => setMoreOpen(true)} onAdd={() => cambiarPagina('Gastos')} onSignOut={onSignOut} />
+        <Navbar activePage={activePage} onMenu={() => setMoreOpen(true)} onAdd={abrirNuevoGasto} onSignOut={onSignOut} />
 
         <main className="app-main mx-auto min-w-0 w-full max-w-[1600px] px-3 py-5 sm:px-5 md:px-7 md:py-7 xl:px-9">
           <Suspense fallback={<LoadingView />}>
