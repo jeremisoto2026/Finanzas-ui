@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
-import { LockKeyhole, LogIn, UserPlus, Loader2, LogOut } from 'lucide-react'
+import { LockKeyhole, LogIn, UserPlus, Loader2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { GastosProvider } from '@/contexts/GastosContext'
 import Layout from '@/components/layout/Layout'
@@ -192,15 +192,7 @@ function AuthenticatedFinanceApp() {
       <NotificationCaptureSync />
       <NativeReminderSync />
       <div className="relative">
-        <div className="flex justify-end bg-slate-950 px-4 pt-3">
-          <button
-            onClick={() => signOut()}
-            className="inline-flex items-center gap-2 rounded-md border border-slate-800 px-3 py-1.5 text-xs text-slate-400 hover:bg-slate-900 hover:text-white"
-          >
-            <LogOut className="h-3.5 w-3.5" /> Cerrar sesión
-          </button>
-        </div>
-        <Layout />
+        <Layout onSignOut={() => signOut()} />
       </div>
     </GastosProvider>
   )
