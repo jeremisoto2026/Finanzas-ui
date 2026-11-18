@@ -2,7 +2,7 @@ import { LogOut, Plus, Wallet } from 'lucide-react'
 
 export default function Navbar({ onAdd, onSignOut, activePage = 'Dashboard' }) {
   return (
-    <header className="app-topbar sticky top-0 z-30 flex min-h-[4.25rem] items-center justify-between border-b border-slate-800/80 bg-[#080F1C]/90 px-4 py-3 backdrop-blur-xl sm:px-6 md:px-8">
+    <header className="app-topbar sticky top-0 z-30 flex items-center justify-between border-b border-slate-800/80 bg-[#080F1C]/90 px-4 pb-3 backdrop-blur-xl sm:px-6 md:px-8">
       <div className="flex min-w-0 items-center gap-3">
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-emerald-400/15 bg-emerald-400/10 text-emerald-300">
           <Wallet className="h-5 w-5" />
