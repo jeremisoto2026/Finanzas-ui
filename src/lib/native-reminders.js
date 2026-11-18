@@ -56,6 +56,16 @@ export async function requestNativeReminderPermission() {
   return permission
 }
 
+
+export async function cancelNativeReminders() {
+  if (!isFinanzasAndroid()) return
+  const pending = await LocalNotifications.getPending()
+  const owned = (pending.notifications || [])
+    .filter((item) => item.id >= NATIVE_REMINDER_ID_START && item.id < NATIVE_REMINDER_ID_END)
+    .map((item) => ({ id: item.id }))
+  if (owned.length) await LocalNotifications.cancel({ notifications: owned })
+}
+
 export async function syncNativeReminders(data) {
   if (!isFinanzasAndroid()) return { scheduled: 0, permission: 'unsupported' }
 
