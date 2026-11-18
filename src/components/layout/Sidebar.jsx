@@ -5,7 +5,6 @@ import {
   Cog6ToothIcon,
   BanknotesIcon,
 } from '@heroicons/react/24/outline'
-import { BellRing } from 'lucide-react'
 
 const items = [
   { name: 'Dashboard', icon: HomeIcon },
