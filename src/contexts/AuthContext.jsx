@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { GastosProvider } from '@/contexts/GastosContext'
 import Layout from '@/components/layout/Layout'
 import NotificationCaptureSync from '@/components/NotificationCaptureSync'
+import NativeReminderSync from '@/components/NativeReminderSync'
 
 const AuthContext = createContext(null)
 
@@ -189,6 +190,7 @@ function AuthenticatedFinanceApp() {
   return (
     <GastosProvider>
       <NotificationCaptureSync />
+      <NativeReminderSync />
       <div className="relative">
         <div className="flex justify-end bg-slate-950 px-4 pt-3">
           <button
