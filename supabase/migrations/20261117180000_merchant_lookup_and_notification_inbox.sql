@@ -1,6 +1,5 @@
--- Additive infrastructure for merchant categorization and Android notification capture.
--- This migration is intentionally NOT applied to the active database during Preview preparation.
--- It does not update, delete, or rewrite any existing financial movement.
+-- Additive infrastructure for merchant categorization and the isolated Android notification inbox.
+-- Creates new tables only; it never updates, deletes, or rewrites financial movements or balances.
 
 create table if not exists public.merchant_category_rules (
   id uuid primary key default gen_random_uuid(),
@@ -47,6 +46,7 @@ create table public.notification_capture_events (
   parsed_amount numeric(14,2) check (parsed_amount is null or parsed_amount > 0),
   currency_code char(3) not null default 'EUR',
   category_id uuid,
+  category_suggestion text check (category_suggestion is null or length(category_suggestion) between 2 and 120),
   account_label text,
   payment_channel text check (payment_channel in ('revolut', 'google_wallet')),
   card_last4 char(4) check (card_last4 is null or card_last4 ~ '^[0-9]{4}$'),
