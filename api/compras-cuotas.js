@@ -1,3 +1,4 @@
+import { handleCors } from '../server/cors.js'
 import { createAuthenticatedClient, findOrCreateCategory, sendApiError } from '../server/supabase.js'
 import { frequencyToDb, installmentPlanForUi } from '../server/finance.js'
 import { toCents } from '../src/lib/finance-core.js'
@@ -60,6 +61,7 @@ async function readPlans(supabase, userId) {
 }
 
 export default async function handler(req, res) {
+  if (handleCors(req, res)) return;
   res.setHeader('Cache-Control', 'no-store')
   try {
     const { supabase, user } = await createAuthenticatedClient(req)
