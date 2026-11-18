@@ -79,7 +79,8 @@ async function createAndroidTransaction(parsedUrl, input, init, sourceRequest) {
     const userId = authData.user.id
     const idempotencyKey = String(body.idempotencyKey || crypto.randomUUID())
     const categoryName = String(body.categoria || 'Otros').normalize('NFKC').trim().replace(/\s+/g, ' ') || 'Otros'
-    const accountName = String(body.cuenta || 'Revolut').normalize('NFKC').trim().replace(/\s+/g, ' ') || 'Revolut'
+    const accountId = String(body.cuentaId || '').trim()
+    if (!accountId) return jsonResponse({ error: 'Selecciona la cuenta del movimiento.' }, 400)
 
     const mapTransaction = (row) => ({
       id: row.id,
@@ -132,32 +133,13 @@ async function createAndroidTransaction(parsedUrl, input, init, sourceRequest) {
     }
     if (!category?.id) throw new Error('No se pudo preparar la categoría del movimiento.')
 
-    const { data: foundAccount, error: accountReadError } = await supabase.from('accounts')
+    const { data: account, error: accountReadError } = await supabase.from('accounts')
       .select('id, name')
       .eq('user_id', userId)
-      .eq('name', accountName)
+      .eq('id', accountId)
       .maybeSingle()
     if (accountReadError) throw accountReadError
-    let account = foundAccount
-    if (!account) {
-      const today = new Intl.DateTimeFormat('sv-SE', {
-        timeZone: 'Europe/Madrid', year: 'numeric', month: '2-digit', day: '2-digit',
-      }).format(new Date())
-      const { data: createdAccount, error: accountInsertError } = await supabase.from('accounts')
-        .insert({ user_id: userId, name: accountName, opening_balance: 0, opening_balance_date: today })
-        .select('id, name')
-        .single()
-      if (accountInsertError && accountInsertError.code === '23505') {
-        const { data: retryAccount, error: retryError } = await supabase.from('accounts')
-          .select('id, name').eq('user_id', userId).eq('name', accountName).single()
-        if (retryError) throw retryError
-        account = retryAccount
-      } else if (accountInsertError) {
-        throw accountInsertError
-      } else {
-        account = createdAccount
-      }
-    }
+    if (!account?.id) return jsonResponse({ error: 'La cuenta seleccionada no existe o no pertenece a tu usuario.' }, 400)
 
     const { data: inserted, error: insertError } = await supabase.from('transactions').insert({
       user_id: userId,
