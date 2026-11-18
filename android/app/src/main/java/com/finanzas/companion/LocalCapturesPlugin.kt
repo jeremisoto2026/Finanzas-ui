@@ -92,6 +92,20 @@ class LocalCapturesPlugin : Plugin() {
     }
 
     @PluginMethod
+    fun openAppNotificationSettings(call: PluginCall) {
+        try {
+            val context = getContext()
+            val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+                putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+            }
+            getActivity().startActivity(intent)
+            call.resolve()
+        } catch (error: Exception) {
+            call.reject("No se pudieron abrir los ajustes de notificaciones de Finanzas.", error)
+        }
+    }
+
+    @PluginMethod
     fun clearCaptures(call: PluginCall) {
         try {
             captureStore.clear()
