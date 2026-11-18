@@ -6,40 +6,38 @@
   html {
     color-scheme: dark;
     scroll-behavior: smooth;
-    background: #020617;
+    background: #080F1C;
+    min-height: 100%;
   }
 
   body {
     @apply min-w-0 bg-slate-950 text-slate-100 antialiased;
+    min-height: 100vh;
+    min-height: 100dvh;
+    margin: 0;
     font-feature-settings: "ss01" on, "cv11" on;
+    background-color: #080F1C;
     background-image:
-      radial-gradient(ellipse at 12% 0%, rgba(16, 185, 129, 0.075), transparent 36rem),
-      radial-gradient(ellipse at 100% 18%, rgba(56, 189, 248, 0.035), transparent 30rem);
+      radial-gradient(ellipse at 12% 0%, rgba(16, 185, 129, 0.085), transparent 38rem),
+      radial-gradient(ellipse at 100% 16%, rgba(59, 130, 246, 0.045), transparent 32rem);
     background-attachment: fixed;
+    overscroll-behavior-y: contain;
   }
 
   #root {
-    @apply min-h-screen;
+    min-height: 100vh;
+    min-height: 100dvh;
   }
 
-  button,
-  input,
-  select,
-  textarea {
+  button, input, select, textarea {
     @apply disabled:cursor-not-allowed;
   }
 
-  input,
-  select,
-  textarea {
+  input, select, textarea {
     @apply transition-colors;
   }
 
-  button:focus-visible,
-  a:focus-visible,
-  input:focus-visible,
-  select:focus-visible,
-  textarea:focus-visible {
+  button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
     @apply outline-none ring-2 ring-emerald-400 ring-offset-2 ring-offset-slate-950;
   }
 
@@ -49,11 +47,67 @@
 
   * {
     scrollbar-width: thin;
-    scrollbar-color: #334155 #020617;
+    scrollbar-color: #334155 #080F1C;
   }
 }
 
 @layer components {
+  .app-shell {
+    --finance-bg: #080F1C;
+    --finance-panel: rgba(15, 23, 42, 0.72);
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+
+  .app-topbar {
+    padding-top: max(0.75rem, env(safe-area-inset-top));
+    min-height: calc(4.25rem + env(safe-area-inset-top));
+  }
+
+  .app-main {
+    padding-bottom: calc(7.5rem + env(safe-area-inset-bottom));
+  }
+
+  .app-bottom-nav {
+    position: fixed;
+    z-index: 60;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 0.25rem;
+    padding: 0.45rem 0.55rem calc(env(safe-area-inset-bottom) + 0.4rem);
+    border-top: 1px solid rgba(51, 65, 85, 0.7);
+    background: rgba(8, 15, 28, 0.94);
+    -webkit-backdrop-filter: blur(22px);
+    backdrop-filter: blur(22px);
+    box-shadow: 0 -12px 36px rgba(2, 6, 23, 0.34);
+  }
+
+  .mobile-nav-item {
+    display: flex;
+    min-width: 0;
+    min-height: 3.35rem;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
+    border: 1px solid transparent;
+    border-radius: 0.95rem;
+    color: #94a3b8;
+    font-size: 0.65rem;
+    font-weight: 600;
+    line-height: 1;
+    transition: color 150ms ease, background-color 150ms ease, border-color 150ms ease;
+  }
+
+  .mobile-nav-item.is-active {
+    border-color: rgba(16, 185, 129, 0.15);
+    background: rgba(16, 185, 129, 0.10);
+    color: #6ee7b7;
+  }
+
   .finance-panel {
     @apply rounded-2xl border border-slate-800/90 bg-slate-900/70 shadow-lg shadow-black/10;
   }
@@ -64,5 +118,20 @@
 
   .finance-muted {
     @apply text-sm leading-6 text-slate-400;
+  }
+}
+
+@media (min-width: 768px) {
+  .app-main {
+    padding-bottom: 2rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
   }
 }
