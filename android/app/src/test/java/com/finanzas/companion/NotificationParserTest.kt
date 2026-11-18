@@ -66,3 +66,43 @@ class NotificationParserTest {
         )
     }
 }
+
+
+    @Test
+    fun parsesBbvaPurchaseAndIdentifiesBbvaAccount() {
+        val result = NotificationParser.parse(
+            source = NotificationSource.BBVA,
+            title = "BBVA",
+            text = "Compra realizada con tarjeta: 25,80 € en Mercadona",
+            occurredAtMillis = 1795033320000L
+        )
+        assertNotNull(result)
+        assertEquals("Mercadona", result?.merchant)
+        assertEquals(2580L, result?.amountCents)
+        assertEquals("BBVA", result?.accountName)
+    }
+
+    @Test
+    fun walletWithoutIssuerDoesNotGuessBank() {
+        val result = NotificationParser.parse(
+            source = NotificationSource.GOOGLE_WALLET,
+            title = "Mercadona",
+            text = "25,80 € con Visa ••1234",
+            occurredAtMillis = 1795033320000L
+        )
+        assertNotNull(result)
+        assertNull(result?.accountName)
+        assertEquals("1234", result?.cardLast4)
+    }
+
+    @Test
+    fun walletCanIdentifyAnExplicitBbvaIssuer() {
+        val result = NotificationParser.parse(
+            source = NotificationSource.GOOGLE_WALLET,
+            title = "Mercadona",
+            text = "25,80 € con BBVA Visa ••1234",
+            occurredAtMillis = 1795033320000L
+        )
+        assertNotNull(result)
+        assertEquals("BBVA", result?.accountName)
+    }

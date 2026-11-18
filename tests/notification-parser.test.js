@@ -65,3 +65,45 @@ test('no empareja la misma aplicación ni eventos separados por más de tres min
     ...first, source_app: 'google_wallet', occurred_at: '2026-11-17T22:46:00.000Z',
   }), false)
 })
+
+
+test('BBVA identifies its own notification as the issuing bank', () => {
+  const parsed = parsePaymentNotification({
+    sourceApp: 'bbva',
+    title: 'BBVA',
+    text: 'Compra realizada con tarjeta: 25,80 € en Mercadona',
+    occurredAt: '2026-11-18T17:42:00.000Z',
+  }, categories)
+  assert.equal(parsed.isPayment, true)
+  assert.equal(parsed.accountLabel, 'BBVA')
+  assert.equal(parsed.merchant, 'Mercadona')
+  assert.equal(parsed.amount, 25.8)
+})
+
+test('Wallet without an explicit issuer never guesses the bank', () => {
+  const parsed = parsePaymentNotification({
+    sourceApp: 'google_wallet',
+    title: 'Mercadona',
+    text: '25,80 € con Visa ••1234',
+    occurredAt: '2026-11-18T17:42:00.000Z',
+  }, categories)
+  assert.equal(parsed.isPayment, true)
+  assert.equal(parsed.accountLabel, null)
+})
+
+test('BBVA pairs with Wallet but two different bank apps are not paired', () => {
+  const bbva = {
+    source_app: 'bbva',
+    parsed_amount: 25.8,
+    parsed_merchant: 'Mercadona',
+    currency_code: 'EUR',
+    occurred_at: '2026-11-18T17:42:00.000Z',
+  }
+  const wallet = {
+    ...bbva,
+    source_app: 'google_wallet',
+    occurred_at: '2026-11-18T17:42:20.000Z',
+  }
+  assert.equal(canPairPaymentNotifications(bbva, wallet), true)
+  assert.equal(canPairPaymentNotifications(bbva, { ...bbva, source_app: 'revolut' }), false)
+})
