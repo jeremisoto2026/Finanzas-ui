@@ -29,5 +29,5 @@ test('Capacitor uses native edge-to-edge insets and viewport fit', () => {
 
   assert.equal(config.plugins.SystemBars.insetsHandling, 'native')
   assert.equal(config.plugins.SystemBars.initialViewportFitValueHint, 'cover')
-  assert.match(mainActivity, /EdgeToEdge\.enable\(this\)/)
+  assert.match(mainActivity, /WindowCompat\.setDecorFitsSystemWindows\(window, false\)/)
 })
