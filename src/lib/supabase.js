@@ -54,7 +54,7 @@ function jsonResponse(payload, status = 200) {
 
 // On Android, use the authenticated Supabase Edge Function rather than
 // calling Vercel's protected Preview deployment from the WebView.
-// Preview build is deliberately read-only: no POST/PATCH/DELETE calls are sent.
+// Android reads use the authenticated dashboard snapshot; new expense/income writes use this user's RLS-protected session.
 async function createAndroidTransaction(parsedUrl, input, init, sourceRequest) {
   let bodyValue = init?.body
   if (bodyValue == null && sourceRequest) bodyValue = await sourceRequest.clone().text()
@@ -71,7 +71,7 @@ async function createAndroidTransaction(parsedUrl, input, init, sourceRequest) {
   const amount = Number(body.monto)
   const occurredOn = String(body.fecha || '').slice(0, 10)
   const date = /^\d{4}-\d{2}-\d{2}$/.test(occurredOn) ? new Date(occurredOn + 'T00:00:00.000Z') : null
-  if (!description || description.length > 180 || !Number.isFinite(amount) || amount <= 0 ||
+  if (!description || !Number.isFinite(amount) || amount <= 0 ||
       !date || !Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== occurredOn) {
     return jsonResponse({ error: 'Indica un concepto, un importe positivo y una fecha válida.' }, 400)
   }
@@ -108,12 +108,9 @@ async function createAndroidTransaction(parsedUrl, input, init, sourceRequest) {
     if (existing) return jsonResponse(mapTransaction(existing), 200)
 
     const normalizedCategory = categoryName.toLocaleLowerCase('es-ES')
-    const directions = kind === 'income' ? ['income', 'both'] : ['expense', 'both']
     const { data: categoryRows, error: categoryReadError } = await supabase.from('categories')
       .select('id, name')
       .eq('user_id', userId)
-      .eq('is_active', true)
-      .in('direction', directions)
       .order('created_at', { ascending: true })
     if (categoryReadError) throw categoryReadError
 
