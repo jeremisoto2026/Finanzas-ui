@@ -25,8 +25,8 @@ android {
         // Debug APKs are always isolated from Production so personal testing
         // can never write into the live financial database.
         getByName("debug") {
-            buildConfigField("String", "SUPABASE_URL", "\\"https://brkckgaicoqkqdcwwftm.supabase.co\\"")
-            buildConfigField("String", "SUPABASE_PUBLISHABLE_KEY", "\\"sb_publishable_4aTVOdrHyro5iyDctv1mjg__yI6jqh-\\"")
+            buildConfigField("String", "SUPABASE_URL", "\"https://brkckgaicoqkqdcwwftm.supabase.co\"")
+            buildConfigField("String", "SUPABASE_PUBLISHABLE_KEY", "\"sb_publishable_4aTVOdrHyro5iyDctv1mjg__yI6jqh-\"")
         }
     }
 
