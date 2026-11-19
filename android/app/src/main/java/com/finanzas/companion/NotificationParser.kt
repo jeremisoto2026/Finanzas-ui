@@ -134,7 +134,7 @@ object NotificationParser {
     )
 
     private val excludedInformational = Regex(
-        """\b(otp|one[- ]time password|verification code|security code|codigo de verificacion|c[oó]digo de acceso|clave de un solo uso|token de seguridad|confirmar inicio de sesi[oó]n|iniciar sesi[oó]n|login code|password reset)\b""",
+        """\b(otp|one[- ]time password|verification code|security code|c[oó]digo de verificaci[oó]n|codigo de verificacion|c[oó]digo de acceso|clave de un solo uso|token de seguridad|confirmar inicio de sesi[oó]n|iniciar sesi[oó]n|login code|password reset)\b""",
         RegexOption.IGNORE_CASE
     )
 
