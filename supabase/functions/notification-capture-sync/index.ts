@@ -427,6 +427,7 @@ Deno.serve(async (req: Request) => {
     ]))
 
     const rows: Record<string, unknown>[] = []
+    const registeredExpenses: Record<string, unknown>[] = []
     let autoPosted = 0
     let pendingReview = 0
 
@@ -484,6 +485,7 @@ Deno.serve(async (req: Request) => {
       let transactionId: string | null = null
       let transactionAccountId: string | null = null
       let transactionCategoryId: string | null = null
+      let wasInserted = false
 
       const { data: existingByPair, error: existingPairError } = await supabase
         .from("transactions")
@@ -565,6 +567,7 @@ Deno.serve(async (req: Request) => {
           transactionId = inserted.id
           transactionAccountId = account.id
           transactionCategoryId = categoryId
+          wasInserted = true
         }
       }
 
@@ -576,6 +579,19 @@ Deno.serve(async (req: Request) => {
       const accountLabel = (accounts || []).find((item) => item.id === transactionAccountId)?.name ||
         account?.name || capture.accountLabel || null
       const amountLabel = (capture.amountCents / 100).toFixed(2).replace(".", ",")
+      if (wasInserted && autoPost && transactionId) {
+        const categoryLabel = (categories || []).find((item) => item.id === resolvedCategoryId)?.name || ""
+        registeredExpenses.push({
+          captureId: capture.id,
+          transactionId,
+          merchant: capture.merchant,
+          amountCents: capture.amountCents,
+          currencyCode: capture.currencyCode,
+          categoryLabel,
+          accountLabel: accountLabel || "",
+          occurredAt: capture.occurredAt,
+        })
+      }
       for (const source of capture.sources) {
         const fingerprint = await sha256(userId + "|" + capture.id + "|" + source.sourceApp)
         rows.push({
@@ -621,6 +637,7 @@ Deno.serve(async (req: Request) => {
       syncedEvents: savedRows?.length || rows.length,
       autoPosted,
       pendingReview,
+      registeredExpenses,
     }, 200, origin)
   } catch (error) {
     console.error("notification-capture-sync error:", error)
