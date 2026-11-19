@@ -15,6 +15,20 @@ export function isExactAccountNameMatch(account, sourceLabel = '') {
 }
 
 /**
+ * Human-readable label for a registered notification source.
+ * Explicit labels win; newly registered source keys get a generic label.
+ */
+export function getBankSourceLabel(sourceApp, labels = {}) {
+  const key = String(sourceApp || '').trim()
+  if (!key) return 'Banco'
+  if (labels[key]) return labels[key]
+
+  return key
+    .replace(/[_-]+/g, ' ')
+    .replace(/(^|\\s)[a-záéíóúñ]/gi, (part) => part.toLocaleUpperCase('es-ES'))
+}
+
+/**
  * Build a concise account option label. The selected bank app already provides
  * context, so its institution name is omitted when it would only repeat it.
  */
