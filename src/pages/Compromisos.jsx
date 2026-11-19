@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ArrowPathIcon, BanknotesIcon, CheckCircleIcon, PlusIcon, PencilSquareIcon, TrashIcon, XMarkIcon } from '@heroicons/react/24/outline'
 import { sumMoney } from '@/lib/finance-core'
+import { useConfirmationDialog } from '@/components/ui/ConfirmationDialog'
 
 const euro = (value) => new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(Number(value || 0))
 const today = () => {
@@ -18,6 +19,7 @@ const emptyForm = {
 }
 
 export default function Compromisos() {
+  const confirm = useConfirmationDialog()
   const [items, setItems] = useState([])
   const [accounts, setAccounts] = useState([])
   const [loading, setLoading] = useState(true)
@@ -175,7 +177,12 @@ export default function Compromisos() {
   }
 
   const deleteItem = async (item) => {
-    if (!confirm('¿Eliminar «' + item.title + '»? No se creará ni eliminará ningún movimiento bancario.')) return
+    const approved = await confirm({
+      title: '¿Eliminar esta reposición?',
+      description: `Se eliminará «${item.title}» del seguimiento. No se creará ni se eliminará ningún movimiento bancario.`,
+      confirmLabel: 'Eliminar reposición',
+    })
+    if (!approved) return
     try {
       setUpdating(item.id)
       setError('')
