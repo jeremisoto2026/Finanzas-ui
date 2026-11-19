@@ -5,6 +5,7 @@ import {
   CreditCard,
   Wallet,
   DollarSign,
+  Receipt,
 } from 'lucide-react'
 
 const sections = [
@@ -22,6 +23,7 @@ const sections = [
     description: 'Reduce tareas manuales y mantén tu control financiero al día.',
     items: [
       { page: 'Automatizaciones', title: 'Automatizaciones', description: 'Reglas y procesos automáticos de Finanzas.', icon: Settings },
+      { page: 'Compras pendientes', title: 'Revisión de compras', description: 'Solo los pagos que no se pudieron registrar con seguridad.', icon: Receipt },
     ],
   },
   {
