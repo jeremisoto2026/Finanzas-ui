@@ -280,6 +280,22 @@ class NotificationParserTest {
     }
 
     @Test
+    fun parsesMerchantWrappedAcrossNotificationLineBreak() {
+        val source = NotificationSource.BBVA
+        val result = NotificationParser.parse(
+            source = source,
+            title = "Pago aceptado",
+            text = "Pago aceptado de 2,50 EUR en SUPERMER-\\nCADO ALTET con tu tarjeta",
+            occurredAtMillis = 1795033320000L
+        )
+
+        assertNotNull(result)
+        assertEquals("SUPERMERCADO ALTET", result?.merchant)
+        assertEquals(250L, result?.amountCents)
+        assertEquals("Alimentación", result?.categorySuggestion)
+    }
+
+    @Test
     fun walletAndAnyBankSourceShareMerchantKeyForMatchingPayment() {
         val source = NotificationSource.fromPackage(
             "es.caixabank.mobile.android",
