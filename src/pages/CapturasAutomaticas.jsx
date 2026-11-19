@@ -20,7 +20,7 @@ import {
   syncLocalCaptures,
 } from '@/lib/native-captures'
 import { supabase } from '@/lib/supabase'
-import { getAccountMappingSuggestion, getAccountOptionLabel, isExactAccountNameMatch } from '@/lib/account-notification-mapping'
+import { getAccountMappingSuggestion, getAccountOptionLabel, getBankSourceLabel, isExactAccountNameMatch } from '@/lib/account-notification-mapping'
 
 const SOURCE_LABELS = {
   revolut: 'Revolut',
@@ -89,6 +89,7 @@ export default function CapturasAutomaticas() {
   const [mappingFeedback, setMappingFeedback] = useState('')
   const [savingMapping, setSavingMapping] = useState(false)
   const autoSaveAttemptRef = useRef('')
+  const mappingSourceLabel = getBankSourceLabel(mappingSource, SOURCE_LABELS)
   const [accountSelections, setAccountSelections] = useState({})
   const [categorySelections, setCategorySelections] = useState({})
   const [savingReviewId, setSavingReviewId] = useState(null)
@@ -104,7 +105,7 @@ export default function CapturasAutomaticas() {
       accounts,
       accountMappings,
       mappingSource,
-      SOURCE_LABELS[mappingSource] || mappingSource,
+      mappingSourceLabel,
     ),
     [accounts, accountMappings, mappingSource],
   )
@@ -585,7 +586,7 @@ export default function CapturasAutomaticas() {
             ) : accounts.length === 1 ? (
               <div className="mt-1.5 rounded-lg border border-emerald-700/50 bg-emerald-950/20 px-3 py-2.5" aria-live="polite">
                 <p className="text-sm font-medium text-white">
-                  {getAccountOptionLabel(accounts[0], SOURCE_LABELS[mappingSource])}
+                  {getAccountOptionLabel(accounts[0], mappingSourceLabel)}
                 </p>
                 <p className="mt-0.5 text-[11px] text-emerald-300">
                   Única cuenta activa: se selecciona automáticamente.
@@ -615,7 +616,7 @@ export default function CapturasAutomaticas() {
                 <option value="">Selecciona una cuenta</option>
                 {accounts.map((account) => (
                   <option key={account.id} value={account.id}>
-                    {getAccountOptionLabel(account, SOURCE_LABELS[mappingSource])}
+                    {getAccountOptionLabel(account, mappingSourceLabel)}
                   </option>
                 ))}
               </select>
@@ -673,7 +674,7 @@ export default function CapturasAutomaticas() {
               <div key={mapping.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-800 bg-slate-950/60 p-3">
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-white">
-                    {SOURCE_LABELS[mapping.source_app] || mapping.source_app}
+                    {getBankSourceLabel(mapping.source_app, SOURCE_LABELS)}
                      · Cuenta automática
                   </p>
                   <p className="text-xs text-slate-400">{account?.name || 'Cuenta no disponible'}</p>
