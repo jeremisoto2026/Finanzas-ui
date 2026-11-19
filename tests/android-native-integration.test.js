@@ -70,13 +70,22 @@ test('Android loads account options directly with the authenticated RLS session'
   assert.match(api, /parsedUrl\.pathname === '\/api\/cuentas'/)
   assert.match(api, /return jsonResponse\(await getAndroidAccounts\(\)\)/)
 })
-test('Automatic capture only posts to a unique account matching the detected bank', () => {
+test('Automatic capture only posts after paired bank and Wallet evidence plus an explicit account binding', () => {
   const sync = read('supabase/functions/notification-capture-sync/index.ts')
+  const review = read('src/pages/CapturasAutomaticas.jsx')
+  const migration = read('supabase/migrations/20261119120000_add_account_notification_bindings.sql')
 
-  assert.match(sync, /function accountNameMatchesBank\(accountName: string, bankLabel: string\)/)
-  assert.match(sync, /accountTokens\.includes\(bankToken\)/)
-  assert.match(sync, /candidateAccounts\.length === 1 \? candidateAccounts\[0\] : null/)
+  assert.match(sync, /function resolveMappedAccount/)
+  assert.match(sync, /account_notification_sources/)
+  assert.match(sync, /capture\.isPaired/)
+  assert.match(sync, /capture\.sources\.includes\("google_wallet"\)/)
+  assert.match(sync, /candidates\.length !== 1/)
   assert.match(sync, /else pendingReview \+= 1/)
+  assert.doesNotMatch(sync, /accountNameMatchesBank/)
+  assert.match(review, /Vincular bancos con tus cuentas/)
+  assert.match(review, /onConflict: 'user_id,source_app,card_last4'/)
+  assert.match(review, /account_id: accountId/)
+  assert.match(migration, /notification_capture_events_account_owner_fkey/)
 })
 
 
