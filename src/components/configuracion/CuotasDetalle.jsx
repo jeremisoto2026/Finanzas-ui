@@ -19,8 +19,6 @@ const METODOS = [
   { value: 'bizum', label: 'Bizum', icon: Wallet, color: 'text-pink-400' }
 ]
 
-const CUENTAS = ['BBVA', 'Santander', 'Efectivo', 'Revolut', 'PayPal']
-
 export default function CuotasDetalle({ cuotas: cuotasIniciales }) {
   const [cuotas, setCuotas] = useState(cuotasIniciales)
 
