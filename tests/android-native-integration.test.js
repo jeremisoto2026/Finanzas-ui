@@ -169,7 +169,7 @@ test('Preview APK version is incremented for privacy-first bank notification lin
   const gradle = read('android/app/build.gradle.kts')
   assert.match(gradle, /versionCode = 17/)
   assert.match(gradle, /versionName = "1.0.16-preview"/)
-  assert.match(gradle, /versionName = "1.0.15-preview"/)
+  assert.match(gradle, /versionName = "1.0.16-preview"/)
 })
 
 
