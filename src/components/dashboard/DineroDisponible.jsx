@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
-import { Wallet, RefreshCw, AlertCircle, Landmark } from 'lucide-react'
+import { Wallet, RefreshCw, AlertCircle, Landmark, Pencil, X, Save, Loader2 } from 'lucide-react'
 import { sumMoney, sumMoneyBy } from '@/lib/finance-core'
 
 const formatDate = (value) => value ? new Date(String(value).slice(0, 10) + 'T00:00:00').toLocaleDateString('es-ES') : null
@@ -14,7 +14,47 @@ export default function DineroDisponible() {
   const [accounts, setAccounts] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [editingAccount, setEditingAccount] = useState(null)
+  const [editedBalance, setEditedBalance] = useState('')
+  const [savingAccount, setSavingAccount] = useState(false)
+  const [accountFormError, setAccountFormError] = useState('')
+  const [accountNotice, setAccountNotice] = useState('')
   const [budgetReserve, setBudgetReserve] = useState({ loading: true, month: '', planned: 0, spent: 0, remaining: 0 })
+
+  const openAccountBalanceEditor = (account) => {
+    setEditingAccount(account)
+    setEditedBalance(String(account.balance ?? 0))
+    setAccountFormError('')
+    setAccountNotice('')
+  }
+
+  const saveAccountBalance = async (event) => {
+    event.preventDefault()
+    const balance = Number(editedBalance)
+    if (editedBalance.trim() === '' || !Number.isFinite(balance) || Math.abs(balance) > 999999999999) {
+      setAccountFormError('Introduce un saldo numérico válido.')
+      return
+    }
+
+    try {
+      setSavingAccount(true)
+      setAccountFormError('')
+      const response = await fetch('/api/cuentas', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accountId: editingAccount.id, balance }),
+      })
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.error || 'No se pudo ajustar el saldo de la cuenta.')
+      setAccounts((current) => current.map((item) => item.id === result.id ? result : item))
+      setEditingAccount(null)
+      setAccountNotice('Saldo actualizado. No se ha creado ningún ingreso ni gasto.')
+    } catch (saveError) {
+      setAccountFormError(saveError.message || 'No se pudo ajustar el saldo.')
+    } finally {
+      setSavingAccount(false)
+    }
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -162,6 +202,7 @@ export default function DineroDisponible() {
                         <div className="flex items-center gap-2">
                           <Landmark className="h-4 w-4 shrink-0 text-slate-500" />
                           <span className="min-w-0 truncate text-sm font-medium text-slate-200">{account.name}</span>
+                          <button type="button" onClick={() => openAccountBalanceEditor(account)} className="ml-auto rounded-lg p-1.5 text-sky-300 transition hover:bg-slate-800" title={`Ajustar saldo de ${account.name}`} aria-label={`Ajustar saldo de ${account.name}`}><Pencil className="h-4 w-4" /></button>
                         </div>
                         <p className="mt-3 text-xl font-semibold tabular-nums text-white">
                           {formatMoney(account.balance, account.currencyCode)}
@@ -201,6 +242,31 @@ export default function DineroDisponible() {
           </>
         )}
       </CardContent>
+
+      {accountNotice && <p role="status" className="mt-3 rounded-lg border border-emerald-800/50 bg-emerald-950/20 px-3 py-2 text-xs text-emerald-300">{accountNotice}</p>}
+      {editingAccount && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !savingAccount) setEditingAccount(null) }}>
+          <section role="dialog" aria-modal="true" aria-labelledby="account-balance-title" className="w-full max-w-md rounded-2xl border border-slate-700 bg-slate-900 p-5 shadow-2xl">
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <div>
+                <h3 id="account-balance-title" className="text-lg font-semibold text-white">Ajustar saldo disponible</h3>
+                <p className="mt-1 text-sm text-slate-400">{editingAccount.name}</p>
+              </div>
+              <button type="button" disabled={savingAccount} onClick={() => setEditingAccount(null)} className="rounded-lg p-2 text-slate-400 hover:bg-slate-800 disabled:opacity-50" aria-label="Cerrar"><X className="h-5 w-5" /></button>
+            </div>
+            <form onSubmit={saveAccountBalance}>
+              <label htmlFor="real-account-balance" className="mb-2 block text-sm font-medium text-slate-300">Saldo real actual ({editingAccount.currencyCode || 'EUR'})</label>
+              <input id="real-account-balance" type="number" inputMode="decimal" step="0.01" value={editedBalance} onChange={(event) => setEditedBalance(event.target.value)} autoFocus className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-lg font-semibold text-white outline-none focus:border-emerald-500" />
+              <p className="mt-2 text-xs leading-5 text-slate-500">Este ajuste corrige el saldo base de la cuenta y conserva todos los movimientos históricos. No añade un gasto ni un ingreso ficticio.</p>
+              {accountFormError && <p role="alert" className="mt-3 rounded-lg border border-rose-800/50 bg-rose-950/30 p-3 text-sm text-rose-200">{accountFormError}</p>}
+              <div className="mt-5 flex justify-end gap-2">
+                <button type="button" disabled={savingAccount} onClick={() => setEditingAccount(null)} className="rounded-xl border border-slate-700 px-4 py-2.5 text-sm font-medium text-slate-300 hover:bg-slate-800 disabled:opacity-50">Cancelar</button>
+                <button type="submit" disabled={savingAccount} className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50">{savingAccount ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}Guardar saldo</button>
+              </div>
+            </form>
+          </section>
+        </div>
+      )}
     </Card>
   )
 }
