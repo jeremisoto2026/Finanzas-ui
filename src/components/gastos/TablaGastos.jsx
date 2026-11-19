@@ -1,4 +1,3 @@
-import { Capacitor } from '@capacitor/core'
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { monthKeyFromDate, sumMoney } from '@/lib/finance-core';
 import { uniqueCategoryNames } from '@/lib/category-utils';
@@ -40,7 +39,6 @@ import {
 } from 'lucide-react';
 
 export default function TablaGastos() {
-  const isAndroidApp = Capacitor.getPlatform() === 'android'
   // Movimientos de gasto contabilizados procedentes del libro mayor.
   const [gastosMensuales, setGastosMensuales] = useState([]);
   const [categoriasDisponibles, setCategoriasDisponibles] = useState([]);
@@ -641,14 +639,14 @@ export default function TablaGastos() {
                     <th className="px-6 py-3 text-right text-xs font-medium text-slate-400 uppercase tracking-wider">
                       Monto
                     </th>
-                    {!isAndroidApp && <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-slate-400">Acciones</th>}
+                    <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-slate-400">Acciones</th>
                   </tr>
                 </thead>
                 
                 <tbody className="divide-y divide-slate-800">
                   {gastosFiltrados.length === 0 ? (
                     <tr>
-                      <td colSpan={isAndroidApp ? 6 : 7} className="px-6 py-8 text-center">
+                      <td colSpan={7} className="px-6 py-8 text-center">
                         <div className="text-slate-500">
                           <Receipt className="h-12 w-12 mx-auto mb-3 opacity-50" />
                           <p>No hay gastos para mostrar</p>
@@ -723,14 +721,12 @@ export default function TablaGastos() {
                           <td className="px-6 py-4 whitespace-nowrap text-right">
                             <span className="text-sm font-semibold text-rose-300">€{gasto.monto?.toFixed(2) || '0.00'}</span>
                           </td>
-                          {!isAndroidApp && (
                           <td className="px-4 py-4 whitespace-nowrap text-right">
-                                                      <div className="inline-flex items-center gap-1">
-                                                        <button type="button" disabled={saving} onClick={() => editarGasto(gasto)} className="rounded-lg border border-slate-700 bg-slate-900 p-2 text-sky-300 transition hover:bg-slate-800 disabled:opacity-50" title="Editar gasto" aria-label="Editar gasto"><Pencil className="h-4 w-4" /></button>
-                                                        <button type="button" disabled={saving} onClick={() => eliminarGasto(gasto)} className="rounded-lg border border-slate-700 bg-slate-900 p-2 text-rose-300 transition hover:bg-rose-950/50 disabled:opacity-50" title="Anular gasto" aria-label="Anular gasto"><Trash2 className="h-4 w-4" /></button>
-                                                      </div>
-                                                    </td>
-                          )}
+                            <div className="inline-flex items-center gap-1">
+                              <button type="button" disabled={saving} onClick={() => editarGasto(gasto)} className="rounded-lg border border-slate-700 bg-slate-900 p-2 text-sky-300 transition hover:bg-slate-800 disabled:opacity-50" title="Editar gasto" aria-label="Editar gasto"><Pencil className="h-4 w-4" /></button>
+                              <button type="button" disabled={saving} onClick={() => eliminarGasto(gasto)} className="rounded-lg border border-slate-700 bg-slate-900 p-2 text-rose-300 transition hover:bg-rose-950/50 disabled:opacity-50" title="Anular gasto" aria-label="Anular gasto"><Trash2 className="h-4 w-4" /></button>
+                            </div>
+                          </td>
                         </tr>
                       );
                     })
