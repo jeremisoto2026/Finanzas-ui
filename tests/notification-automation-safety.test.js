@@ -7,15 +7,29 @@ import { dirname, resolve } from 'node:path'
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const read = (path) => readFileSync(resolve(root, path), 'utf8')
 
-test('el registro automático solo funciona con banco, cuenta única y categoría válida', () => {
+test('el registro automático exige pareja Wallet+banco, mapeo único y categoría válida', () => {
   const source = read('supabase/functions/notification-capture-sync/index.ts')
   assert.match(source, /const bankAccountLabel = bankSources\.length === 1/)
-  assert.match(source, /candidateAccounts\.length === 1/)
+  assert.match(source, /function resolveMappedAccount/)
+  assert.match(source, /account_notification_sources/)
+  assert.match(source, /capture\.isPaired/)
+  assert.match(source, /capture\.sources\.includes\("google_wallet"\)/)
+  assert.match(source, /candidates\.length !== 1/)
   assert.match(source, /Number\(savedRule\.confidence \|\| 0\) >= 0\.9/)
-  assert.match(source, /if \(account\?\.id && categoryId\)/)
   assert.match(source, /status: autoPost \? "posted" : "needs_review"/)
+  assert.match(source, /account_id: account\?\.id \|\| null/)
   assert.match(source, /idempotency_key: capture\.id/)
+  assert.doesNotMatch(source, /accountNameMatchesBank/)
   assert.doesNotMatch(source, /accountLabel: "Revolut",/)
+})
+
+test('la migración vincula fuentes bancarias a cuentas del mismo usuario con RLS', () => {
+  const migration = read('supabase/migrations/20261119120000_add_account_notification_bindings.sql')
+  assert.match(migration, /create table if not exists public\.account_notification_sources/)
+  assert.match(migration, /foreign key \(account_id, user_id\)/)
+  assert.match(migration, /unique nulls not distinct/)
+  assert.match(migration, /enable row level security/)
+  assert.match(migration, /notify pgrst, 'reload schema'/)
 })
 
 test('BBVA y Wallet se filtran por paquete y nunca se emparejan dos bancos diferentes', () => {
@@ -27,6 +41,8 @@ test('BBVA y Wallet se filtran por paquete y nunca se emparejan dos bancos difer
   assert.match(service, /NotificationSource\.fromPackage\(sbn\.packageName\) \?: return/)
   assert.match(store, /crossAppWalletPair/)
   assert.match(store, /conflictingIssuer/)
+  assert.match(store, /possiblePairIndexes\.size == 1/)
+  assert.match(parser, /cardLast4 = null/)
 })
 
 test('Android sincroniza en segundo plano con sesión cifrada y red disponible', () => {
