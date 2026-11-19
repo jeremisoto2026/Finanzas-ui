@@ -14,7 +14,7 @@ const revolutNotification = {
 const walletNotification = {
   sourceApp: 'google_wallet',
   title: 'SUPERMERCADO ALTET',
-  text: '2,50 € con Revolut Visa ••0733',
+  text: '2,50 € con Revolut',
   occurredAt: '2026-11-17T22:42:05.000Z',
 }
 
@@ -25,15 +25,13 @@ test('lee el aviso de Revolut y no confunde el saldo del Pocket con otro gasto',
   assert.equal(parsed.merchant, 'Supermercado Altet')
   assert.equal(parsed.categorySuggestion, 'Alimentación')
   assert.equal(parsed.accountLabel, 'Revolut')
-  assert.equal(parsed.cardLast4, null)
 })
 
-test('no usa los últimos dígitos de la tarjeta virtual de Google Wallet para identificar la cuenta bancaria', () => {
+test('Wallet extrae comercio e importe sin solicitar ni conservar datos de tarjetas', () => {
   const parsed = parsePaymentNotification(walletNotification, categories)
   assert.equal(parsed.isPayment, true)
   assert.equal(parsed.amount, 2.5)
   assert.equal(parsed.merchant, 'SUPERMERCADO ALTET')
-  assert.equal(parsed.cardLast4, null)
   assert.equal(parsed.paymentChannel, 'google_wallet')
 })
 
@@ -71,21 +69,20 @@ test('BBVA identifies its own notification as the issuing bank', () => {
   const parsed = parsePaymentNotification({
     sourceApp: 'bbva',
     title: 'BBVA',
-    text: 'Compra realizada con tarjeta Visa ••5678: 25,80 € en Mercadona',
+    text: 'Compra realizada: 25,80 € en Mercadona',
     occurredAt: '2026-11-18T17:42:00.000Z',
   }, categories)
   assert.equal(parsed.isPayment, true)
   assert.equal(parsed.accountLabel, 'BBVA')
   assert.equal(parsed.merchant, 'Mercadona')
   assert.equal(parsed.amount, 25.8)
-  assert.equal(parsed.cardLast4, '5678')
 })
 
 test('Wallet without an explicit issuer never guesses the bank', () => {
   const parsed = parsePaymentNotification({
     sourceApp: 'google_wallet',
     title: 'Mercadona',
-    text: '25,80 € con Visa ••1234',
+    text: '25,80 € con una tarjeta bancaria',
     occurredAt: '2026-11-18T17:42:00.000Z',
   }, categories)
   assert.equal(parsed.isPayment, true)
