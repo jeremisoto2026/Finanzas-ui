@@ -89,7 +89,8 @@ export default function CapturasAutomaticas() {
   const [mappingFeedback, setMappingFeedback] = useState('')
   const [savingMapping, setSavingMapping] = useState(false)
   const autoSaveAttemptRef = useRef('')
-  const mappingSourceLabel = getBankSourceLabel(mappingSource, SOURCE_LABELS)
+  const mappingSourceLabel = sourceLabelMap[mappingSource] ||
+    getBankSourceLabel(mappingSource, sourceLabelMap)
   const availableBankSources = useMemo(() => {
     const sources = new Set(['revolut', 'bbva'])
     for (const mapping of accountMappings) {
@@ -99,9 +100,9 @@ export default function CapturasAutomaticas() {
       if (event.source_app && event.source_app !== 'google_wallet') sources.add(event.source_app)
     }
     return [...sources].sort((a, b) =>
-      getBankSourceLabel(a, SOURCE_LABELS).localeCompare(getBankSourceLabel(b, SOURCE_LABELS), 'es')
+      getBankSourceLabel(a, sourceLabelMap).localeCompare(getBankSourceLabel(b, sourceLabelMap), 'es')
     )
-  }, [accountMappings, remoteEvents])
+  }, [accountMappings, remoteEvents, sourceLabelMap])
   const [accountSelections, setAccountSelections] = useState({})
   const [categorySelections, setCategorySelections] = useState({})
   const [savingReviewId, setSavingReviewId] = useState(null)
@@ -109,6 +110,21 @@ export default function CapturasAutomaticas() {
   const [syncing, setSyncing] = useState(false)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
+
+  const sourceLabelMap = useMemo(() => {
+    const labels = { ...SOURCE_LABELS }
+    for (const mapping of accountMappings) {
+      if (mapping.source_app && mapping.source_label) {
+        labels[mapping.source_app] = mapping.source_label
+      }
+    }
+    for (const event of remoteEvents) {
+      if (event.source_app && event.source_label) {
+        labels[event.source_app] = event.source_label
+      }
+    }
+    return labels
+  }, [accountMappings, remoteEvents])
 
   const reviewItems = useMemo(() => groupRemoteEvents(remoteEvents), [remoteEvents])
 
@@ -152,7 +168,7 @@ export default function CapturasAutomaticas() {
       const [eventsResult, accountsResult, categoriesResult, mappingsResult] = await Promise.all([
         supabase
           .from('notification_capture_events')
-          .select('id, source_app, pair_key, notification_title, parsed_merchant, parsed_amount, currency_code, category_id, category_suggestion, account_label, account_id, payment_channel, occurred_at, status')
+          .select('id, source_app, source_label, pair_key, notification_title, parsed_merchant, parsed_amount, currency_code, category_id, category_suggestion, account_label, account_id, payment_channel, occurred_at, status')
           .in('status', ['paired', 'needs_review'])
           .order('occurred_at', { ascending: false })
           .limit(200),
@@ -171,7 +187,7 @@ export default function CapturasAutomaticas() {
           .order('name', { ascending: true }),
         supabase
           .from('account_notification_sources')
-          .select('id, source_app, account_id, is_active')
+          .select('id, source_app, source_label, account_id, is_active')
           .eq('user_id', authData.user.id)
           .eq('is_active', true)
           .order('source_app', { ascending: true }),
@@ -258,11 +274,12 @@ export default function CapturasAutomaticas() {
         .upsert({
           user_id: authData.user.id,
           source_app: sourceApp,
+          source_label: sourceLabelMap[sourceApp] || getBankSourceLabel(sourceApp, SOURCE_LABELS),
           account_id: accountId,
           is_active: true,
           updated_at: new Date().toISOString(),
         }, { onConflict: 'user_id,source_app' })
-        .select('id, source_app, account_id, is_active')
+        .select('id, source_app, source_label, account_id, is_active')
         .single()
       if (saveError) throw saveError
 
@@ -284,7 +301,7 @@ export default function CapturasAutomaticas() {
     } finally {
       setSavingMapping(false)
     }
-  }, [accounts, accountMappings, mappingAccountId, mappingSource])
+  }, [accounts, accountMappings, mappingAccountId, mappingSource, sourceLabelMap])
 
   const saveAccountMapping = () => persistAccountMapping({
     sourceApp: mappingSource,
@@ -589,7 +606,7 @@ export default function CapturasAutomaticas() {
             >
               {availableBankSources.map((sourceApp) => (
                 <option key={sourceApp} value={sourceApp}>
-                  {getBankSourceLabel(sourceApp, SOURCE_LABELS)}
+                  {getBankSourceLabel(sourceApp, sourceLabelMap)}
                 </option>
               ))}
             </select>
@@ -641,7 +658,7 @@ export default function CapturasAutomaticas() {
             {mappingSuggestion.reason === 'matching' &&
               mappingAccountId === mappingSuggestion.accountId && (
                 <p className="mt-1.5 text-[11px] leading-relaxed text-emerald-300">
-                  Hemos preseleccionado esta cuenta porque su nombre o banco coincide con {SOURCE_LABELS[mappingSource]}. Puedes cambiarla.
+                  Hemos preseleccionado esta cuenta porque su nombre o banco coincide con {mappingSourceLabel}. Puedes cambiarla.
                 </p>
               )}
             {mappingSuggestion.reason === 'existing' && !mappingFeedback && (
@@ -691,7 +708,7 @@ export default function CapturasAutomaticas() {
               <div key={mapping.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-800 bg-slate-950/60 p-3">
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-white">
-                    {getBankSourceLabel(mapping.source_app, SOURCE_LABELS)}
+                    {getBankSourceLabel(mapping.source_app, sourceLabelMap)}
                      · Cuenta automática
                   </p>
                   <p className="text-xs text-slate-400">{account?.name || 'Cuenta no disponible'}</p>
@@ -749,7 +766,7 @@ export default function CapturasAutomaticas() {
                 <div className="mt-2 flex flex-wrap gap-2">
                   {item.sources.map((source) => (
                     <span key={source} className="rounded-md bg-slate-800 px-2 py-1 text-[11px] text-slate-300">
-                      {SOURCE_LABELS[source] || source}
+                      {sourceLabelMap[source] || getBankSourceLabel(source, sourceLabelMap)}
                     </span>
                   ))}
                   {item.categorySuggestion && (
