@@ -511,6 +511,18 @@ Deno.serve(async (req: Request) => {
         transactionId = existing.id
         transactionAccountId = existing.account_id
         transactionCategoryId = existing.category_id
+
+        // If Wallet arrives after the bank notice, keep the original expense
+        // but refine its description with Wallet's cleaner merchant heading.
+        // Only update rows carrying this capture's current idempotency key.
+        if (existingByPair?.id && capture.isPaired) {
+          const { error: merchantUpdateError } = await supabase
+            .from("transactions")
+            .update({ description: capture.merchant })
+            .eq("user_id", userId)
+            .eq("id", existingByPair.id)
+          if (merchantUpdateError) throw merchantUpdateError
+        }
       } else if (account?.id && categoryId) {
         const occurredOn = new Intl.DateTimeFormat("sv-SE", {
           timeZone: "Europe/Madrid",
