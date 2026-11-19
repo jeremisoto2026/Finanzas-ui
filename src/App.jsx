@@ -1,9 +1,12 @@
 import { AuthProvider, AuthGate } from '@/contexts/AuthContext'
+import { ConfirmationDialogProvider } from '@/components/ui/ConfirmationDialog'
 
 export default function App() {
   return (
-    <AuthProvider>
-      <AuthGate />
-    </AuthProvider>
+    <ConfirmationDialogProvider>
+      <AuthProvider>
+        <AuthGate />
+      </AuthProvider>
+    </ConfirmationDialogProvider>
   )
 }
