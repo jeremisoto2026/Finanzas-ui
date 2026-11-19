@@ -174,6 +174,9 @@ object NotificationParser {
         if (excludedInformational.containsMatchIn(combined)) return null
 
         val amountMatch = amountPattern.findAll(combined)
+            .filter { match ->
+                match.groupValues[2].isNotBlank() || match.groupValues[4].isNotBlank()
+            }
             .filterNot { match ->
                 val lineStart = combined.lastIndexOf('\n', match.range.first).let { if (it < 0) 0 else it + 1 }
                 val lineEnd = combined.indexOf('\n', match.range.last).let { if (it < 0) combined.length else it }
