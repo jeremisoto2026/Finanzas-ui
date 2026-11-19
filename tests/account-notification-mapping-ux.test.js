@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import {
   getAccountMappingSuggestion,
   getAccountOptionLabel,
+  getBankSourceLabel,
   isExactAccountNameMatch,
 } from '../src/lib/account-notification-mapping.js'
 
@@ -125,5 +126,21 @@ test('prioriza el nombre exacto aunque otra cuenta coincida solo por institució
       'revolut',
     ),
     { accountId: 'exact', reason: 'matching', matchType: 'name' },
+  )
+})
+
+test('la coincidencia por nombre funciona también con fuentes bancarias futuras', () => {
+  const source = 'banco_nuevo'
+  const sourceLabel = getBankSourceLabel(source)
+  assert.equal(sourceLabel, 'Banco Nuevo')
+  assert.equal(isExactAccountNameMatch({ name: ' BANCO   NUEVO ' }, sourceLabel), true)
+  assert.deepEqual(
+    getAccountMappingSuggestion(
+      [{ id: 'future-bank', name: 'Banco Nuevo' }, { id: 'savings', name: 'Ahorros' }],
+      [],
+      source,
+      sourceLabel,
+    ),
+    { accountId: 'future-bank', reason: 'matching', matchType: 'name' },
   )
 })
