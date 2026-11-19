@@ -25,22 +25,20 @@ class NotificationParserTest {
         assertEquals(250L, result?.amountCents)
         assertEquals("Alimentación", result?.categorySuggestion)
         assertEquals("Revolut", result?.accountName)
-        assertNull(result?.cardLast4)
     }
 
     @Test
-    fun doesNotUseVirtualWalletCardEndingForBankAccountMatching() {
+    fun parsesWalletWithoutReadingCardDetails() {
         val result = NotificationParser.parse(
             source = NotificationSource.GOOGLE_WALLET,
             title = "SUPERMERCADO ALTET",
-            text = "2,50 € con Revolut Visa ••0733",
+            text = "2,50 € con Revolut",
             occurredAtMillis = 1794958925000L
         )
 
         assertNotNull(result)
         assertEquals("SUPERMERCADO ALTET", result?.merchant)
         assertEquals(250L, result?.amountCents)
-        assertNull(result?.cardLast4)
         assertEquals("Alimentación", result?.categorySuggestion)
     }
 
@@ -78,7 +76,6 @@ class NotificationParserTest {
             currencyCode = "EUR",
             occurredAtMillis = 1795033320000L,
             accountName = "BBVA",
-            cardLast4 = "1234",
             categorySuggestion = "Alimentación",
             sources = setOf(NotificationSource.BBVA),
             notificationKeys = setOf("old-notification-key"),
@@ -91,7 +88,6 @@ class NotificationParserTest {
             amountCents = 2580L,
             occurredAtMillis = 1795033321500L,
             accountName = "BBVA",
-            cardLast4 = "1234",
             categorySuggestion = "Alimentación",
             notificationKey = "new-notification-key"
         )
@@ -109,7 +105,6 @@ class NotificationParserTest {
             currencyCode = "EUR",
             occurredAtMillis = 1795033320000L,
             accountName = "BBVA",
-            cardLast4 = "1234",
             categorySuggestion = "Alimentación",
             sources = setOf(NotificationSource.BBVA),
             notificationKeys = setOf("old-notification-key"),
@@ -147,12 +142,11 @@ class NotificationParserTest {
         val result = NotificationParser.parse(
             source = NotificationSource.GOOGLE_WALLET,
             title = "Mercadona",
-            text = "25,80 € con Visa ••1234",
+            text = "25,80 € con una tarjeta bancaria",
             occurredAtMillis = 1795033320000L
         )
         assertNotNull(result)
         assertNull(result?.accountName)
-        assertNull(result?.cardLast4)
     }
 
     @Test
@@ -160,7 +154,7 @@ class NotificationParserTest {
         val result = NotificationParser.parse(
             source = NotificationSource.GOOGLE_WALLET,
             title = "Mercadona",
-            text = "25,80 € con BBVA Visa ••1234",
+            text = "25,80 € con BBVA",
             occurredAtMillis = 1795033320000L
         )
         assertNotNull(result)
