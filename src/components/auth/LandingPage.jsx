@@ -202,6 +202,43 @@ export default function LandingPage({ signIn, signUp }) {
           </div>
 
           <div className="grid gap-4">
+            <div id="acceso" className="w-full rounded-2xl border border-slate-800 bg-slate-900/90 p-5 shadow-xl shadow-black/20 sm:p-6">
+              <div className="mb-5 flex items-center gap-3">
+                <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-emerald-400/15 bg-emerald-400/10 text-emerald-300">
+                  <LockKeyhole className="h-5 w-5" />
+                </span>
+                <div>
+                  <h2 className="text-lg font-semibold text-white">{mode === 'signin' ? 'Iniciar sesión' : 'Crear cuenta'}</h2>
+                  <p className="mt-0.5 text-xs text-slate-500">Acceso directo a Finanzas</p>
+                </div>
+              </div>
+
+              <div className="mb-5 grid grid-cols-2 rounded-xl border border-slate-800 bg-slate-950/70 p-1">
+                <button type="button" onClick={() => changeMode('signin')} aria-pressed={mode === 'signin'} className={'rounded-lg px-3 py-2.5 text-sm font-medium transition ' + (mode === 'signin' ? 'bg-slate-800 text-white shadow' : 'text-slate-500 hover:text-slate-200')}>Entrar</button>
+                <button type="button" onClick={() => changeMode('signup')} aria-pressed={mode === 'signup'} className={'rounded-lg px-3 py-2.5 text-sm font-medium transition ' + (mode === 'signup' ? 'bg-slate-800 text-white shadow' : 'text-slate-500 hover:text-slate-200')}>Crear cuenta</button>
+              </div>
+
+              <form onSubmit={submit} className="space-y-4">
+                <label className="block text-sm font-medium text-slate-300">
+                  Correo electrónico
+                  <input type="email" autoComplete="email" required value={email} onChange={(event) => setEmail(event.target.value)} className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-3 text-white outline-none transition focus:border-emerald-500" placeholder="tu correo" />
+                </label>
+                <label className="block text-sm font-medium text-slate-300">
+                  Contraseña
+                  <input type="password" autoComplete={mode === 'signin' ? 'current-password' : 'new-password'} minLength={8} required value={password} onChange={(event) => setPassword(event.target.value)} className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-3 text-white outline-none transition focus:border-emerald-500" placeholder="Mínimo 8 caracteres" />
+                </label>
+                {error && <p role="alert" className="rounded-xl border border-rose-800/60 bg-rose-950/35 p-3 text-sm leading-5 text-rose-200">{error}</p>}
+                {notice && <p role="status" className="rounded-xl border border-emerald-800/60 bg-emerald-950/35 p-3 text-sm leading-5 text-emerald-200">{notice}</p>}
+                <button type="submit" disabled={busy} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-950/25 transition hover:bg-emerald-500 disabled:cursor-wait disabled:opacity-60">
+                  {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : mode === 'signin' ? <LogIn className="h-4 w-4" /> : <UserPlus className="h-4 w-4" />}
+                  {busy ? 'Procesando…' : mode === 'signin' ? 'Iniciar sesión' : 'Crear cuenta'}
+                </button>
+              </form>
+              <button type="button" onClick={() => changeMode(mode === 'signin' ? 'signup' : 'signin')} className="mt-4 w-full text-center text-xs text-slate-400 transition hover:text-white">
+                {mode === 'signin' ? '¿Aún no tienes cuenta? Crear cuenta' : 'Ya tengo cuenta. Iniciar sesión'}
+              </button>
+            </div>
+
             <div className="finance-panel overflow-hidden rounded-3xl border border-slate-700/80 bg-slate-900/75 p-4 shadow-2xl shadow-black/30 sm:p-5">
               <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
                 <div>
@@ -398,105 +435,6 @@ export default function LandingPage({ signIn, signUp }) {
         </div>
       </footer>
 
-      <section id="acceso" className="border-t border-slate-800 bg-slate-900/30 px-4 py-16 sm:px-6 lg:px-8">
-        <div className="mx-auto grid max-w-6xl gap-10 lg:grid-cols-[0.85fr_1fr] lg:items-center">
-          <div className="max-w-lg">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-300">Tu espacio financiero</p>
-            <h2 className="mt-3 text-3xl font-semibold tracking-tight text-white">
-              {mode === 'signin' ? 'Qué bueno tenerte de vuelta.' : 'Empieza a organizar tus finanzas.'}
-            </h2>
-            <p className="mt-3 text-sm leading-7 text-slate-400">
-              {mode === 'signin'
-                ? 'Accede con tu correo y contraseña para consultar tus cuentas y continuar donde lo dejaste.'
-                : 'Crea tu cuenta para disponer de tu propio espacio financiero personal y familiar.'}
-            </p>
-            <div className="mt-6 flex flex-wrap gap-3 text-xs text-slate-500">
-              <span className="inline-flex items-center gap-1.5"><ShieldCheck className="h-4 w-4 text-emerald-400" /> Sesión privada</span>
-              <span className="inline-flex items-center gap-1.5"><CheckCircle2 className="h-4 w-4 text-emerald-400" /> Sin datos de ejemplo en tu cuenta</span>
-            </div>
-          </div>
-
-          <div className="mx-auto w-full max-w-md rounded-2xl border border-slate-800 bg-slate-900/85 p-5 shadow-2xl shadow-black/20 sm:p-7">
-            <div className="mb-6 flex items-center gap-3">
-              <span className="flex h-11 w-11 items-center justify-center rounded-xl border border-emerald-400/15 bg-emerald-400/10 text-emerald-300">
-                <LockKeyhole className="h-5 w-5" />
-              </span>
-              <div>
-                <h3 className="text-lg font-semibold text-white">{mode === 'signin' ? 'Iniciar sesión' : 'Crear cuenta'}</h3>
-                <p className="mt-0.5 text-xs text-slate-500">Acceso a Finanzas</p>
-              </div>
-            </div>
-
-            <div className="mb-5 grid grid-cols-2 rounded-xl border border-slate-800 bg-slate-950/70 p-1">
-              <button
-                type="button"
-                onClick={() => changeMode('signin')}
-                aria-pressed={mode === 'signin'}
-                className={'rounded-lg px-3 py-2.5 text-sm font-medium transition ' + (mode === 'signin' ? 'bg-slate-800 text-white shadow' : 'text-slate-500 hover:text-slate-200')}
-              >
-                Entrar
-              </button>
-              <button
-                type="button"
-                onClick={() => changeMode('signup')}
-                aria-pressed={mode === 'signup'}
-                className={'rounded-lg px-3 py-2.5 text-sm font-medium transition ' + (mode === 'signup' ? 'bg-slate-800 text-white shadow' : 'text-slate-500 hover:text-slate-200')}
-              >
-                Crear cuenta
-              </button>
-            </div>
-
-            <form onSubmit={submit} className="space-y-4">
-              <label className="block text-sm font-medium text-slate-300">
-                Correo electrónico
-                <input
-                  type="email"
-                  autoComplete="email"
-                  required
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                  className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-3 text-white outline-none transition focus:border-emerald-500"
-                  placeholder="tu correo"
-                />
-              </label>
-
-              <label className="block text-sm font-medium text-slate-300">
-                Contraseña
-                <input
-                  type="password"
-                  autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
-                  minLength={8}
-                  required
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-3 text-white outline-none transition focus:border-emerald-500"
-                  placeholder="Mínimo 8 caracteres"
-                />
-              </label>
-
-              {error && <p role="alert" className="rounded-xl border border-rose-800/60 bg-rose-950/35 p-3 text-sm leading-5 text-rose-200">{error}</p>}
-              {notice && <p role="status" className="rounded-xl border border-emerald-800/60 bg-emerald-950/35 p-3 text-sm leading-5 text-emerald-200">{notice}</p>}
-
-              <button
-                type="submit"
-                disabled={busy}
-                className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-950/25 transition hover:bg-emerald-500 disabled:cursor-wait disabled:opacity-60"
-              >
-                {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : mode === 'signin' ? <LogIn className="h-4 w-4" /> : <UserPlus className="h-4 w-4" />}
-                {busy ? 'Procesando…' : mode === 'signin' ? 'Iniciar sesión' : 'Crear cuenta'}
-              </button>
-            </form>
-
-            <button
-              type="button"
-              onClick={() => changeMode(mode === 'signin' ? 'signup' : 'signin')}
-              className="mt-5 w-full text-center text-xs text-slate-400 transition hover:text-white"
-            >
-              {mode === 'signin' ? '¿Aún no tienes cuenta? Crear cuenta' : 'Ya tengo cuenta. Iniciar sesión'}
-            </button>
-          </div>
-        </div>
-      </section>
     </main>
   )
 }
