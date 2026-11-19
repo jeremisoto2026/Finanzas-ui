@@ -1,5 +1,5 @@
 import { Capacitor } from '@capacitor/core'
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { localDateInputValue, monthKeyFromDate, parseDateOnlyLocal, sumMoney, sumMoneyBy } from '@/lib/finance-core';
 
 // ICONOS LUCIDE REACT para ingresos (paleta verde unificada)
@@ -45,6 +45,7 @@ export default function TablaIngresos() {
   const [ingresosMensuales, setIngresosMensuales] = useState([]);
   const [cuentasUsuario, setCuentasUsuario] = useState([]);
   const [cuentasLoading, setCuentasLoading] = useState(true);
+  const [cuentasError, setCuentasError] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [formOpen, setFormOpen] = useState(false);
@@ -89,23 +90,27 @@ export default function TablaIngresos() {
     fetchIngresos();
   }, []);
 
-  useEffect(() => {
-    let cancelled = false
-    fetch('/api/cuentas', { cache: 'no-store' })
-      .then((response) => {
-        if (!response.ok) throw new Error('No se pudieron cargar tus cuentas.')
-        return response.json()
-      })
-      .then((data) => {
-        if (!cancelled) setCuentasUsuario(Array.isArray(data) ? data : [])
-      })
-      .catch((loadError) => {
-        console.error('No se pudieron cargar las cuentas para registrar ingresos:', loadError)
-        if (!cancelled) setCuentasUsuario([])
-      })
-      .finally(() => { if (!cancelled) setCuentasLoading(false) })
-    return () => { cancelled = true }
+  const cargarCuentasUsuario = useCallback(async () => {
+    setCuentasLoading(true)
+    setCuentasError('')
+    try {
+      const response = await fetch('/api/cuentas', { cache: 'no-store' })
+      if (!response.ok) throw new Error('No se pudieron cargar tus cuentas.')
+      const data = await response.json()
+      if (!Array.isArray(data)) throw new Error('La lista de cuentas recibida no es válida.')
+      setCuentasUsuario(data)
+    } catch (loadError) {
+      console.error('No se pudieron cargar las cuentas para registrar ingresos:', loadError)
+      setCuentasUsuario([])
+      setCuentasError(loadError?.message || 'No se pudieron cargar tus cuentas.')
+    } finally {
+      setCuentasLoading(false)
+    }
   }, [])
+
+  useEffect(() => {
+    void cargarCuentasUsuario()
+  }, [cargarCuentasUsuario])
 
   const abrirNuevoIngreso = () => {
     setEditingIngresoId(null)
@@ -800,6 +805,12 @@ export default function TablaIngresos() {
                   {cuentasUsuario.map((account) => <option key={account.id} value={account.id}>{account.name} · {account.currencyCode || 'EUR'}</option>)}
                 </select>
                 <span className="mt-1 block text-xs font-normal text-slate-500">El importe se sumará al saldo de esta cuenta.</span>
+                {cuentasError && (
+                  <span role="alert" className="mt-2 flex flex-wrap items-center gap-2 text-xs font-normal text-rose-300">
+                    {cuentasError}
+                    <button type="button" onClick={() => void cargarCuentasUsuario()} className="rounded-lg border border-rose-700/60 px-2 py-1 font-semibold text-rose-200 hover:bg-rose-950/40">Volver a cargar</button>
+                  </span>
+                )}
               </label>
               <label className="text-sm font-medium text-slate-300">Método de recepción
                 <select value={nuevoIngreso.metodo} onChange={(e) => setNuevoIngreso({ ...nuevoIngreso, metodo: e.target.value })} className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-3 text-white outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"><option>Transferencia</option><option>Bizum</option><option>Efectivo</option><option>Tarjeta</option></select>
