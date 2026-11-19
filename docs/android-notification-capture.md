@@ -14,7 +14,7 @@ El servicio Android comprueba el paquete de origen antes de leer el aviso:
 - BBVA: `com.bbva.bbvacontigo`
 - Google Wallet: `com.google.android.apps.walletnfcrel`
 
-Las aplicaciones no incluidas en esta lista se ignoran. Google Wallet es una fuente complementaria; las apps bancarias son las que determinan la cuenta de destino.
+Otras aplicaciones Android que no pertenezcan al sistema también pueden detectarse como fuentes candidatas. El parser comprueba señales de pago y descarta avisos que no parecen compras. Google Wallet es una fuente complementaria; las apps bancarias determinan la cuenta de destino.
 
 ## Emparejamiento y registro
 
@@ -32,7 +32,7 @@ La creación del gasto requiere una cuenta activa y una categoría válida. Se u
 ## Privacidad y seguridad
 
 - El permiso de lectura de notificaciones lo concede el usuario desde los ajustes de Android.
-- Se procesan únicamente los paquetes de Revolut, BBVA y Google Wallet.
+- Se procesan Revolut, BBVA, Google Wallet y otras apps Android candidatas, filtrando localmente los avisos que no parecen pagos.
 - El texto original de la notificación se interpreta localmente y no se sincroniza.
 - No se extraen, solicitan, envían ni almacenan sufijos o números de tarjetas.
 - La cola local permanece cifrada con Android Keystore. Al leer capturas guardadas por versiones anteriores, la APK nueva reescribe la cola sin el campo retirado.
@@ -74,3 +74,14 @@ No se transmite el título o cuerpo original, identificadores internos de Androi
 - `transactions`: gastos contabilizados cuando la cuenta y categoría se resuelven automáticamente o tras revisión del usuario.
 
 Las tablas están protegidas mediante RLS por usuario. La migración de retirada de datos antiguos elimina los campos heredados de sufijos y limpia el texto completo que pudiera haberse almacenado en capturas históricas.
+
+
+## Aviso de gasto registrado
+
+Cuando la Edge Function confirma que acaba de insertar un gasto automático nuevo, devuelve a la APK un resumen normalizado del movimiento. Android muestra una notificación nativa del canal **Gastos registrados** con este formato:
+
+- Título: **Gasto registrado**.
+- Texto principal: comercio e importe, por ejemplo **SUPERMERCADO ALTET · 2,30 €**.
+- Detalle ampliado: categoría y cuenta de Finanzas.
+
+El aviso se genera en el trabajador de sincronización nativo, por lo que no hace falta mantener la pantalla abierta. No se envía por capturas pendientes ni por reintentos que encuentran un gasto ya existente. Se utiliza un identificador estable para evitar repetir el mismo aviso. El contenido se mantiene privado en la pantalla de bloqueo; Android permite ajustar el sonido y la visualización del canal desde los ajustes de notificaciones de Finanzas. Si el permiso de notificaciones está desactivado, el gasto se registra igualmente, pero Android no muestra el aviso.
