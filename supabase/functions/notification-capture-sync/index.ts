@@ -70,6 +70,7 @@ function normalizeText(value: string) {
 type AccountRow = {
   id: string
   name: string
+  institution?: string | null
   currency_code: string
   is_active: boolean
   account_type?: string
@@ -133,11 +134,21 @@ function resolveMappedAccount(
       ) || null
     }
 
-    // First-use convenience: when this bank app is unknown and the user has
-    // exactly one eligible account, that destination is unambiguous.
+    // First resolve an exact account-name or institution match. This lets a
+    // user with several accounts route CaixaBank/Santander/etc. by their own
+    // account metadata without a hardcoded list of bank brands.
     const eligibleAccounts = accounts.filter((item) =>
       isEligibleBankAccount(item, capture.currencyCode)
     )
+    const sourceLabel = normalizeText(bankSource.label)
+    const exactMatches = eligibleAccounts.filter((item) =>
+      normalizeText(item.name) === sourceLabel ||
+      normalizeText(String(item.institution || "")) === sourceLabel
+    )
+    if (exactMatches.length === 1) return exactMatches[0]
+    if (exactMatches.length > 1) return null
+
+    // A sole eligible account is also an unambiguous first-use destination.
     return eligibleAccounts.length === 1 ? eligibleAccounts[0] : null
   }
 
@@ -390,7 +401,7 @@ Deno.serve(async (req: Request) => {
 
     const { data: accounts, error: accountError } = await supabase
       .from("accounts")
-      .select("id, name, currency_code, is_active, account_type")
+      .select("id, name, institution, currency_code, is_active, account_type")
       .eq("user_id", userId)
     if (accountError) throw accountError
 
