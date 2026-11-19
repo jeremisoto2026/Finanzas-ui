@@ -62,10 +62,59 @@ function normalizeText(value: string) {
     .toLocaleLowerCase("es")
 }
 
-function accountNameMatchesBank(accountName: string, bankLabel: string) {
-  const accountTokens = normalizeText(accountName).split(/[^a-z0-9]+/).filter(Boolean)
-  const bankToken = normalizeText(bankLabel)
-  return accountTokens.includes(bankToken)
+type AccountRow = {
+  id: string
+  name: string
+  currency_code: string
+  is_active: boolean
+}
+
+type AccountSourceMapping = {
+  account_id: string
+  source_app: string
+  card_last4: string | null
+  is_active: boolean
+}
+
+/**
+ * Only a paired Google Wallet + bank notification can identify the account.
+ * The optional suffix is the one extracted from the BANK notification.
+ * Wallet's virtual PAN suffix is deliberately not used for this lookup.
+ */
+function resolveMappedAccount(
+  capture: ValidCapture,
+  mappings: AccountSourceMapping[],
+  accounts: AccountRow[],
+) {
+  if (!capture.isPaired || !capture.sources.includes("google_wallet")) return null
+
+  const bankSource = capture.sources.find((source) => source === "revolut" || source === "bbva")
+  if (!bankSource) return null
+
+  const bankMappings = mappings.filter((mapping) =>
+    mapping.source_app === bankSource && mapping.is_active
+  )
+  let candidates = capture.cardLast4
+    ? bankMappings.filter((mapping) => mapping.card_last4 === capture.cardLast4)
+    : []
+
+  // A bank-wide mapping is safe only when the user has exactly one active
+  // mapping for that bank. Multiple cards/accounts must have an exact suffix.
+  if (
+    candidates.length === 0 &&
+    bankMappings.length === 1 &&
+    bankMappings[0].card_last4 == null
+  ) {
+    candidates = bankMappings
+  }
+
+  if (candidates.length !== 1) return null
+  const account = accounts.find((item) =>
+    item.id === candidates[0].account_id &&
+    item.is_active === true &&
+    String(item.currency_code || "EUR").trim().toUpperCase() === capture.currencyCode
+  )
+  return account || null
 }
 
 async function sha256(value: string) {
@@ -253,9 +302,17 @@ Deno.serve(async (req: Request) => {
 
     const { data: accounts, error: accountError } = await supabase
       .from("accounts")
-      .select("id, name, currency_code")
+      .select("id, name, currency_code, is_active")
       .eq("user_id", userId)
+      .eq("is_active", true)
     if (accountError) throw accountError
+
+    const { data: accountMappings, error: mappingError } = await supabase
+      .from("account_notification_sources")
+      .select("account_id, source_app, card_last4, is_active")
+      .eq("user_id", userId)
+      .eq("is_active", true)
+    if (mappingError) throw mappingError
 
     const { data: merchantRules, error: ruleError } = await supabase
       .from("merchant_category_rules")
@@ -290,16 +347,20 @@ Deno.serve(async (req: Request) => {
         : null
       const categoryId = ruleCategoryId || suggestedCategoryId
 
-      const candidateAccounts = capture.accountLabel
-        ? (accounts || []).filter((account) =>
-            accountNameMatchesBank(account.name, capture.accountLabel) &&
-            String(account.currency_code || "EUR").toUpperCase() === "EUR"
-          )
-        : []
-      const account = candidateAccounts.length === 1 ? candidateAccounts[0] : null
+      const account = resolveMappedAccount(
+        capture,
+        (accountMappings || []) as AccountSourceMapping[],
+        (accounts || []) as AccountRow[],
+      )
 
       let transactionId: string | null = null
-      if (account?.id && categoryId) {
+      if (
+        account?.id &&
+        categoryId &&
+        capture.isPaired &&
+        capture.sources.includes("google_wallet") &&
+        capture.sources.some((source) => source === "revolut" || source === "bbva")
+      ) {
         const { data: existing, error: existingError } = await supabase
           .from("transactions")
           .select("id")
@@ -353,7 +414,13 @@ Deno.serve(async (req: Request) => {
         }
       }
 
-      const autoPost = Boolean(transactionId && account?.id && categoryId)
+      const autoPost = Boolean(
+        transactionId &&
+        account?.id &&
+        categoryId &&
+        capture.isPaired &&
+        capture.sources.includes("google_wallet")
+      )
       if (autoPost) autoPosted += 1
       else pendingReview += 1
 
@@ -378,6 +445,7 @@ Deno.serve(async (req: Request) => {
           category_id: categoryId,
           category_suggestion: capture.categorySuggestion,
           account_label: accountLabel,
+          account_id: account?.id || null,
           payment_channel: capture.sources.includes("google_wallet")
             ? "google_wallet"
             : sourceApp,
