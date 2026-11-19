@@ -247,7 +247,10 @@ object NotificationParser {
         amountMatch: MatchResult
     ): String? {
         val combined = "$heading\n$body"
-        val cueMatch = merchantCue.find(combined)
+        // Bank notifications may visually wrap a merchant at a hyphen (e.g.
+        // "SUPERMER-\\nCADO"). Join that split before extracting the merchant.
+        val normalizedCombined = combined.replace(Regex("-[ \\t]*\\r?\\n[ \\t]*"), "")
+        val cueMatch = merchantCue.find(normalizedCombined)
         val fromCue = cueMatch?.groupValues?.getOrNull(1)?.let(::cleanMerchant)
         if (isUsableMerchant(fromCue, source)) return fromCue
 
@@ -255,7 +258,7 @@ object NotificationParser {
         if (isUsableMerchant(cleanHeading, source)) return cleanHeading
 
         // Some apps put the merchant after the amount without a literal "at/en".
-        val afterAmount = combined.substring(amountMatch.range.last + 1)
+        val afterAmount = normalizedCombined.substring((amountMatch.range.last + 1).coerceAtMost(normalizedCombined.length))
             .lineSequence()
             .firstOrNull()
             .orEmpty()
