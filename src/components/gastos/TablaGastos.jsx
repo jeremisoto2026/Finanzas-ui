@@ -194,6 +194,7 @@ export default function TablaGastos() {
       setGastosMensuales((current) => editingGastoId
         ? current.map((item) => item.id === editingGastoId ? result : item)
         : [result, ...current])
+      window.dispatchEvent(new Event('finanzas:transactions-updated'))
       setFiltroMes(result.fecha.slice(0, 7))
       setFormOpen(false)
       setEditingGastoId(null)
@@ -223,6 +224,7 @@ export default function TablaGastos() {
       const result = await response.json()
       if (!response.ok) throw new Error(result.error || 'No se pudo anular el gasto.')
       setGastosMensuales((current) => current.filter((item) => item.id !== deleteTarget.id))
+      window.dispatchEvent(new Event('finanzas:transactions-updated'))
       setDeleteTarget(null)
     } catch (err) {
       setFormError(err.message || 'No se pudo anular el gasto.')
