@@ -8,6 +8,9 @@ import {
   ShieldCheck,
   Smartphone,
   Upload,
+  Link2,
+  Plus,
+  Trash2,
 } from 'lucide-react'
 import {
   getLocalCaptureState,
@@ -55,6 +58,7 @@ function groupRemoteEvents(events) {
       const sources = [...new Set(items.map((item) => item.source_app))]
       return {
         id: first.pair_key || first.id,
+        accountId: items.find((item) => item.account_id)?.account_id || null,
         merchant: first.parsed_merchant || first.notification_title || 'Comercio no identificado',
         amount: Number(first.parsed_amount || 0),
         currencyCode: String(first.currency_code || 'EUR').trim(),
@@ -77,7 +81,12 @@ export default function CapturasAutomaticas() {
   const [localCaptures, setLocalCaptures] = useState([])
   const [remoteEvents, setRemoteEvents] = useState([])
   const [accounts, setAccounts] = useState([])
+  const [accountMappings, setAccountMappings] = useState([])
   const [categories, setCategories] = useState([])
+  const [mappingSource, setMappingSource] = useState('revolut')
+  const [mappingAccountId, setMappingAccountId] = useState('')
+  const [mappingCardLast4, setMappingCardLast4] = useState('')
+  const [savingMapping, setSavingMapping] = useState(false)
   const [accountSelections, setAccountSelections] = useState({})
   const [categorySelections, setCategorySelections] = useState({})
   const [savingReviewId, setSavingReviewId] = useState(null)
@@ -106,17 +115,18 @@ export default function CapturasAutomaticas() {
       if (authError) throw authError
       if (!authData?.user) throw new Error('Inicia sesión para consultar las compras pendientes.')
 
-      const [eventsResult, accountsResult, categoriesResult] = await Promise.all([
+      const [eventsResult, accountsResult, categoriesResult, mappingsResult] = await Promise.all([
         supabase
           .from('notification_capture_events')
-          .select('id, source_app, pair_key, notification_title, parsed_merchant, parsed_amount, currency_code, category_id, category_suggestion, account_label, payment_channel, card_last4, occurred_at, status')
+          .select('id, source_app, pair_key, notification_title, parsed_merchant, parsed_amount, currency_code, category_id, category_suggestion, account_label, account_id, payment_channel, card_last4, occurred_at, status')
           .in('status', ['paired', 'needs_review'])
           .order('occurred_at', { ascending: false })
           .limit(200),
         supabase
           .from('accounts')
-          .select('id, name, currency_code')
+          .select('id, name, institution, currency_code, is_active')
           .eq('user_id', authData.user.id)
+          .eq('is_active', true)
           .order('name', { ascending: true }),
         supabase
           .from('categories')
@@ -125,12 +135,20 @@ export default function CapturasAutomaticas() {
           .eq('is_active', true)
           .in('direction', ['expense', 'both'])
           .order('name', { ascending: true }),
+        supabase
+          .from('account_notification_sources')
+          .select('id, source_app, account_id, card_last4, is_active')
+          .eq('user_id', authData.user.id)
+          .eq('is_active', true)
+          .order('source_app', { ascending: true }),
       ])
       if (eventsResult.error) throw eventsResult.error
       if (accountsResult.error) throw accountsResult.error
       if (categoriesResult.error) throw categoriesResult.error
+      if (mappingsResult.error) throw mappingsResult.error
       setRemoteEvents(Array.isArray(eventsResult.data) ? eventsResult.data : [])
-      setAccounts((accountsResult.data || []).filter((account) => String(account.currency_code || 'EUR').toUpperCase() === 'EUR'))
+      setAccounts((accountsResult.data || []).filter((account) => String(account.currency_code || 'EUR').trim().toUpperCase() === 'EUR'))
+      setAccountMappings(mappingsResult.data || [])
       setCategories(categoriesResult.data || [])
     } catch (loadError) {
       setError(loadError?.message || 'No se pudieron consultar las capturas.')
@@ -169,6 +187,67 @@ export default function CapturasAutomaticas() {
       document.removeEventListener('visibilitychange', onVisibilityChange)
     }
   }, [isNative, loadCaptures])
+
+  const saveAccountMapping = async () => {
+    const cardLast4 = mappingCardLast4.trim()
+    if (!mappingAccountId || !accounts.some((account) => account.id === mappingAccountId)) {
+      setError('Selecciona una cuenta activa para vincular con el banco.')
+      return
+    }
+    if (cardLast4 && !/^[0-9]{4}$/.test(cardLast4)) {
+      setError('Introduce los últimos cuatro dígitos que aparecen en la notificación del banco, o déjalo vacío.')
+      return
+    }
+
+    setSavingMapping(true)
+    setError('')
+    setNotice('')
+    try {
+      const { data: authData, error: authError } = await supabase.auth.getUser()
+      if (authError || !authData?.user) throw new Error('Tu sesión ha caducado. Inicia sesión de nuevo.')
+      const { error: saveError } = await supabase
+        .from('account_notification_sources')
+        .upsert({
+          user_id: authData.user.id,
+          source_app: mappingSource,
+          account_id: mappingAccountId,
+          card_last4: cardLast4 || null,
+          is_active: true,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'user_id,source_app,card_last4' })
+      if (saveError) throw saveError
+
+      setMappingCardLast4('')
+      setNotice('Vinculación bancaria guardada. Las compras nuevas usarán esta relación cuando coincidan los dos avisos.')
+      await loadCaptures(false)
+    } catch (mappingError) {
+      setError(mappingError?.message || 'No se pudo guardar la vinculación bancaria.')
+    } finally {
+      setSavingMapping(false)
+    }
+  }
+
+  const deactivateAccountMapping = async (mappingId) => {
+    setSavingMapping(true)
+    setError('')
+    setNotice('')
+    try {
+      const { data: authData, error: authError } = await supabase.auth.getUser()
+      if (authError || !authData?.user) throw new Error('Tu sesión ha caducado. Inicia sesión de nuevo.')
+      const { error: updateError } = await supabase
+        .from('account_notification_sources')
+        .update({ is_active: false, updated_at: new Date().toISOString() })
+        .eq('id', mappingId)
+        .eq('user_id', authData.user.id)
+      if (updateError) throw updateError
+      setNotice('Vinculación desactivada. No se borró el historial de compras.')
+      await loadCaptures(false)
+    } catch (mappingError) {
+      setError(mappingError?.message || 'No se pudo desactivar la vinculación.')
+    } finally {
+      setSavingMapping(false)
+    }
+  }
 
   const openSettings = async () => {
     setError('')
@@ -209,9 +288,7 @@ export default function CapturasAutomaticas() {
   }
 
   const registerPendingPurchase = async (item) => {
-    const accountId = accountSelections[item.id] || accounts.find((account) =>
-      item.accountLabel && account.name.trim().toLocaleLowerCase('es') === item.accountLabel.trim().toLocaleLowerCase('es')
-    )?.id || ''
+    const accountId = accountSelections[item.id] || item.accountId || ''
     const categoryId = categorySelections[item.id] || categories.find((category) =>
       item.categorySuggestion && category.name.trim().toLocaleLowerCase('es') === item.categorySuggestion.trim().toLocaleLowerCase('es')
     )?.id || ''
@@ -278,6 +355,7 @@ export default function CapturasAutomaticas() {
           status: 'posted',
           matched_transaction_id: transaction.id,
           account_label: accounts.find((account) => account.id === accountId)?.name || null,
+          account_id: accountId,
           category_id: categoryId,
         })
         .eq('user_id', userId)
@@ -390,6 +468,102 @@ export default function CapturasAutomaticas() {
       )}
 
       <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
+        <div className="flex items-start gap-3">
+          <Link2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-300" />
+          <div>
+            <h2 className="text-lg font-semibold text-white">Vincular bancos con tus cuentas</h2>
+            <p className="mt-1 text-xs leading-relaxed text-slate-400">
+              Indica qué cuenta corresponde a cada aplicación bancaria. Para registrar automáticamente una compra,
+              Finanzas necesita emparejar Google Wallet con una notificación de ese banco.
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          <label className="text-xs font-medium text-slate-300">Aplicación del banco
+            <select
+              value={mappingSource}
+              onChange={(event) => setMappingSource(event.target.value)}
+              className="mt-1.5 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-white"
+            >
+              <option value="revolut">Revolut</option>
+              <option value="bbva">BBVA</option>
+            </select>
+          </label>
+          <label className="text-xs font-medium text-slate-300">Cuenta que recibe el cargo
+            <select
+              value={mappingAccountId}
+              onChange={(event) => setMappingAccountId(event.target.value)}
+              className="mt-1.5 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-white"
+            >
+              <option value="">Selecciona una cuenta</option>
+              {accounts.map((account) => (
+                <option key={account.id} value={account.id}>
+                  {account.name}{account.institution ? ` · ${account.institution}` : ''}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="text-xs font-medium text-slate-300">Últimos 4 dígitos del aviso del banco (opcional)
+            <input
+              inputMode="numeric"
+              autoComplete="off"
+              maxLength={4}
+              value={mappingCardLast4}
+              onChange={(event) => setMappingCardLast4(event.target.value.replace(/\D/g, '').slice(0, 4))}
+              placeholder="Ej. 4821"
+              className="mt-1.5 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-white"
+            />
+          </label>
+        </div>
+        <p className="mt-2 text-xs text-amber-200/90">
+          Importante: usa los cuatro dígitos que aparecen en la notificación del BANCO. Google Wallet puede mostrar un número virtual distinto.
+          Deja el campo vacío solo cuando esa aplicación bancaria tenga una única cuenta vinculada.
+        </p>
+        <div className="mt-3 flex justify-end">
+          <button
+            type="button"
+            onClick={saveAccountMapping}
+            disabled={savingMapping || accounts.length === 0 || (mappingCardLast4 !== '' && mappingCardLast4.length !== 4)}
+            className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
+          >
+            {savingMapping ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+            Guardar vinculación
+          </button>
+        </div>
+
+        <div className="mt-4 space-y-2">
+          {accountMappings.length === 0 ? (
+            <p className="rounded-lg border border-dashed border-slate-700 p-3 text-xs text-slate-400">
+              Todavía no has vinculado ninguna aplicación bancaria. Sin esta configuración, las compras quedarán para revisión manual.
+            </p>
+          ) : accountMappings.map((mapping) => {
+            const account = accounts.find((item) => item.id === mapping.account_id)
+            return (
+              <div key={mapping.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-800 bg-slate-950/60 p-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-white">
+                    {SOURCE_LABELS[mapping.source_app] || mapping.source_app}
+                    {mapping.card_last4 ? ` · Tarjeta ··${mapping.card_last4}` : ' · Vinculación única'}
+                  </p>
+                  <p className="text-xs text-slate-400">{account?.name || 'Cuenta no disponible'}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => deactivateAccountMapping(mapping.id)}
+                  disabled={savingMapping}
+                  className="inline-flex items-center gap-1 rounded-lg border border-slate-700 px-2.5 py-1.5 text-xs text-slate-300 hover:bg-slate-800 disabled:opacity-50"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Desvincular
+                </button>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-lg font-semibold text-white">Bandeja de revisión</h2>
@@ -437,12 +611,12 @@ export default function CapturasAutomaticas() {
                   )}
                 </div>
                 <p className="mt-2 text-xs text-slate-500">
-                  {[item.accountLabel, item.cardLast4 ? 'Tarjeta ··' + item.cardLast4 : null].filter(Boolean).join(' · ')}
+                  {[item.accountLabel, item.cardLast4 ? 'Tarjeta del banco ··' + item.cardLast4 : null].filter(Boolean).join(' · ')}
                 </p>
                 <div className="mt-4 grid gap-3 sm:grid-cols-2">
                   <label className="text-xs font-medium text-slate-300">Cuenta del cargo
                     <select
-                      value={accountSelections[item.id] ?? accounts.find((account) => item.accountLabel && account.name.trim().toLocaleLowerCase('es') === item.accountLabel.trim().toLocaleLowerCase('es'))?.id ?? ''}
+                      value={accountSelections[item.id] ?? item.accountId ?? ''}
                       onChange={(event) => setAccountSelections((current) => ({ ...current, [item.id]: event.target.value }))}
                       className="mt-1.5 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-white"
                     >
