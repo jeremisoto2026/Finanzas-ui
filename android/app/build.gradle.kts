@@ -13,12 +13,21 @@ android {
         applicationId = "com.finanzas.mobile"
         minSdk = 26
         targetSdk = 36
-        versionCode = 10
-        versionName = "1.0.9-preview"
+        versionCode = 11
+        versionName = "1.0.10-preview"
 
         // Public Supabase values only. RLS remains the security boundary.
         buildConfigField("String", "SUPABASE_URL", "\"https://xebgscmovaffrqckzpyz.supabase.co\"")
         buildConfigField("String", "SUPABASE_PUBLISHABLE_KEY", "\"sb_publishable_Mbxk3dAMZHoPKrh90zKHkw_yzzh22un\"")
+    }
+
+    buildTypes {
+        // Debug APKs are always isolated from Production so personal testing
+        // can never write into the live financial database.
+        getByName("debug") {
+            buildConfigField("String", "SUPABASE_URL", "\\"https://brkckgaicoqkqdcwwftm.supabase.co\\"")
+            buildConfigField("String", "SUPABASE_PUBLISHABLE_KEY", "\\"sb_publishable_4aTVOdrHyro5iyDctv1mjg__yI6jqh-\\"")
+        }
     }
 
     buildFeatures {
