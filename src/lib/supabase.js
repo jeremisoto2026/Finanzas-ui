@@ -61,7 +61,7 @@ async function getAndroidAccounts() {
   // that may omit accounts in a given Preview build.
   const [accountsResult, transactionsResult] = await Promise.all([
     supabase.from('accounts')
-      .select('id, name, currency_code, opening_balance, opening_balance_date')
+      .select('id, name, institution, account_type, currency_code, opening_balance, opening_balance_date, is_active')
       .eq('user_id', userId)
       .order('name', { ascending: true }),
     supabase.from('transactions')
@@ -98,10 +98,14 @@ async function getAndroidAccounts() {
     return {
       id: account.id,
       name: account.name,
+      institution: account.institution || '',
+      accountType: account.account_type || 'bank',
       currencyCode: String(account.currency_code || 'EUR').trim(),
       balance: Math.round((balance + Number.EPSILON) * 100) / 100,
+      openingBalance: Math.round((Number(account.opening_balance || 0) + Number.EPSILON) * 100) / 100,
       openingBalanceDate: account.opening_balance_date || null,
       lastMovementOn: ledger[0]?.occurred_on || null,
+      isActive: account.is_active !== false,
     }
   })
 }
@@ -198,12 +202,13 @@ async function createAndroidTransaction(parsedUrl, input, init, sourceRequest) {
     if (!category?.id) throw new Error('No se pudo preparar la categoría del movimiento.')
 
     const { data: account, error: accountReadError } = await supabase.from('accounts')
-      .select('id, name')
+      .select('id, name, is_active')
       .eq('user_id', userId)
       .eq('id', accountId)
       .maybeSingle()
     if (accountReadError) throw accountReadError
     if (!account?.id) return jsonResponse({ error: 'La cuenta seleccionada no existe o no pertenece a tu usuario.' }, 400)
+    if (account.is_active === false) return jsonResponse({ error: 'La cuenta está desactivada. Selecciona una cuenta activa.' }, 400)
 
     const { data: inserted, error: insertError } = await supabase.from('transactions').insert({
       user_id: userId,
@@ -248,67 +253,189 @@ async function readAndroidJsonBody(init, sourceRequest) {
   }
 }
 
-async function updateAndroidAccountBalance(init, sourceRequest) {
+const ANDROID_ACCOUNT_TYPES = new Set([
+  'bank', 'cash', 'debit_card', 'credit_card', 'digital_wallet', 'savings', 'other',
+])
+
+function androidTodayKey() {
+  return new Intl.DateTimeFormat('sv-SE', {
+    timeZone: 'Europe/Madrid', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(new Date())
+}
+
+function validDateOnly(value) {
+  const text = String(value || '').slice(0, 10)
+  if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(text)) return false
+  const date = new Date(text + 'T00:00:00.000Z')
+  return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === text
+}
+
+function androidMoney(value) {
+  return Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100
+}
+
+async function getAndroidOwnedAccount(userId, accountId) {
+  const { data, error } = await supabase.from('accounts')
+    .select('id, name, institution, account_type, currency_code, opening_balance, opening_balance_date, is_active')
+    .eq('user_id', userId)
+    .eq('id', accountId)
+    .maybeSingle()
+  if (error) throw error
+  return data
+}
+
+async function getAndroidAccountLedger(userId, accountId, openingDate, today) {
+  const { data, error } = await supabase.from('transactions')
+    .select('account_id, occurred_on, kind, amount')
+    .eq('user_id', userId)
+    .eq('account_id', accountId)
+    .eq('status', 'posted')
+    .gte('occurred_on', openingDate || '0001-01-01')
+    .lte('occurred_on', today)
+  if (error) throw error
+  return data || []
+}
+
+function mapAndroidAccount(account, ledger, today) {
+  const movements = (ledger || []).filter((item) => item.occurred_on <= today)
+  let balance = Number(account.opening_balance || 0)
+  for (const transaction of movements) {
+    const amount = Number(transaction.amount || 0)
+    if (transaction.kind === 'income' || transaction.kind === 'transfer_in') balance += amount
+    if (transaction.kind === 'expense' || transaction.kind === 'transfer_out') balance -= amount
+  }
+
+  return {
+    id: account.id,
+    name: account.name,
+    institution: account.institution || '',
+    accountType: account.account_type || 'bank',
+    currencyCode: String(account.currency_code || 'EUR').trim(),
+    balance: androidMoney(balance),
+    openingBalance: androidMoney(account.opening_balance),
+    openingBalanceDate: account.opening_balance_date || null,
+    lastMovementOn: movements.reduce((latest, item) =>
+      !latest || item.occurred_on > latest ? item.occurred_on : latest, null
+    ),
+    isActive: account.is_active !== false,
+  }
+}
+
+async function createAndroidAccount(init, sourceRequest) {
   try {
     const body = await readAndroidJsonBody(init, sourceRequest)
-    const accountId = String(body.accountId || '').trim()
-    const targetBalance = Number(body.balance)
-    if (!accountId || body.balance === undefined || !Number.isFinite(targetBalance) || Math.abs(targetBalance) > 999999999999) {
-      return jsonResponse({ error: 'Indica una cuenta válida y un saldo real numérico.' }, 400)
+    const name = String(body.name || '').trim()
+    const institution = String(body.institution || '').trim() || null
+    const accountType = String(body.accountType || 'bank')
+    const currencyCode = String(body.currencyCode || 'EUR').trim().toUpperCase()
+    const openingBalance = Number(body.openingBalance ?? 0)
+    const openingBalanceDate = String(body.openingBalanceDate || androidTodayKey()).slice(0, 10)
+
+    if (!name) return jsonResponse({ error: 'Escribe un nombre para la cuenta.' }, 400)
+    if (!ANDROID_ACCOUNT_TYPES.has(accountType)) return jsonResponse({ error: 'Selecciona un tipo de cuenta válido.' }, 400)
+    if (!/^[A-Z]{3}$/.test(currencyCode)) return jsonResponse({ error: 'La moneda debe ser un código de tres letras, por ejemplo EUR.' }, 400)
+    if (!Number.isFinite(openingBalance) || Math.abs(openingBalance) > 999999999999) {
+      return jsonResponse({ error: 'El saldo inicial no es válido.' }, 400)
     }
+    if (!validDateOnly(openingBalanceDate)) return jsonResponse({ error: 'La fecha del saldo inicial no es válida.' }, 400)
+
+    const { data: authData, error: authError } = await supabase.auth.getUser()
+    if (authError || !authData?.user) return jsonResponse({ error: 'Tu sesión ha caducado. Inicia sesión de nuevo.' }, 401)
+    const { data, error } = await supabase.from('accounts').insert({
+      user_id: authData.user.id,
+      name,
+      institution,
+      account_type: accountType,
+      currency_code: currencyCode,
+      opening_balance: androidMoney(openingBalance),
+      opening_balance_date: openingBalanceDate,
+      is_active: true,
+    }).select('id, name, institution, account_type, currency_code, opening_balance, opening_balance_date, is_active').single()
+
+    if (error?.code === '23505') return jsonResponse({ error: 'Ya tienes una cuenta con ese nombre. Usa otro nombre para distinguirla.' }, 409)
+    if (error) throw error
+    dashboardSnapshotPromise = null
+    dashboardSnapshotExpiresAt = 0
+    return jsonResponse(mapAndroidAccount(data, [], androidTodayKey()), 201)
+  } catch (error) {
+    console.error('No se pudo crear la cuenta en Android:', error)
+    return jsonResponse({ error: error?.message || 'No se pudo crear la cuenta.' }, 400)
+  }
+}
+
+async function updateAndroidAccount(init, sourceRequest) {
+  try {
+    const body = await readAndroidJsonBody(init, sourceRequest)
+    const accountId = String(body.accountId || body.id || '').trim()
+    if (!accountId) return jsonResponse({ error: 'Falta seleccionar la cuenta que quieres actualizar.' }, 400)
 
     const { data: authData, error: authError } = await supabase.auth.getUser()
     if (authError || !authData?.user) return jsonResponse({ error: 'Tu sesión ha caducado. Inicia sesión de nuevo.' }, 401)
     const userId = authData.user.id
-    const { data: account, error: accountError } = await supabase.from('accounts')
-      .select('id, name, currency_code, opening_balance_date')
-      .eq('user_id', userId)
-      .eq('id', accountId)
-      .maybeSingle()
-    if (accountError) throw accountError
-    if (!account) return jsonResponse({ error: 'No se encontró esa cuenta.' }, 404)
+    const account = await getAndroidOwnedAccount(userId, accountId)
+    if (!account) return jsonResponse({ error: 'No se encontró esa cuenta en tu espacio financiero.' }, 404)
 
-    const today = new Intl.DateTimeFormat('sv-SE', {
-      timeZone: 'Europe/Madrid', year: 'numeric', month: '2-digit', day: '2-digit',
-    }).format(new Date())
-    const openingDate = account.opening_balance_date || '0001-01-01'
-    const { data: ledger, error: ledgerError } = await supabase.from('transactions')
-      .select('occurred_on, kind, amount')
-      .eq('user_id', userId)
-      .eq('account_id', account.id)
-      .eq('status', 'posted')
-      .gte('occurred_on', openingDate)
-      .lte('occurred_on', today)
-    if (ledgerError) throw ledgerError
+    const patch = {}
+    if (body.name !== undefined) {
+      const name = String(body.name || '').trim()
+      if (!name) return jsonResponse({ error: 'El nombre de la cuenta no puede quedar vacío.' }, 400)
+      patch.name = name
+    }
+    if (body.institution !== undefined) patch.institution = String(body.institution || '').trim() || null
+    if (body.accountType !== undefined) {
+      const accountType = String(body.accountType)
+      if (!ANDROID_ACCOUNT_TYPES.has(accountType)) return jsonResponse({ error: 'Selecciona un tipo de cuenta válido.' }, 400)
+      patch.account_type = accountType
+    }
+    if (body.currencyCode !== undefined) {
+      const currencyCode = String(body.currencyCode || '').trim().toUpperCase()
+      if (!/^[A-Z]{3}$/.test(currencyCode)) return jsonResponse({ error: 'La moneda debe ser un código de tres letras, por ejemplo EUR.' }, 400)
+      if (currencyCode !== String(account.currency_code || 'EUR').trim().toUpperCase()) {
+        const { count, error: countError } = await supabase.from('transactions')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', userId)
+          .eq('account_id', account.id)
+        if (countError) throw countError
+        if ((count || 0) > 0) return jsonResponse({ error: 'No puedes cambiar la moneda de una cuenta con movimientos. Crea otra cuenta con la moneda correcta y conserva esta como histórica.' }, 409)
+        patch.currency_code = currencyCode
+      }
+    }
+    if (body.isActive !== undefined) patch.is_active = Boolean(body.isActive)
 
-    const ledgerNet = (ledger || []).reduce((total, transaction) => {
-      const amount = Number(transaction.amount || 0)
-      if (transaction.kind === 'income' || transaction.kind === 'transfer_in') return total + amount
-      if (transaction.kind === 'expense' || transaction.kind === 'transfer_out') return total - amount
-      return total
-    }, 0)
-    const nextOpeningBalance = Math.round((targetBalance - ledgerNet + Number.EPSILON) * 100) / 100
-    const { data: updatedAccount, error: updateError } = await supabase.from('accounts')
-      .update({ opening_balance: nextOpeningBalance })
+    const today = androidTodayKey()
+    let ledger = await getAndroidAccountLedger(userId, account.id, account.opening_balance_date, today)
+    if (body.balance !== undefined) {
+      const targetBalance = Number(body.balance)
+      if (!Number.isFinite(targetBalance) || Math.abs(targetBalance) > 999999999999) {
+        return jsonResponse({ error: 'Introduce un saldo real numérico válido.' }, 400)
+      }
+      const ledgerNet = ledger.reduce((total, transaction) => {
+        const amount = Number(transaction.amount || 0)
+        if (transaction.kind === 'income' || transaction.kind === 'transfer_in') return total + amount
+        if (transaction.kind === 'expense' || transaction.kind === 'transfer_out') return total - amount
+        return total
+      }, 0)
+      patch.opening_balance = androidMoney(targetBalance - ledgerNet)
+    }
+
+    if (!Object.keys(patch).length) return jsonResponse({ error: 'No se han indicado cambios para guardar.' }, 400)
+    patch.updated_at = new Date().toISOString()
+
+    const { data, error } = await supabase.from('accounts').update(patch)
       .eq('user_id', userId)
       .eq('id', account.id)
-      .select('id, name, currency_code, opening_balance_date')
+      .select('id, name, institution, account_type, currency_code, opening_balance, opening_balance_date, is_active')
       .single()
-    if (updateError) throw updateError
+    if (error?.code === '23505') return jsonResponse({ error: 'Ya existe una cuenta con ese nombre.' }, 409)
+    if (error) throw error
 
+    if (body.balance !== undefined) ledger = await getAndroidAccountLedger(userId, account.id, data.opening_balance_date, today)
     dashboardSnapshotPromise = null
     dashboardSnapshotExpiresAt = 0
-    return jsonResponse({
-      id: updatedAccount.id,
-      name: updatedAccount.name,
-      currencyCode: String(updatedAccount.currency_code || 'EUR').trim(),
-      balance: Math.round((targetBalance + Number.EPSILON) * 100) / 100,
-      openingBalanceDate: updatedAccount.opening_balance_date || null,
-      lastMovementOn: (ledger || []).reduce((latest, item) => !latest || item.occurred_on > latest ? item.occurred_on : latest, null),
-    })
+    return jsonResponse(mapAndroidAccount(data, ledger, today))
   } catch (error) {
-    console.error('No se pudo ajustar el saldo en Android:', error)
-    return jsonResponse({ error: error?.message || 'No se pudo ajustar el saldo de la cuenta.' }, 400)
+    console.error('No se pudo actualizar la cuenta en Android:', error)
+    return jsonResponse({ error: error?.message || 'No se pudo actualizar la cuenta.' }, 400)
   }
 }
 
@@ -485,8 +612,12 @@ async function fetchAndroidApi(parsedUrl, method, input, init, sourceRequest) {
     }
   }
 
+  if (method === 'POST' && parsedUrl.pathname === '/api/cuentas') {
+    return createAndroidAccount(init, sourceRequest)
+  }
+
   if (method === 'PATCH' && parsedUrl.pathname === '/api/cuentas') {
-    return updateAndroidAccountBalance(init, sourceRequest)
+    return updateAndroidAccount(init, sourceRequest)
   }
 
   if ((method === 'PATCH' || method === 'DELETE') && getAndroidCreateKind(parsedUrl.pathname)) {
