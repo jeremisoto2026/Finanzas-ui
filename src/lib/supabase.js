@@ -582,6 +582,33 @@ async function updateAndroidTransaction(parsedUrl, method, init, sourceRequest) 
 
 async function fetchAndroidApi(parsedUrl, method, input, init, sourceRequest) {
   if (method === 'GET') {
+    // The expense form requests category names separately from the dashboard snapshot.
+    // Read them directly with the signed-in user's JWT and RLS on Android.
+    if (parsedUrl.pathname === '/api/gastos' && parsedUrl.searchParams.get('resource') === 'categories') {
+      try {
+        const { data, error } = await supabase.from('categories')
+          .select('name')
+          .eq('is_active', true)
+          .in('direction', ['expense', 'both'])
+          .order('name', { ascending: true })
+        if (error) throw error
+
+        const seen = new Set()
+        const categories = []
+        for (const row of data || []) {
+          const name = String(row.name || '').trim().replace(/\\s+/g, ' ')
+          const key = name.normalize('NFKC').toLocaleLowerCase('es-ES')
+          if (!name || seen.has(key)) continue
+          seen.add(key)
+          categories.push(name)
+        }
+        return jsonResponse(categories)
+      } catch (error) {
+        console.error('No se pudieron cargar las categorías de gastos en Android:', error)
+        return jsonResponse({ error: error?.message || 'No se pudieron cargar las categorías.' }, 502)
+      }
+    }
+
     if (parsedUrl.pathname === '/api/cuentas') {
       try {
         return jsonResponse(await getAndroidAccounts())
