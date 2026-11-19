@@ -93,8 +93,6 @@ export function parsePaymentNotification({ sourceApp, title = '', text = '', occ
     const match = combined.match(/([\d.,]+)\s*(?:€|EUR)\s+(?:con\s+.+|en\s+.+)/i)
     if (match) amount = parseLocalizedAmount(match[1])
 
-    const cardMatch = combined.match(/(?:visa|mastercard|maestro|amex)\s*[•·*\s]*([0-9]{4})/i) ||
-      combined.match(/[•·*]{2,}\s*([0-9]{4})/)
     // Wallet can show a virtual card number whose suffix differs from the bank card.
     // Only bank-notification suffixes are used for account-to-card bindings.
     cardLast4 = null
