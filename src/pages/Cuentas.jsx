@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   Banknote,
-  Building2,
   Check,
   CreditCard,
   Landmark,
