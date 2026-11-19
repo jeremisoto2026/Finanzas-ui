@@ -114,7 +114,10 @@ object NotificationParser {
                 merchant = cleanMerchant(heading.takeIf {
                     it.isNotBlank() && !genericNotificationTitle.matches(it.trim())
                 } ?: walletMerchant.orEmpty())
-                cardLast4 = cardEnding.find(combined)?.groupValues?.getOrNull(1)
+                // Google Wallet uses a virtual card number for in-store payments.
+                // Its last four digits may differ from the physical card suffix shown by the bank.
+                // Keep account matching based on the bank notification, never this Wallet suffix.
+                cardLast4 = null
                 accountName = walletIssuer.find(combined)?.groupValues?.getOrNull(1)?.let {
                     if (it.equals("BBVA", true)) "BBVA" else "Revolut"
                 }
