@@ -27,6 +27,19 @@ data class CaptureResult(
     val wasDuplicate: Boolean
 )
 
+internal fun isSameSourceDuplicate(item: LocalCapture, payment: ParsedPayment): Boolean {
+    val notificationKeyMatches = !payment.notificationKey.isNullOrBlank() &&
+        payment.notificationKey in item.notificationKeys
+    val samePaymentArrivedAgainImmediately =
+        abs(item.occurredAtMillis - payment.occurredAtMillis) <= 10_000L
+
+    return item.merchantKey == payment.merchantKey &&
+        item.amountCents == payment.amountCents &&
+        item.currencyCode == payment.currencyCode &&
+        payment.source in item.sources &&
+        (notificationKeyMatches || samePaymentArrivedAgainImmediately)
+}
+
 class CaptureStore(context: Context) {
     private val encrypted = EncryptedPreferences(
         context = context,
@@ -38,13 +51,12 @@ class CaptureStore(context: Context) {
     fun add(payment: ParsedPayment): CaptureResult {
         val items = readAll().toMutableList()
 
+        // Android can repost the same bank alert with a new StatusBarNotification
+        // key. Match the same source/merchant/amount in a short window as well
+        // as an exact notification-key replay, otherwise one payment can be
+        // auto-posted twice before the wallet/bank pair is even considered.
         val duplicate = items.firstOrNull { item ->
-            item.merchantKey == payment.merchantKey &&
-                item.amountCents == payment.amountCents &&
-                payment.source in item.sources &&
-                abs(item.occurredAtMillis - payment.occurredAtMillis) <= SAME_SOURCE_DUPLICATE_WINDOW_MS &&
-                (payment.notificationKey.isNullOrBlank() ||
-                    payment.notificationKey in item.notificationKeys)
+            isSameSourceDuplicate(item, payment)
         }
 
         if (duplicate != null) {
