@@ -3,6 +3,7 @@ import { addInstallmentDate, distributeInstallmentAmounts, localDateInputValue, 
 import { uniqueCategoryNames } from '@/lib/category-utils'
 import { 
   Settings, 
+  Pencil,
   Plus,
   Trash2,
   CheckCircle,
@@ -59,6 +60,7 @@ export default function Configuracion() {
   const [guardandoPagoCuota, setGuardandoPagoCuota] = useState(false)
   const [guardandoCompraCuotas, setGuardandoCompraCuotas] = useState(false)
   const guardandoCompraCuotasRef = useRef(false)
+  const cuotasFormRef = useRef(null)
   const [mensajeCuotas, setMensajeCuotas] = useState(null)
 
   // Estados para acordeones
@@ -350,6 +352,15 @@ export default function Configuracion() {
     })
     setMostrarFormCuotas(true)
   }
+
+
+  useEffect(() => {
+    if (!mostrarFormCuotas || !editingCompraCuotasId || !cuotasFormRef.current) return
+    const frame = window.requestAnimationFrame(() => {
+      cuotasFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [mostrarFormCuotas, editingCompraCuotasId])
 
   const guardarCompraCuotas = async () => {
     if (guardandoCompraCuotasRef.current) return
@@ -973,7 +984,7 @@ export default function Configuracion() {
 
       {/* FORMULARIO PARA COMPRAS A CUOTAS (igual, pero ahora usa guardarCompraCuotas async) */}
       {mostrarFormCuotas && (
-        <div className="mb-6 bg-slate-900/80 border border-slate-800 rounded-xl p-6">
+        <div ref={cuotasFormRef} className="mb-6 scroll-mt-24 bg-slate-900/80 border border-slate-800 rounded-xl p-6">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl font-bold text-white">{editingCompraCuotasId ? 'Editar compra a cuotas' : 'Nueva compra a cuotas'}</h2>
             <button
@@ -1294,7 +1305,7 @@ export default function Configuracion() {
                               className="p-1.5 rounded-lg bg-sky-900/30 text-sky-300 hover:bg-sky-900/50 transition"
                               title="Editar"
                             >
-                              <Settings className="h-4 w-4" />
+                              <Pencil className="h-4 w-4" />
                             </button>
                             <button
                               onClick={() => eliminarPagoFijo(pago.id, pago.nombre)}
@@ -1368,7 +1379,7 @@ export default function Configuracion() {
                         </div>
                         <div className="flex shrink-0 items-center gap-2">
                           <span className="whitespace-nowrap text-sm font-semibold text-emerald-300">€{item.amount.toFixed(2)}</span>
-                          <button onClick={() => editarPresupuesto(item)} className="rounded-lg bg-slate-800 p-1.5 text-sky-300 hover:bg-slate-700" title="Editar presupuesto" aria-label="Editar presupuesto"><Settings className="h-4 w-4" /></button>
+                          <button onClick={() => editarPresupuesto(item)} className="rounded-lg bg-slate-800 p-1.5 text-sky-300 hover:bg-slate-700" title="Editar presupuesto" aria-label="Editar presupuesto"><Pencil className="h-4 w-4" /></button>
                           <button onClick={() => eliminarPresupuesto(item)} className="rounded-lg bg-rose-950/30 p-1.5 text-rose-300 hover:bg-rose-900/40" title="Eliminar presupuesto" aria-label="Eliminar presupuesto"><Trash2 className="h-4 w-4" /></button>
                         </div>
                       </div>
@@ -1558,7 +1569,7 @@ export default function Configuracion() {
                                 </div>
                               ) : (
                                 <div className="mt-3 flex justify-end">
-                                  <button type="button" onClick={() => abrirEdicionCalendario(compra)} className="rounded-lg bg-slate-800 px-3 py-1.5 text-xs text-sky-300 hover:bg-slate-700">Editar importes y fechas</button>
+                                  <button type="button" onClick={() => abrirEdicionCalendario(compra)} className="inline-flex items-center gap-1.5 rounded-lg bg-slate-800 px-3 py-1.5 text-xs text-sky-300 hover:bg-slate-700"><Pencil className="h-3.5 w-3.5" />Editar importes y fechas</button>
                                 </div>
                               )}
                             </div>
@@ -1581,7 +1592,7 @@ export default function Configuracion() {
                           </button>
 
                           <div className="flex items-center gap-1">
-                            <button onClick={() => abrirEdicionCompraCuotas(compra)} className="rounded-lg bg-sky-900/30 p-1.5 text-sky-300 hover:bg-sky-900/50" title="Editar plan"><Settings className="h-4 w-4" /></button>
+                            <button onClick={() => abrirEdicionCompraCuotas(compra)} className="rounded-lg bg-sky-900/30 p-1.5 text-sky-300 hover:bg-sky-900/50" title="Editar plan" aria-label="Editar plan"><Pencil className="h-4 w-4" /></button>
                             <button
                               onClick={() => toggleActivoCompraCuotas(compra.id, compra.activo)}
                               className={`p-1.5 rounded-lg transition ${
