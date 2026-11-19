@@ -309,7 +309,9 @@ export default function CapturasAutomaticas() {
       const { data: authData, error: authError } = await supabase.auth.getUser()
       if (authError || !authData?.user) throw new Error('Tu sesión ha caducado. Inicia sesión de nuevo.')
       const userId = authData.user.id
-      const idempotencyKey = item.eventIds?.[0]
+      // The review group id is the same pair_key used by the sync function.
+      // This avoids a second transaction if the bank alert arrives after manual review.
+      const idempotencyKey = item.id || item.eventIds?.[0]
       if (!idempotencyKey) throw new Error('No se encontró el identificador de esta compra.')
 
       let transaction
