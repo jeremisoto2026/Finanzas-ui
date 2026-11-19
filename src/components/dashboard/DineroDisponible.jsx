@@ -66,7 +66,7 @@ export default function DineroDisponible() {
         if (!response.ok) throw new Error('No se pudieron cargar los saldos bancarios.')
         const data = await response.json()
         if (!Array.isArray(data)) throw new Error('La respuesta de cuentas no es válida.')
-        if (!cancelled) setAccounts(data)
+        if (!cancelled) setAccounts(data.filter((account) => account.isActive !== false))
       } catch (err) {
         if (!cancelled) {
           setError(err.message || 'Error al cargar los saldos.')
