@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { BanknotesIcon, PlusIcon, CheckCircleIcon, ArrowPathIcon, PencilSquareIcon, TrashIcon, XMarkIcon } from '@heroicons/react/24/outline'
 import { sumMoney } from '@/lib/finance-core'
+import { useConfirmationDialog } from '@/components/ui/ConfirmationDialog'
 
 const euro = (value) => new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(Number(value || 0))
 const today = () => {
@@ -20,6 +21,7 @@ const emptyForm = {
 }
 
 export default function Deudas() {
+  const confirm = useConfirmationDialog()
   const [debts, setDebts] = useState([])
   const [accounts, setAccounts] = useState([])
   const [loading, setLoading] = useState(true)
@@ -180,7 +182,12 @@ export default function Deudas() {
   }
 
   const deleteDebt = async (debt) => {
-    if (!confirm('¿Eliminar el registro «' + debt.personName + '»? Esta acción no crea ni modifica movimientos bancarios.')) return
+    const approved = await confirm({
+      title: '¿Eliminar este registro de deuda?',
+      description: `Se eliminará el registro de «${debt.personName}». Esta acción no crea ni modifica movimientos bancarios.`,
+      confirmLabel: 'Eliminar registro',
+    })
+    if (!approved) return
     try {
       const response = await fetch('/api/deudas', {
         method: 'DELETE',
