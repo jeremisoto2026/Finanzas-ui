@@ -582,7 +582,54 @@ async function updateAndroidTransaction(parsedUrl, method, init, sourceRequest) 
 
 const DEFAULT_ANDROID_EXPENSE_CATEGORIES = ['Alimentación', 'Vivienda', 'Transporte', 'Salud', 'Ocio', 'Suscripciones', 'Servicios', 'Ropa', 'Educación', 'Familia', 'Otros']
 
+const ANDROID_MANAGEMENT_WRITE_PATHS = new Set([
+  '/api/presupuestos',
+  '/api/pagos-fijos',
+  '/api/compras-cuotas',
+])
+
+async function forwardAndroidManagementWrite(parsedUrl, method, init, sourceRequest) {
+  let bodyValue = init?.body
+  if (bodyValue == null && sourceRequest) bodyValue = await sourceRequest.clone().text()
+  let body
+  try {
+    body = typeof bodyValue === 'string' ? JSON.parse(bodyValue || '{}') : (bodyValue || {})
+  } catch {
+    return jsonResponse({ error: 'No se pudo leer el formulario. Vuelve a intentarlo.' }, 400)
+  }
+
+  try {
+    const { data: authData, error: authError } = await supabase.auth.getSession()
+    const accessToken = authData?.session?.access_token
+    if (authError || !accessToken) return jsonResponse({ error: 'Tu sesión ha caducado. Inicia sesión de nuevo.' }, 401)
+    const response = await fetch(supabaseUrl + '/functions/v1/finance-management-write', {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer ' + accessToken,
+        apikey: supabasePublishableKey,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ path: parsedUrl.pathname, method, body }),
+    })
+    const responseBody = await response.text()
+    if (response.ok) {
+      dashboardSnapshotPromise = null
+      dashboardSnapshotExpiresAt = 0
+    }
+    return new Response(responseBody || '{}', {
+      status: response.status,
+      headers: { 'Content-Type': response.headers.get('Content-Type') || 'application/json; charset=utf-8', 'Cache-Control': 'no-store' },
+    })
+  } catch (error) {
+    console.error('No se pudo completar la operación financiera en Android:', error)
+    return jsonResponse({ error: error?.message || 'No se pudo conectar con el servicio financiero seguro.' }, 502)
+  }
+}
 async function fetchAndroidApi(parsedUrl, method, input, init, sourceRequest) {
+  if (ANDROID_MANAGEMENT_WRITE_PATHS.has(parsedUrl.pathname) && ['POST', 'PATCH', 'DELETE'].includes(method)) {
+    return forwardAndroidManagementWrite(parsedUrl, method, init, sourceRequest)
+  }
+
   if (method === 'GET') {
     // The expense form requests category names separately from the dashboard snapshot.
     // Read them directly with the signed-in user's JWT and RLS on Android.
