@@ -237,6 +237,222 @@ async function createAndroidTransaction(parsedUrl, input, init, sourceRequest) {
   }
 }
 
+
+async function readAndroidJsonBody(input, init, sourceRequest) {
+  let bodyValue = init?.body
+  if (bodyValue == null && sourceRequest) bodyValue = await sourceRequest.clone().text()
+  try {
+    return typeof bodyValue === 'string' ? JSON.parse(bodyValue || '{}') : (bodyValue || {})
+  } catch {
+    throw new Error('No se pudo leer el formulario. Vuelve a intentarlo.')
+  }
+}
+
+async function updateAndroidAccountBalance(input, init, sourceRequest) {
+  try {
+    const body = await readAndroidJsonBody(input, init, sourceRequest)
+    const accountId = String(body.accountId || '').trim()
+    const targetBalance = Number(body.balance)
+    if (!accountId || body.balance === undefined || !Number.isFinite(targetBalance) || Math.abs(targetBalance) > 999999999999) {
+      return jsonResponse({ error: 'Indica una cuenta válida y un saldo real numérico.' }, 400)
+    }
+
+    const { data: authData, error: authError } = await supabase.auth.getUser()
+    if (authError || !authData?.user) return jsonResponse({ error: 'Tu sesión ha caducado. Inicia sesión de nuevo.' }, 401)
+    const userId = authData.user.id
+    const { data: account, error: accountError } = await supabase.from('accounts')
+      .select('id, name, currency_code, opening_balance_date')
+      .eq('user_id', userId)
+      .eq('id', accountId)
+      .maybeSingle()
+    if (accountError) throw accountError
+    if (!account) return jsonResponse({ error: 'No se encontró esa cuenta.' }, 404)
+
+    const today = new Intl.DateTimeFormat('sv-SE', {
+      timeZone: 'Europe/Madrid', year: 'numeric', month: '2-digit', day: '2-digit',
+    }).format(new Date())
+    const openingDate = account.opening_balance_date || '0001-01-01'
+    const { data: ledger, error: ledgerError } = await supabase.from('transactions')
+      .select('occurred_on, kind, amount')
+      .eq('user_id', userId)
+      .eq('account_id', account.id)
+      .eq('status', 'posted')
+      .gte('occurred_on', openingDate)
+      .lte('occurred_on', today)
+    if (ledgerError) throw ledgerError
+
+    const ledgerNet = (ledger || []).reduce((total, transaction) => {
+      const amount = Number(transaction.amount || 0)
+      if (transaction.kind === 'income' || transaction.kind === 'transfer_in') return total + amount
+      if (transaction.kind === 'expense' || transaction.kind === 'transfer_out') return total - amount
+      return total
+    }, 0)
+    const nextOpeningBalance = Math.round((targetBalance - ledgerNet + Number.EPSILON) * 100) / 100
+    const { data: updatedAccount, error: updateError } = await supabase.from('accounts')
+      .update({ opening_balance: nextOpeningBalance })
+      .eq('user_id', userId)
+      .eq('id', account.id)
+      .select('id, name, currency_code, opening_balance_date')
+      .single()
+    if (updateError) throw updateError
+
+    dashboardSnapshotPromise = null
+    dashboardSnapshotExpiresAt = 0
+    return jsonResponse({
+      id: updatedAccount.id,
+      name: updatedAccount.name,
+      currencyCode: String(updatedAccount.currency_code || 'EUR').trim(),
+      balance: Math.round((targetBalance + Number.EPSILON) * 100) / 100,
+      openingBalanceDate: updatedAccount.opening_balance_date || null,
+      lastMovementOn: (ledger || []).reduce((latest, item) => !latest || item.occurred_on > latest ? item.occurred_on : latest, null),
+    })
+  } catch (error) {
+    console.error('No se pudo ajustar el saldo en Android:', error)
+    return jsonResponse({ error: error?.message || 'No se pudo ajustar el saldo de la cuenta.' }, 400)
+  }
+}
+
+async function resolveAndroidCategory(userId, categoryValue, kind) {
+  const categoryName = String(categoryValue || 'Otros').normalize('NFKC').trim().replace(/\\s+/g, ' ') || 'Otros'
+  const normalizedCategory = categoryName.toLocaleLowerCase('es-ES')
+  const { data: categoryRows, error: categoryReadError } = await supabase.from('categories')
+    .select('id, name')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: true })
+  if (categoryReadError) throw categoryReadError
+
+  let category = (categoryRows || []).find((row) =>
+    String(row.name || '').normalize('NFKC').trim().replace(/\\s+/g, ' ').toLocaleLowerCase('es-ES') === normalizedCategory
+  )
+  if (!category) {
+    const { data: createdCategory, error: categoryInsertError } = await supabase.from('categories')
+      .insert({ user_id: userId, name: categoryName, direction: kind })
+      .select('id, name')
+      .single()
+    if (categoryInsertError && categoryInsertError.code === '23505') {
+      const { data: retryCategory, error: retryError } = await supabase.from('categories')
+        .select('id, name').eq('user_id', userId).ilike('name', categoryName).maybeSingle()
+      if (retryError) throw retryError
+      category = retryCategory
+    } else if (categoryInsertError) {
+      throw categoryInsertError
+    } else {
+      category = createdCategory
+    }
+  }
+  if (!category?.id) throw new Error('No se pudo preparar la categoría del movimiento.')
+  return category.id
+}
+
+async function updateAndroidTransaction(parsedUrl, method, input, init, sourceRequest) {
+  try {
+    const body = await readAndroidJsonBody(input, init, sourceRequest)
+    const kind = getAndroidCreateKind(parsedUrl.pathname)
+    if (!kind) return jsonResponse({ error: 'Movimiento no válido.' }, 404)
+    const { data: authData, error: authError } = await supabase.auth.getUser()
+    if (authError || !authData?.user) return jsonResponse({ error: 'Tu sesión ha caducado. Inicia sesión de nuevo.' }, 401)
+    const userId = authData.user.id
+    const mapTransaction = (row) => ({
+      id: row.id,
+      concepto: row.description || '',
+      monto: Number(row.amount || 0),
+      fecha: String(row.occurred_on || '').slice(0, 10),
+      categoria: row.categories?.name || '',
+      metodo: row.payment_method || '',
+      cuenta: row.accounts?.name || '',
+      cuentaId: row.account_id || null,
+      origen: 'normal',
+    })
+
+    if (!body.id) return jsonResponse({ error: 'Falta el identificador del movimiento.' }, 400)
+    if (kind === 'expense') {
+      const { data: linkedInstallment, error: linkedError } = await supabase.from('installments')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('transaction_id', body.id)
+        .limit(1)
+        .maybeSingle()
+      if (linkedError) throw linkedError
+      if (linkedInstallment) {
+        return jsonResponse({
+          error: method === 'DELETE'
+            ? 'Este gasto está vinculado a una cuota. Anula o corrige el pago desde Gestión financiera para no dejar una cuota pagada sin su movimiento.'
+            : 'Este gasto está vinculado a una cuota. Para mantener el saldo y el calendario sincronizados, edítalo desde Gestión financiera.',
+        }, 409)
+      }
+    }
+
+    if (method === 'DELETE') {
+      const { data, error } = await supabase.from('transactions')
+        .update({ status: 'void' })
+        .eq('id', body.id)
+        .eq('user_id', userId)
+        .eq('kind', kind)
+        .eq('status', 'posted')
+        .select('id')
+        .maybeSingle()
+      if (error) throw error
+      if (!data) return jsonResponse({ error: 'No se encontró el movimiento.' }, 404)
+      dashboardSnapshotPromise = null
+      dashboardSnapshotExpiresAt = 0
+      return jsonResponse({ success: true, id: body.id })
+    }
+
+    const patch = {}
+    if (body.concepto !== undefined) {
+      const description = String(body.concepto || '').trim()
+      if (!description) return jsonResponse({ error: 'El concepto no puede estar vacío.' }, 400)
+      patch.description = description
+    }
+    if (body.monto !== undefined) {
+      const amount = Number(body.monto)
+      if (!Number.isFinite(amount) || amount <= 0) return jsonResponse({ error: 'El importe debe ser mayor que cero.' }, 400)
+      patch.amount = Math.round((amount + Number.EPSILON) * 100) / 100
+    }
+    if (body.fecha !== undefined) {
+      const dateValue = String(body.fecha || '').slice(0, 10)
+      const date = /^\\d{4}-\\d{2}-\\d{2}$/.test(dateValue) ? new Date(dateValue + 'T00:00:00.000Z') : null
+      if (!date || !Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== dateValue) {
+        return jsonResponse({ error: 'La fecha no es válida.' }, 400)
+      }
+      patch.occurred_on = dateValue
+    }
+    if (body.categoria !== undefined) {
+      patch.category_id = await resolveAndroidCategory(userId, body.categoria, kind)
+    }
+    if (body.cuentaId !== undefined) {
+      const accountId = String(body.cuentaId || '').trim()
+      if (!accountId) return jsonResponse({ error: 'Selecciona una cuenta válida.' }, 400)
+      const { data: account, error: accountError } = await supabase.from('accounts')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('id', accountId)
+        .maybeSingle()
+      if (accountError) throw accountError
+      if (!account?.id) return jsonResponse({ error: 'La cuenta seleccionada no existe o no pertenece a tu usuario.' }, 400)
+      patch.account_id = account.id
+    }
+    if (body.metodo !== undefined) patch.payment_method = String(body.metodo || '').trim() || null
+    if (!Object.keys(patch).length) return jsonResponse({ error: 'No hay cambios para guardar.' }, 400)
+
+    const { data, error } = await supabase.from('transactions').update(patch)
+      .eq('id', body.id)
+      .eq('user_id', userId)
+      .eq('kind', kind)
+      .eq('status', 'posted')
+      .select('id, account_id, amount, occurred_on, description, payment_method, categories(name), accounts(name)')
+      .maybeSingle()
+    if (error) throw error
+    if (!data) return jsonResponse({ error: 'No se encontró el movimiento.' }, 404)
+    dashboardSnapshotPromise = null
+    dashboardSnapshotExpiresAt = 0
+    return jsonResponse(mapTransaction(data))
+  } catch (error) {
+    console.error('No se pudo modificar el movimiento en Android:', error)
+    return jsonResponse({ error: error?.message || 'No se pudo actualizar el movimiento.' }, 400)
+  }
+}
+
 async function fetchAndroidApi(parsedUrl, method, input, init, sourceRequest) {
   if (method === 'GET') {
     if (parsedUrl.pathname === '/api/cuentas') {
@@ -269,15 +485,19 @@ async function fetchAndroidApi(parsedUrl, method, input, init, sourceRequest) {
     }
   }
 
-  // Only new expense/income entries are enabled in this preview. Editing,
-  // voiding, account management and every other write route remain blocked.
+  if (method === 'PATCH' && parsedUrl.pathname === '/api/cuentas') {
+    return updateAndroidAccountBalance(input, init, sourceRequest)
+  }
+
+  if ((method === 'PATCH' || method === 'DELETE') && getAndroidCreateKind(parsedUrl.pathname)) {
+    return updateAndroidTransaction(parsedUrl, method, input, init, sourceRequest)
+  }
+
   if (method === 'POST' && getAndroidCreateKind(parsedUrl.pathname)) {
     return createAndroidTransaction(parsedUrl, input, init, sourceRequest)
   }
 
-  return jsonResponse({
-    error: 'En esta versión de Finanzas Mobile puedes registrar gastos e ingresos nuevos. Las modificaciones y eliminaciones siguen disponibles desde la web.',
-  }, 405)
+  return jsonResponse({ error: 'Esta operación no está habilitada en Finanzas Mobile.' }, 405)
 }
 
 // On the web, the API remains same-origin and uses the user's JWT.
