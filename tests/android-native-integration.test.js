@@ -167,8 +167,8 @@ test('Web Push VAPID key, subscription, storage, and service worker are wired', 
 
 test('Preview APK version is incremented for privacy-first bank notification linking', () => {
   const gradle = read('android/app/build.gradle.kts')
-  assert.match(gradle, /versionCode = 15/)
-  assert.match(gradle, /versionName = "1.0.14-preview"/)
+  assert.match(gradle, /versionCode = 16/)
+  assert.match(gradle, /versionName = "1.0.15-preview"/)
 })
 
 
@@ -247,4 +247,20 @@ test('Android debug Preview APK uses the isolated Supabase backend, never Produc
   assert.match(workflow, /VITE_SUPABASE_URL: "https:\/\/brkckgaicoqkqdcwwftm\.supabase\.co"/)
   assert.match(workflow, /VITE_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_4aTVOdrHyro5iyDctv1mjg__yI6jqh-"/)
   assert.doesNotMatch(workflow, /https:\/\/xebgscmovaffrqckzpyz\.supabase\.co/)
+})
+
+
+test('Android forwards budget and payment writes through the authenticated Preview function', () => {
+  const native = read('src/lib/supabase.js')
+  const writer = read('supabase/functions/finance-management-write/index.ts')
+  assert.match(native, /ANDROID_MANAGEMENT_WRITE_PATHS/)
+  assert.match(native, /functions\/v1\/finance-management-write/)
+  assert.match(native, /Authorization: 'Bearer ' \+ accessToken/)
+  assert.match(writer, /auth\.getUser\(\)/)
+  assert.match(writer, /\/api\/presupuestos/)
+  assert.match(writer, /\/api\/pagos-fijos/)
+  assert.match(writer, /\/api\/compras-cuotas/)
+  assert.match(writer, /register_installment_payment/)
+  assert.match(writer, /user_id: userId/)
+  assert.doesNotMatch(writer, /SERVICE_ROLE/)
 })
