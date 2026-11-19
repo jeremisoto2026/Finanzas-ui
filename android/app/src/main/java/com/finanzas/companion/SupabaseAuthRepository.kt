@@ -13,6 +13,7 @@ data class CompanionUser(
 )
 
 class SupabaseAuthRepository(context: Context) {
+    private val appContext = context.applicationContext
     private val secureStore = EncryptedPreferences(
         context = context,
         namespace = "finanzas_companion_auth",
@@ -44,6 +45,7 @@ class SupabaseAuthRepository(context: Context) {
             throw IllegalStateException("La respuesta de inicio de sesión está incompleta.")
         }
 
+        clearCapturesWhenAccountChanges(userId)
         val stored = JSONObject()
             .put("userId", userId)
             .put("email", userEmail)
@@ -66,6 +68,7 @@ class SupabaseAuthRepository(context: Context) {
         require(userId.isNotBlank() && accessToken.isNotBlank() && refreshToken.isNotBlank()) {
             "La sesión de Finanzas está incompleta."
         }
+        clearCapturesWhenAccountChanges(userId)
         val stored = JSONObject()
             .put("userId", userId)
             .put("email", email)
@@ -73,6 +76,15 @@ class SupabaseAuthRepository(context: Context) {
             .put("refreshToken", refreshToken)
             .put("expiresAt", expiresAtMillis)
         secureStore.putString(SESSION_KEY, stored.toString())
+    }
+
+    private fun clearCapturesWhenAccountChanges(nextUserId: String) {
+        val previousUserId = currentUser()?.id
+        if (previousUserId != nextUserId) {
+            // A shared device must never upload one person's local payment notices
+            // to a different signed-in user's financial ledger.
+            CaptureStore(appContext).clear()
+        }
     }
 
     fun currentUser(): CompanionUser? {

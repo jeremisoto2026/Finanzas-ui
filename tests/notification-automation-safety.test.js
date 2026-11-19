@@ -41,6 +41,8 @@ test('Android sincroniza en segundo plano con sesión cifrada y red disponible',
   assert.match(worker, /Authorization", "Bearer \$token"/)
   assert.match(service, /CaptureSyncScheduler\.enqueue/)
   assert.match(auth, /secureStore\.putString\(SESSION_KEY/)
+  assert.ok(auth.includes('clearCapturesWhenAccountChanges'))
+  assert.ok(auth.includes('CaptureStore(appContext).clear()'))
   assert.match(sync, /updateNativeAuthSession/)
   assert.match(sync, /clearNativeAuthSession/)
 })
