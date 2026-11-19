@@ -36,7 +36,7 @@ const dateOnly = (value: unknown) => value ? String(value).slice(0, 10) : null;
 
 async function categoryId(db: any, userId: string, label: unknown) {
   const name = String(label || "").normalize("NFKC").trim().replace(/\s+/g, " ");
-  if (!name) throw new HttpError("Selecciona una categoría.");
+  if (!name) return null;
   const { data, error } = await db.from("categories").select("id, name")
     .eq("user_id", userId).order("created_at", { ascending: true });
   if (error) throw error;
