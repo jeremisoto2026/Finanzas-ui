@@ -45,7 +45,7 @@ class NotificationCaptureService : NotificationListenerService() {
             title = title,
             text = combinedText,
             occurredAtMillis = sbn.postTime,
-            notificationKey = "\${sbn.packageName}:\${sbn.key}"
+            notificationKey = "${sbn.packageName}:${sbn.key}"
         ) ?: return
 
         val result = captureStore.add(parsed)
