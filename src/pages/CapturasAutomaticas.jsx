@@ -213,6 +213,7 @@ export default function CapturasAutomaticas() {
     sourceApp = mappingSource,
     accountId = mappingAccountId,
     automatic = false,
+    selectionChange = false,
   } = {}) => {
     const account = accounts.find((item) => item.id === accountId)
     if (!account) {
@@ -257,7 +258,9 @@ export default function CapturasAutomaticas() {
       ])
       setMappingFeedback(automatic
         ? `Vinculada automáticamente con tu cuenta ${account.name}.`
-        : `Vinculación guardada: ${account.name}.`)
+        : selectionChange
+          ? `Cambio guardado automáticamente: ${account.name}.`
+          : `Vinculación guardada: ${account.name}.`)
       setNotice('')
       return true
     } catch (mappingError) {
@@ -566,6 +569,7 @@ export default function CapturasAutomaticas() {
                 setMappingFeedback('')
                 setMappingSource(event.target.value)
               }}
+              disabled={savingMapping}
               className="mt-1.5 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-white"
             >
               <option value="revolut">Revolut</option>
@@ -600,10 +604,12 @@ export default function CapturasAutomaticas() {
                     void persistAccountMapping({
                       sourceApp: mappingSource,
                       accountId,
-                      automatic: true,
+                      automatic: false,
+                      selectionChange: true,
                     })
                   }
                 }}
+                disabled={savingMapping}
                 className="mt-1.5 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-white"
               >
                 <option value="">Selecciona una cuenta</option>
