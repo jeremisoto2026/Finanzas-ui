@@ -55,6 +55,7 @@ export default function Configuracion() {
   const [categoriasDisponibles, setCategoriasDisponibles] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [errorCargaConfiguracion, setErrorCargaConfiguracion] = useState(null)
   const [cuentasDisponibles, setCuentasDisponibles] = useState([])
   const [gastosRegistrados, setGastosRegistrados] = useState([])
   const [pagoCuotaDialog, setPagoCuotaDialog] = useState(null)
@@ -136,7 +137,7 @@ export default function Configuracion() {
         setPresupuestos(presupuestosData)
 
       } catch (err) {
-        setError(err.message);
+        setErrorCargaConfiguracion(err.message);
         console.error('Error cargando datos:', err);
         setPagosFijos([]);
         setComprasCuotas([]);
@@ -683,7 +684,7 @@ export default function Configuracion() {
     )
   }
 
-  if (error) {
+  if (errorCargaConfiguracion) {
     return (
       <div className="min-h-screen bg-slate-950 p-6">
         <div className="max-w-2xl mx-auto mt-20">
@@ -692,7 +693,7 @@ export default function Configuracion() {
               <AlertCircle className="h-8 w-8 text-red-400" />
               <h2 className="text-xl font-bold text-white">Error al cargar configuración</h2>
             </div>
-            <p className="text-slate-300 mb-4">{error}</p>
+            <p className="text-slate-300 mb-4">{errorCargaConfiguracion}</p>
             <p className="text-slate-400 text-sm mb-6">
               No se muestran datos de demostración. Comprueba la conexión y vuelve a intentarlo.
             </p>
@@ -711,6 +712,12 @@ export default function Configuracion() {
   // ========== RENDER ==========
   return (
     <div className="mx-auto w-full max-w-7xl space-y-6 pb-8">
+      {error && (
+        <div role="alert" className="flex items-start justify-between gap-3 rounded-xl border border-rose-700/60 bg-rose-950/30 px-4 py-3 text-sm text-rose-200">
+          <span>{error}</span>
+          <button type="button" onClick={() => setError(null)} className="shrink-0 font-medium text-rose-100 underline underline-offset-2">Cerrar</button>
+        </div>
+      )}
       {pagoCuotaDialog && (
         <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 p-4" role="presentation">
           <form onSubmit={registrarPagoCuota} className="w-full max-w-lg space-y-4 rounded-2xl border border-slate-700 bg-slate-900 p-5 shadow-2xl">
