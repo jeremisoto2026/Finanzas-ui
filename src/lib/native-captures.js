@@ -93,5 +93,8 @@ export async function syncLocalCaptures(captures = []) {
   if (!data?.ok) {
     throw new Error(data?.error || 'No se pudieron sincronizar las capturas.')
   }
+  if (Array.isArray(data.registeredExpenses) && data.registeredExpenses.length > 0) {
+    await LocalCaptures.showRegisteredExpenses({ expenses: data.registeredExpenses })
+  }
   return data
 }
