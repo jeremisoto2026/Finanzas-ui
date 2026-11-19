@@ -640,10 +640,10 @@ export default function CapturasAutomaticas() {
           <div>
             <h2 className="text-sm font-semibold text-white">Privacidad y seguridad</h2>
             <p className="mt-1 text-xs leading-relaxed text-slate-400">
-              Solo se sincronizan el comercio, importe, fecha, banco identificado, últimos cuatro dígitos de la
-              tarjeta y categoría sugerida. No se envía el texto completo de la notificación. Cuando banco y categoría
-              coinciden con datos fiables, Finanzas registra automáticamente un único gasto; los casos ambiguos
-              permanecen pendientes para que elijas la cuenta y categoría. Todo se guarda bajo tu sesión y RLS.
+              Solo se sincronizan el nombre de la aplicación emisora, comercio, importe, fecha y categoría sugerida.
+              No se envía el texto completo del aviso ni se solicitan o almacenan datos de tarjetas bancarias.
+              Finanzas usa tu vinculación de app a cuenta y empareja Wallet por importe, comercio y hora para evitar duplicados.
+              Los casos ambiguos quedan pendientes de revisión. Todo se guarda bajo tu sesión y RLS.
             </p>
           </div>
         </div>
