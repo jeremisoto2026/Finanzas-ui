@@ -103,3 +103,21 @@ test('el módulo de capturas no figura como apartado principal', () => {
   assert.match(automation, /Detección en segundo plano/)
   assert.match(automation, /Permisos Android/)
 })
+
+
+test('el aviso solo se devuelve cuando se inserta un gasto automático nuevo', () => {
+  const edge = read('supabase/functions/notification-capture-sync/index.ts')
+  const worker = read('android/app/src/main/java/com/finanzas/companion/NotificationCaptureSyncWorker.kt')
+  const notifier = read('android/app/src/main/java/com/finanzas/companion/ExpenseRegisteredNotifier.kt')
+  assert.match(edge, /const registeredExpenses: Record<string, unknown>\[\] = \[\]/)
+  assert.match(edge, /let wasInserted = false/)
+  assert.match(edge, /wasInserted = true/)
+  assert.match(edge, /if \(wasInserted && autoPost && transactionId\)/)
+  assert.match(edge, /registeredExpenses,/)
+  assert.match(worker, /optJSONArray\("registeredExpenses"\)/)
+  assert.match(worker, /ExpenseRegisteredNotifier\.show\(applicationContext, expense\)/)
+  assert.match(notifier, /CHANNEL_ID = "finanzas-expense-registered"/)
+  assert.match(notifier, /setContentTitle\("Gasto registrado"\)/)
+  assert.match(notifier, /VISIBILITY_PRIVATE/)
+  assert.match(notifier, /areNotificationsEnabled\(\)/)
+})
