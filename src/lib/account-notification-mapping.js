@@ -25,7 +25,7 @@ export function getBankSourceLabel(sourceApp, labels = {}) {
 
   return key
     .replace(/[_-]+/g, ' ')
-    .replace(/(^|\\s)[a-záéíóúñ]/gi, (part) => part.toLocaleUpperCase('es-ES'))
+    .replace(/(^|[ ])[a-záéíóúñ]/gi, (part) => part.toLocaleUpperCase('es-ES'))
 }
 
 /**
