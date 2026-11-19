@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { addInstallmentDate, distributeInstallmentAmounts, localDateInputValue, sumMoney, sumMonthlyEquivalent } from '@/lib/finance-core'
 import { uniqueCategoryNames } from '@/lib/category-utils'
+import { useScrollToForm } from '@/lib/useScrollToForm'
 import { 
   Settings, 
   Pencil,
@@ -60,7 +61,6 @@ export default function Configuracion() {
   const [guardandoPagoCuota, setGuardandoPagoCuota] = useState(false)
   const [guardandoCompraCuotas, setGuardandoCompraCuotas] = useState(false)
   const guardandoCompraCuotasRef = useRef(false)
-  const cuotasFormRef = useRef(null)
   const [mensajeCuotas, setMensajeCuotas] = useState(null)
 
   // Estados para acordeones
@@ -91,6 +91,10 @@ export default function Configuracion() {
     fechaInicio: localDateInputValue(),
     notificacion: true
   })
+
+  const pagoFijoFormRef = useScrollToForm(mostrarFormPagoFijo, editingPagoFijoId)
+  const cuotasFormRef = useScrollToForm(mostrarFormCuotas, editingCompraCuotasId)
+  const presupuestoFormRef = useScrollToForm(mostrarFormPresupuesto, editingPresupuestoId)
 
   const [compraCuotas, setCompraCuotas] = useState({
     concepto: '',
@@ -166,7 +170,7 @@ export default function Configuracion() {
         ])
         if (cuentasResponse.ok) {
           const rows = await cuentasResponse.json()
-          if (activo) setCuentasDisponibles(Array.isArray(rows) ? rows.filter((row) => row.currencyCode === 'EUR') : [])
+          if (activo) setCuentasDisponibles(Array.isArray(rows) ? rows.filter((row) => row.currencyCode === 'EUR' && row.isActive !== false) : [])
         }
         if (gastosResponse.ok) {
           const rows = await gastosResponse.json()
@@ -354,13 +358,6 @@ export default function Configuracion() {
   }
 
 
-  useEffect(() => {
-    if (!mostrarFormCuotas || !editingCompraCuotasId || !cuotasFormRef.current) return
-    const frame = window.requestAnimationFrame(() => {
-      cuotasFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    })
-    return () => window.cancelAnimationFrame(frame)
-  }, [mostrarFormCuotas, editingCompraCuotasId])
 
   const guardarCompraCuotas = async () => {
     if (guardandoCompraCuotasRef.current) return
@@ -462,7 +459,7 @@ export default function Configuracion() {
   }
 
   const abrirDialogoPagoCuota = (compra, cuota) => {
-    const cuentaPredeterminada = cuentasDisponibles.find((cuenta) => cuenta.name === 'Revolut') || cuentasDisponibles[0]
+    const cuentaPredeterminada = cuentasDisponibles[0]
     setMensajeCuotas(null)
     setPagoCuotaDialog({
       compra, cuota, modo: 'nuevo',
@@ -835,7 +832,7 @@ export default function Configuracion() {
 
       {/* FORMULARIO PARA PAGO FIJO (igual, pero ahora usa guardarPagoFijo async) */}
       {mostrarFormPagoFijo && (
-        <div className="mb-6 bg-slate-900/80 border border-slate-800 rounded-xl p-6">
+        <div ref={pagoFijoFormRef} className="mb-6 scroll-mt-24 bg-slate-900/80 border border-slate-800 rounded-xl p-6">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl font-bold text-white">{editingPagoFijoId ? 'Editar pago fijo' : 'Nuevo pago fijo'}</h2>
             <button
@@ -1328,7 +1325,7 @@ export default function Configuracion() {
 
       {/* PRESUPUESTOS VARIABLES: SON PLANIFICACIÓN, NO PAGOS CONFIRMADOS */}
       {mostrarFormPresupuesto && (
-        <form onSubmit={guardarPresupuesto} className="mb-4 space-y-3 rounded-xl border border-sky-800/40 bg-slate-900/70 p-5">
+        <form ref={presupuestoFormRef} onSubmit={guardarPresupuesto} className="mb-4 scroll-mt-24 space-y-3 rounded-xl border border-sky-800/40 bg-slate-900/70 p-5">
           <div className="flex items-center justify-between"><h3 className="font-semibold text-white">{editingPresupuestoId ? 'Editar presupuesto' : 'Nuevo presupuesto'}</h3><button type="button" onClick={() => { setMostrarFormPresupuesto(false); setEditingPresupuestoId(null); }} className="text-sm text-slate-400 hover:text-white">Cerrar</button></div>
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <label className="text-sm text-slate-300">Mes<input type="month" required value={presupuestoForm.month} onChange={(e) => setPresupuestoForm({ ...presupuestoForm, month: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-white" /></label>
