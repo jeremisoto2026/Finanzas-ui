@@ -20,6 +20,7 @@ import {
   syncLocalCaptures,
 } from '@/lib/native-captures'
 import { supabase } from '@/lib/supabase'
+import { getAccountMappingSuggestion, getAccountOptionLabel } from '@/lib/account-notification-mapping'
 
 const SOURCE_LABELS = {
   revolut: 'Revolut',
@@ -84,6 +85,7 @@ export default function CapturasAutomaticas() {
   const [categories, setCategories] = useState([])
   const [mappingSource, setMappingSource] = useState('revolut')
   const [mappingAccountId, setMappingAccountId] = useState('')
+  const [mappingSelectionTouched, setMappingSelectionTouched] = useState(false)
   const [savingMapping, setSavingMapping] = useState(false)
   const [accountSelections, setAccountSelections] = useState({})
   const [categorySelections, setCategorySelections] = useState({})
@@ -95,10 +97,24 @@ export default function CapturasAutomaticas() {
 
   const reviewItems = useMemo(() => groupRemoteEvents(remoteEvents), [remoteEvents])
 
+  const mappingSuggestion = useMemo(
+    () => getAccountMappingSuggestion(
+      accounts,
+      accountMappings,
+      mappingSource,
+      SOURCE_LABELS[mappingSource] || mappingSource,
+    ),
+    [accounts, accountMappings, mappingSource],
+  )
+  const currentSourceMapping = accountMappings.find((mapping) => mapping.source_app === mappingSource)
+  const mappingAlreadySaved = Boolean(
+    currentSourceMapping && currentSourceMapping.account_id === mappingAccountId,
+  )
+
   useEffect(() => {
-    const existingMapping = accountMappings.find((mapping) => mapping.source_app === mappingSource)
-    setMappingAccountId(existingMapping?.account_id || '')
-  }, [accountMappings, mappingSource])
+    if (mappingSelectionTouched) return
+    setMappingAccountId(mappingSuggestion.accountId || '')
+  }, [mappingSuggestion, mappingSelectionTouched])
 
   const loadCaptures = useCallback(async (showSpinner = true) => {
     if (showSpinner) setLoading(true)
@@ -481,27 +497,60 @@ export default function CapturasAutomaticas() {
           <label className="text-xs font-medium text-slate-300">Aplicación del banco
             <select
               value={mappingSource}
-              onChange={(event) => setMappingSource(event.target.value)}
+              onChange={(event) => {
+                setMappingSelectionTouched(false)
+                setMappingSource(event.target.value)
+              }}
               className="mt-1.5 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-white"
             >
               <option value="revolut">Revolut</option>
               <option value="bbva">BBVA</option>
             </select>
           </label>
-          <label className="text-xs font-medium text-slate-300">Cuenta que recibe el cargo
-            <select
-              value={mappingAccountId}
-              onChange={(event) => setMappingAccountId(event.target.value)}
-              className="mt-1.5 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-white"
-            >
-              <option value="">Selecciona una cuenta</option>
-              {accounts.map((account) => (
-                <option key={account.id} value={account.id}>
-                  {account.name}{account.institution ? ` · ${account.institution}` : ''}
-                </option>
-              ))}
-            </select>
-          </label>
+          <div>
+            <span className="text-xs font-medium text-slate-300">Cuenta que recibe el cargo</span>
+            {accounts.length === 0 ? (
+              <div className="mt-1.5 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-400">
+                Crea primero una cuenta activa en Finanzas.
+              </div>
+            ) : accounts.length === 1 ? (
+              <div className="mt-1.5 rounded-lg border border-emerald-700/50 bg-emerald-950/20 px-3 py-2.5" aria-live="polite">
+                <p className="text-sm font-medium text-white">
+                  {getAccountOptionLabel(accounts[0], SOURCE_LABELS[mappingSource])}
+                </p>
+                <p className="mt-0.5 text-[11px] text-emerald-300">
+                  Única cuenta activa: se selecciona automáticamente.
+                </p>
+              </div>
+            ) : (
+              <select
+                value={mappingAccountId}
+                onChange={(event) => {
+                  setMappingSelectionTouched(true)
+                  setMappingAccountId(event.target.value)
+                }}
+                className="mt-1.5 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-white"
+              >
+                <option value="">Selecciona una cuenta</option>
+                {accounts.map((account) => (
+                  <option key={account.id} value={account.id}>
+                    {getAccountOptionLabel(account, SOURCE_LABELS[mappingSource])}
+                  </option>
+                ))}
+              </select>
+            )}
+            {mappingSuggestion.reason === 'matching' &&
+              mappingAccountId === mappingSuggestion.accountId && (
+                <p className="mt-1.5 text-[11px] leading-relaxed text-emerald-300">
+                  Hemos preseleccionado esta cuenta porque su nombre o banco coincide con {SOURCE_LABELS[mappingSource]}. Puedes cambiarla.
+                </p>
+              )}
+            {mappingSuggestion.reason === 'existing' && (
+              <p className="mt-1.5 text-[11px] leading-relaxed text-slate-400">
+                Esta aplicación ya está vinculada a la cuenta seleccionada.
+              </p>
+            )}
+          </div>
         </div>
         <p className="mt-2 text-xs leading-relaxed text-slate-400">
           Los avisos del banco se registran directamente en esta cuenta. Si también llega Google Wallet,
@@ -513,11 +562,11 @@ export default function CapturasAutomaticas() {
           <button
             type="button"
             onClick={saveAccountMapping}
-            disabled={savingMapping || accounts.length === 0}
+            disabled={savingMapping || accounts.length === 0 || !mappingAccountId || mappingAlreadySaved}
             className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
           >
-            {savingMapping ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-            Guardar vinculación
+            {savingMapping ? <Loader2 className="h-4 w-4 animate-spin" /> : mappingAlreadySaved ? <CheckCircle2 className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+            {mappingAlreadySaved ? 'Vinculación guardada' : currentSourceMapping ? 'Actualizar vinculación' : 'Guardar vinculación'}
           </button>
         </div>
 
