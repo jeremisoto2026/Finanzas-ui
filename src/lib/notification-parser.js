@@ -86,6 +86,8 @@ export function parsePaymentNotification({ sourceApp, title = '', text = '', occ
     if (signal && match) amount = parseLocalizedAmount(match[1])
     const merchantMatch = body.match(/\b(?:en|a)\s+(.+?)(?=\r?\n|saldo|\s+tarjeta|$)/i)
     merchant = cleanMerchant(merchantMatch?.[1] || (heading && !/^(bbva|notificación|compra|pago)$/i.test(heading) ? heading : ''))
+    const bankCardMatch = combined.match(/(?:visa|mastercard|maestro|amex)\s*[•·*\s]*([0-9]{4})/i)
+    cardLast4 = bankCardMatch?.[1] || null
     accountLabel = 'BBVA'
   }
 
