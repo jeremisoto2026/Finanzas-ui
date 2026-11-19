@@ -13,7 +13,7 @@ test('cada app bancaria se asigna directamente a una cuenta y Wallet no adivina 
   assert.match(source, /const bankSources = capture\.sources\.filter\(\(source\) => !source\.isWallet\)/)
   assert.match(source, /mapping\.source_app === bankSource\.sourceApp/)
   assert.match(source, /if \(bankSources\.length === 1\)/)
-  assert.match(source, /if \(candidates\.length !== 1\) return null/)
+  assert.match(source, /if \(activeMappings\.length !== 1\) return null/)
   assert.match(source, /else if \(account\?\.id && categoryId\)/)
   assert.match(source, /const autoPost = Boolean\(transactionId && transactionAccountId && resolvedCategoryId\)/)
   assert.doesNotMatch(source, /capture\.isPaired\s*&&/)
