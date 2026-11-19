@@ -128,7 +128,7 @@ export function parsePaymentNotification({ sourceApp, title = '', text = '', occ
     merchantKey,
     accountLabel,
     paymentChannel: app,
-    cardLast4: app === 'google_wallet' ? cardLast4 : null,
+    cardLast4,
     occurredAt,
     categorySuggestion: categorySuggestion?.category || null,
     categoryConfidence: categorySuggestion?.confidence || null,
