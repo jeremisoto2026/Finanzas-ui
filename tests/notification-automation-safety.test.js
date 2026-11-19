@@ -17,7 +17,7 @@ test('el registro automático exige pareja Wallet+banco, mapeo único y categor�
   assert.match(source, /candidates\.length !== 1/)
   assert.match(source, /Number\(savedRule\.confidence \|\| 0\) >= 0\.9/)
   assert.match(source, /status: autoPost \? "posted" : "needs_review"/)
-  assert.match(source, /account_id: account\?\.id \|\| null/)
+  assert.match(source, /account_id: transactionAccountId/)
   assert.match(source, /idempotency_key: pairKey/)
   assert.match(source, /\.eq\("idempotency_key", pairKey\)/)
   assert.match(source, /\.eq\("idempotency_key", capture\.id\)/)
