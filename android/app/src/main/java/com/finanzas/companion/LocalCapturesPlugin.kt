@@ -62,7 +62,6 @@ class LocalCapturesPlugin : Plugin() {
                     put("currencyCode", capture.currencyCode)
                     put("occurredAtMillis", capture.occurredAtMillis)
                     put("accountName", capture.accountName ?: JSONObject.NULL)
-                    put("cardLast4", capture.cardLast4 ?: JSONObject.NULL)
                     put("categorySuggestion", capture.categorySuggestion ?: JSONObject.NULL)
                     put("sources", sources)
                     put("isPaired", capture.isPaired)
