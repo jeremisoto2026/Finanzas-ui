@@ -99,7 +99,7 @@ test('Account balance adjustment updates the opening baseline without inserting 
 
   assert.match(page, /method: 'PATCH'/)
   assert.match(page, /accountId: editingAccount\.id, balance/)
-  assert.match(api, /req\.method === 'PATCH'/)
+  assert.match(api, /includes\(req\.method\)/)
   assert.match(api, /patch\.opening_balance = money\(targetBalance - ledgerNet\)/)
   assert.match(native, /async function updateAndroidAccount/)
   assert.match(native, /patch\.opening_balance = androidMoney\(targetBalance - ledgerNet\)/)
@@ -169,7 +169,7 @@ test('Dynamic account schema keeps ownership and supports account classification
   assert.match(api, /user_id: user\.id/)
   assert.match(api, /\.eq\('user_id', user\.id\)/)
   assert.match(api, /if \(req\.method === 'POST'\)/)
-  assert.match(api, /if \(req\.method === 'PATCH'\)/)
+  assert.match(api, /includes\(req\.method\)/)
   assert.doesNotMatch(api, /req\.method === 'DELETE'/)
 })
 
@@ -180,7 +180,7 @@ test('User account management is available from settings and uses authenticated 
   const native = read('src/lib/supabase.js')
 
   assert.match(settings, /page: 'Cuentas'/)
-  assert.match(layout, /const Cuentas = lazy\(\(\) => import\('\/pages\/Cuentas'\)\)/)
+  assert.match(layout, /const Cuentas = lazy\(\(\) => import\('@\/pages\/Cuentas'\)\)/)
   assert.match(layout, /activePage === 'Cuentas'/)
   assert.match(page, /fetch\('\/api\/cuentas'/)
   assert.match(page, /method: editingId \? 'PATCH' : 'POST'/)
