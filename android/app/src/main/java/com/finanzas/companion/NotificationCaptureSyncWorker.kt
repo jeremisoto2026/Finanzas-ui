@@ -43,7 +43,13 @@ class NotificationCaptureSyncWorker(
                         .put("accountName", capture.accountName ?: JSONObject.NULL)
                         .put("categorySuggestion", capture.categorySuggestion ?: JSONObject.NULL)
                         .put("sources", JSONArray().apply {
-                            capture.sources.sortedBy { it.ordinal }.forEach { put(it.name) }
+                            capture.sources.sortedBy { it.sourceApp }.forEach { source ->
+                                put(JSONObject()
+                                    .put("sourceApp", source.sourceApp)
+                                    .put("packageName", source.packageName)
+                                    .put("label", source.label)
+                                    .put("isBank", source.isBank))
+                            }
                         })
                         .put("isPaired", capture.isPaired))
                 }
