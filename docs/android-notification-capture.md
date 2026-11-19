@@ -1,56 +1,51 @@
-# Finanzas-ui: contrato de captura de notificaciones Android
+# Finanzas-ui: captura automática de notificaciones Android
 
-## Estado de Preview
+## Funcionamiento en Preview
 
-- La APK 1.0.3-preview captura únicamente notificaciones de Revolut y Google Wallet en Android.
-- El lector local extrae comercio, importe, moneda EUR, fecha, cuenta Revolut, categoría sugerida y últimos cuatro dígitos si Wallet los incluye.
-- La cola local se conserva cifrada con Android Keystore.
-- La sincronización autenticada con Finanzas está activa en Preview.
-- La tabla remota `notification_capture_events` está separada de las tablas de movimientos y protegida por RLS por usuario.
-- La sincronización no crea movimientos financieros ni cambia saldos.
+Finanzas reconoce avisos compatibles de Revolut, BBVA y Google Wallet mediante el identificador del paquete de Android. El usuario concede el permiso de notificaciones del sistema y después vincula cada aplicación bancaria con una cuenta de Finanzas.
 
-## Ejemplo de referencia validado
+La configuración es directa: **una aplicación bancaria → una cuenta de Finanzas por defecto**. No se solicitan ni se guardan datos de tarjetas bancarias. El sistema interpreta localmente el aviso y sincroniza únicamente el comercio, importe, moneda, fecha, aplicación de origen y categoría sugerida. El texto original del aviso no se transmite ni se conserva en el buzón remoto.
 
-La captura muestra dos notificaciones de la misma compra:
+## Identificación de la aplicación
 
-- Google Wallet: título `SUPERMERCADO ALTET`; texto `2,50 € con Revolut Visa ••0733`.
-- Revolut: título `Supermercado Altet`; texto `Has pagado 2,50 € en Supermercado Altet`, seguido de `Saldo del Pocket EUR: 0,34 €`.
+El servicio Android comprueba el paquete de origen antes de leer el aviso:
 
-Datos comunes extraídos: comercio Supermercado Altet, importe 2,50 EUR, cuenta Revolut, canal de pago Google Wallet, tarjeta Visa terminada en 0733 y categoría sugerida Alimentación. El saldo de Pocket (0,34 EUR) no es un importe de compra y nunca se importa como gasto.
-
-Los dos avisos se emparejan como un solo pago si coinciden comercio, importe y moneda dentro de una ventana máxima de tres minutos. Aunque se emparejen, permanecen pendientes de revisión y nunca se contabilizan automáticamente.
-
-## Fuentes permitidas
-
-- Revolut: fuente principal del importe, comercio y cuenta.
-- Google Wallet: señal complementaria para identificar el canal de pago y los últimos cuatro dígitos de la tarjeta.
-- No leer, almacenar ni transmitir notificaciones de otras aplicaciones.
-
-El servicio Android filtra por identificadores de paquete verificados:
 - Revolut: `com.revolut.revolut`
+- BBVA: `com.bbva.bbvacontigo`
 - Google Wallet: `com.google.android.apps.walletnfcrel`
 
-## Principios de seguridad
+Las aplicaciones no incluidas en esta lista se ignoran. Google Wallet es una fuente complementaria; las apps bancarias son las que determinan la cuenta de destino.
 
-- Usar Android `NotificationListenerService`, con autorización explícita del usuario en Ajustes.
-- No solicitar permisos de SMS, contactos, accesibilidad, llamadas ni lectura de otras notificaciones.
-- No incluir claves de Supabase de servicio en la aplicación Android.
-- Enviar eventos únicamente con la sesión autenticada del propietario de Finanzas.
-- Transmitir solo los campos de compra interpretados; no enviar el cuerpo original de la notificación.
-- El servidor genera la huella de deduplicación con el identificador del usuario, la captura local y la aplicación de origen.
-- Guardar como máximo los últimos cuatro dígitos de la tarjeta; nunca el número completo.
-- Las tablas del buzón aplican RLS por usuario.
-- No escribir ni actualizar `transactions`, `accounts`, ingresos, gastos ni saldos durante la sincronización.
+## Emparejamiento y registro
+
+Dos avisos representan la misma compra cuando coinciden el importe exacto, el comercio normalizado y la moneda, y llegan dentro de una ventana máxima de tres minutos. Si hay más de una coincidencia posible, no se elige al azar: la compra queda pendiente de revisión.
+
+El comportamiento de asignación es:
+
+1. Aviso bancario de Revolut o BBVA: se registra directamente en la cuenta vinculada a esa aplicación.
+2. Aviso de banco y Google Wallet: se agrupan como una compra y se usa la cuenta de la aplicación bancaria.
+3. Aviso de Wallet sin aviso bancario: se usa el emisor explícito si Wallet lo identifica; si no, solo se asigna automáticamente cuando existe una única aplicación bancaria vinculada.
+4. Si hay varias cuentas bancarias vinculadas y Wallet no permite identificar el banco, la compra queda pendiente de revisión para evitar asignaciones incorrectas.
+
+La creación del gasto requiere una cuenta activa y una categoría válida. Se usa la categoría sugerida cuando existe; en caso contrario se utiliza una categoría de gastos disponible, como «Otros». La clave idempotente impide que una repetición del mismo aviso cree otro gasto.
+
+## Privacidad y seguridad
+
+- El permiso de lectura de notificaciones lo concede el usuario desde los ajustes de Android.
+- Se procesan únicamente los paquetes de Revolut, BBVA y Google Wallet.
+- El texto original de la notificación se interpreta localmente y no se sincroniza.
+- No se extraen, solicitan, envían ni almacenan sufijos o números de tarjetas.
+- La cola local permanece cifrada con Android Keystore. Al leer capturas guardadas por versiones anteriores, la APK nueva reescribe la cola sin el campo retirado.
+- La Edge Function valida la sesión del usuario y usa su JWT con RLS; no usa la clave `service_role`.
+- Los gastos automáticos se insertan en el libro de movimientos con una clave idempotente. Las capturas ambiguas permanecen en la bandeja de revisión.
 
 ## Contrato de sincronización
 
-La APK invoca la Edge Function:
+La APK invoca la Edge Function autenticada:
 
 `notification-capture-sync`
 
-La función requiere un JWT de usuario válido (`verify_jwt=true`) y comprueba la sesión con Supabase Auth. Las consultas e inserciones utilizan el JWT del usuario; no usan `service_role`.
-
-Cuerpo simplificado:
+El cuerpo contiene únicamente campos interpretados:
 
 ```json
 {
@@ -62,33 +57,20 @@ Cuerpo simplificado:
       "currencyCode": "EUR",
       "occurredAtMillis": 1794955320000,
       "accountName": "Revolut",
-      "cardLast4": "0733",
       "categorySuggestion": "Alimentación",
-      "sources": ["Revolut", "Google Wallet"],
+      "sources": ["revolut", "google_wallet"],
       "isPaired": true
     }
   ]
 }
 ```
 
-No se transmite `notificationKeys`, el identificador interno del aviso de Android, el saldo del Pocket ni el texto completo original. El backend valida los campos, genera huellas SHA-256 y realiza un upsert idempotente en `notification_capture_events`.
+No se transmite el título o cuerpo original, identificadores internos de Android ni datos de tarjetas. El backend genera huellas SHA-256 por usuario, captura y aplicación, y actualiza los eventos de forma idempotente.
 
-## Flujo de una compra
+## Persistencia
 
-1. Android recibe un aviso de Revolut o Google Wallet.
-2. El servicio verifica el paquete de origen antes de leer el aviso.
-3. El parser extrae el importe y el comercio; el saldo del Pocket se descarta.
-4. Los avisos de ambas aplicaciones se emparejan en el dispositivo si coinciden comercio, importe y moneda dentro de tres minutos.
-5. Finanzas sincroniza las capturas al abrir la APK, cuando entra un nuevo aviso mientras está activa y al volver a primer plano.
-6. Los avisos de origen se guardan con la misma clave de agrupación y huellas únicas por aplicación.
-7. La página Capturas automáticas muestra una sola compra si los dos avisos se han emparejado.
-8. La compra queda en la bandeja como pendiente de revisión. No se crea ninguna transacción hasta una futura confirmación explícita.
+- `account_notification_sources`: una vinculación por usuario y aplicación bancaria.
+- `notification_capture_events`: bandeja y trazabilidad mínima de origen, comercio, importe y hora.
+- `transactions`: gastos contabilizados cuando la cuenta y categoría se resuelven automáticamente o tras revisión del usuario.
 
-## Tablas
-
-La migración `20261117180000_merchant_lookup_and_notification_inbox` crea:
-- `merchant_category_rules`
-- `merchant_lookup_cache`
-- `notification_capture_events`
-
-Son tablas aditivas. No modifican registros financieros existentes. La creación de la bandeja se aplicó y verificó en el proyecto Supabase activo conectado a la APK; los registros de pagos nuevos solo se escribirán cuando el usuario use la versión Preview y se produzca una captura válida.
+Las tablas están protegidas mediante RLS por usuario. La migración de retirada de datos antiguos elimina los campos heredados de sufijos y limpia el texto completo que pudiera haberse almacenado en capturas históricas.
