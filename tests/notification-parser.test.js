@@ -28,12 +28,12 @@ test('lee el aviso de Revolut y no confunde el saldo del Pocket con otro gasto',
   assert.equal(parsed.cardLast4, null)
 })
 
-test('lee Google Wallet, detecta la tarjeta Revolut Visa terminada en 0733', () => {
+test('no usa los últimos dígitos de la tarjeta virtual de Google Wallet para identificar la cuenta bancaria', () => {
   const parsed = parsePaymentNotification(walletNotification, categories)
   assert.equal(parsed.isPayment, true)
   assert.equal(parsed.amount, 2.5)
   assert.equal(parsed.merchant, 'SUPERMERCADO ALTET')
-  assert.equal(parsed.cardLast4, '0733')
+  assert.equal(parsed.cardLast4, null)
   assert.equal(parsed.paymentChannel, 'google_wallet')
 })
 
@@ -71,13 +71,14 @@ test('BBVA identifies its own notification as the issuing bank', () => {
   const parsed = parsePaymentNotification({
     sourceApp: 'bbva',
     title: 'BBVA',
-    text: 'Compra realizada con tarjeta: 25,80 € en Mercadona',
+    text: 'Compra realizada con tarjeta Visa ••5678: 25,80 € en Mercadona',
     occurredAt: '2026-11-18T17:42:00.000Z',
   }, categories)
   assert.equal(parsed.isPayment, true)
   assert.equal(parsed.accountLabel, 'BBVA')
   assert.equal(parsed.merchant, 'Mercadona')
   assert.equal(parsed.amount, 25.8)
+  assert.equal(parsed.cardLast4, '5678')
 })
 
 test('Wallet without an explicit issuer never guesses the bank', () => {
