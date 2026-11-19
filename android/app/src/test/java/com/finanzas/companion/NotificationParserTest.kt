@@ -29,7 +29,7 @@ class NotificationParserTest {
     }
 
     @Test
-    fun parsesWalletCardEnding() {
+    fun doesNotUseVirtualWalletCardEndingForBankAccountMatching() {
         val result = NotificationParser.parse(
             source = NotificationSource.GOOGLE_WALLET,
             title = "SUPERMERCADO ALTET",
@@ -40,7 +40,7 @@ class NotificationParserTest {
         assertNotNull(result)
         assertEquals("SUPERMERCADO ALTET", result?.merchant)
         assertEquals(250L, result?.amountCents)
-        assertEquals("0733", result?.cardLast4)
+        assertNull(result?.cardLast4)
         assertEquals("Alimentación", result?.categorySuggestion)
     }
 
@@ -89,7 +89,7 @@ class NotificationParserTest {
             merchant = "Mercadona",
             merchantKey = "MERCADONA",
             amountCents = 2580L,
-            occurredAtMillis = 1795033325000L,
+            occurredAtMillis = 1795033321500L,
             accountName = "BBVA",
             cardLast4 = "1234",
             categorySuggestion = "Alimentación",
@@ -152,7 +152,7 @@ class NotificationParserTest {
         )
         assertNotNull(result)
         assertNull(result?.accountName)
-        assertEquals("1234", result?.cardLast4)
+        assertNull(result?.cardLast4)
     }
 
     @Test
