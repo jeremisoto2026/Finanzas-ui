@@ -55,6 +55,8 @@ test('Android identifica el origen por paquete y empareja por importe, comercio 
   assert.match(parser, /sourceApp = "android:\$normalizedPackage"/)
   assert.match(parser, /transactionSignal/)
   assert.match(service, /NotificationSource\.fromPackage\(sbn\.packageName, appLabel\) \?: return/)
+  assert.match(service, /sbn\.key/)
+  assert.match(parser, /normalizedCombined = combined\.replace/)
   assert.match(store, /item\.merchantKey == payment\.merchantKey/)
   assert.match(store, /item\.amountCents == payment\.amountCents/)
   assert.match(store, /abs\(item\.occurredAtMillis - payment\.occurredAtMillis\) <= PAIR_WINDOW_MS/)
