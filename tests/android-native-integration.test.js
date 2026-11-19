@@ -165,11 +165,24 @@ test('Web Push VAPID key, subscription, storage, and service worker are wired', 
   assert.match(worker, /showNotification/)
 })
 
-test('Preview APK version is incremented for privacy-first bank notification linking', () => {
+test('Preview APK version is incremented and uses a persistent signing identity', () => {
   const gradle = read('android/app/build.gradle.kts')
-  assert.match(gradle, /versionCode = 17/)
-  assert.match(gradle, /versionName = "1.0.16-preview"/)
-  assert.match(gradle, /versionName = "1.0.16-preview"/)
+  const workflow = read('.github/workflows/android-companion.yml')
+  assert.match(gradle, /versionCode = 18/)
+  assert.match(gradle, /versionName = "1.0.17-preview"/)
+  assert.match(gradle, /create\("preview"\)/)
+  assert.match(gradle, /hasPersistentPreviewSigning/)
+  assert.match(gradle, /signingConfig = signingConfigs\.getByName\("preview"\)/)
+  for (const secret of [
+    'FINANZAS_PREVIEW_KEYSTORE_BASE64',
+    'FINANZAS_PREVIEW_KEYSTORE_PASSWORD',
+    'FINANZAS_PREVIEW_KEY_ALIAS',
+    'FINANZAS_PREVIEW_KEY_PASSWORD',
+  ]) {
+    assert.match(workflow, new RegExp('secrets\\.' + secret))
+  }
+  assert.match(workflow, /base64 --decode/)
+  assert.match(workflow, /FINANZAS_PREVIEW_KEYSTORE_PATH=/)
 })
 
 
