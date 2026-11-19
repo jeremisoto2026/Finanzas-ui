@@ -99,13 +99,16 @@ Deno.serve(async (req) => {
   const userId = userData.user.id;
 
   try {
-    const [plansResult, fixedResult, debtsResult, replenishmentsResult, incomesResult, expensesResult] = await Promise.all([
+    const [plansResult, fixedResult, budgetsResult, debtsResult, replenishmentsResult, incomesResult, expensesResult] = await Promise.all([
       supabase.from("installment_plans")
         .select("id, name, total_amount, installments_total, start_on, frequency, status, payment_method, notes, start_date_precision, categories(name)")
         .eq("user_id", userId).neq("status", "cancelled").order("start_on", { ascending: true }),
       supabase.from("fixed_payments")
         .select("id, name, amount, payment_method, frequency, next_due_on, status, notification_enabled, notes, categories(name), accounts(name)")
         .eq("user_id", userId).neq("status", "cancelled").order("next_due_on", { ascending: true }),
+      supabase.from("budgets")
+        .select("id, period_start, planned_amount, notes, categories(name)")
+        .eq("user_id", userId).order("period_start", { ascending: false }),
       supabase.from("debts")
         .select("id, direction, person_name, description, original_amount, outstanding_amount, due_on, status")
         .eq("user_id", userId).order("created_at", { ascending: false }),
@@ -122,7 +125,7 @@ Deno.serve(async (req) => {
         .order("occurred_on", { ascending: false }),
     ]);
 
-    for (const result of [plansResult, fixedResult, debtsResult, replenishmentsResult, incomesResult, expensesResult]) {
+    for (const result of [plansResult, fixedResult, budgetsResult, debtsResult, replenishmentsResult, incomesResult, expensesResult]) {
       if (result.error) throw result.error;
     }
 
@@ -144,6 +147,13 @@ Deno.serve(async (req) => {
     }
 
     return json({
+      budgets: (budgetsResult.data || []).map((row) => ({
+        id: row.id,
+        month: String(row.period_start).slice(0, 7),
+        amount: Number(row.planned_amount || 0),
+        category: row.categories?.name || "Otros",
+        notes: row.notes || "",
+      })),
       incomes: (incomesResult.data || []).map(transactionForUi),
       expenses: (expensesResult.data || []).map(transactionForUi),
       installmentPlans: plans.map((plan) => installmentPlanForUi(plan, grouped.get(plan.id) || [])),
