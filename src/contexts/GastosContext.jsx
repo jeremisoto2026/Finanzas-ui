@@ -16,26 +16,36 @@ export function GastosProvider({ children }) {
 
   // ========== CARGAR TODOS LOS DATOS ==========
   useEffect(() => {
+    let cancelled = false
+
     const fetchTodosLosDatos = async () => {
       try {
-        setLoading(true);
-        
-        // 1. Cargar gastos normales
-        const resGastos = await fetch('/api/gastos');
-        if (!resGastos.ok) throw new Error('Error cargando gastos');
-        const gastosData = await resGastos.json();
-        setGastosMensuales(gastosData);
-
+        const resGastos = await fetch('/api/gastos', { cache: 'no-store' })
+        if (!resGastos.ok) throw new Error('Error cargando gastos')
+        const gastosData = await resGastos.json()
+        if (!Array.isArray(gastosData)) throw new Error('La respuesta de gastos no es válida.')
+        if (!cancelled) {
+          setGastosMensuales(gastosData)
+          setError(null)
+        }
       } catch (err) {
-        setError(err.message);
-        console.error('Error fetching datos:', err);
-        setGastosMensuales([]);
+        if (!cancelled) {
+          setError(err.message)
+          console.error('Error fetching datos:', err)
+          setGastosMensuales([])
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false)
       }
-    };
+    }
 
-    fetchTodosLosDatos();
+    const refresh = () => { void fetchTodosLosDatos() }
+    void fetchTodosLosDatos()
+    window.addEventListener('finanzas:transactions-updated', refresh)
+    return () => {
+      cancelled = true
+      window.removeEventListener('finanzas:transactions-updated', refresh)
+    }
   }, []);
 
   // No se generan gastos sintéticos desde compromisos o cuotas.
