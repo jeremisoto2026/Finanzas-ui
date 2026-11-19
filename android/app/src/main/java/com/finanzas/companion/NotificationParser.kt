@@ -124,7 +124,7 @@ data class ParsedPayment(
 
 object NotificationParser {
     private val amountPattern = Regex(
-        """(?<![\p{L}\d])([−-])?\s*(?:€\s*)?((?:\d{1,3}(?:[ .\u00A0]\d{3})+|\d+)(?:[,.]\d{1,2})?)\s*(€|EUR)(?![\p{L}])""",
+        """(?<![\p{L}\d])([−-])?\s*(?:(€|EUR)\s*)?((?:\d{1,3}(?:[ .\u00A0,]\d{3})+|\d+)(?:[,.]\d{1,2})?)\s*(€|EUR)?(?![\p{L}])""",
         RegexOption.IGNORE_CASE
     )
 
@@ -187,7 +187,8 @@ object NotificationParser {
                     (if (match.groupValues[1].isNotBlank()) 4 else 0)
             } ?: return null
 
-        val amountText = amountMatch.groupValues[2]
+        if (amountMatch.groupValues[2].isBlank() && amountMatch.groupValues[4].isBlank()) return null
+        val amountText = amountMatch.groupValues[3]
         val isNegativeMovement = amountMatch.groupValues[1].isNotBlank()
         val amountCents = parseAmountToCents(amountText) ?: return null
         if (amountCents <= 0L) return null
