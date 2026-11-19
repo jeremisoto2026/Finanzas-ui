@@ -1,7 +1,7 @@
 const normalizeLabel = (value) => String(value || '')
   .normalize('NFKC')
   .trim()
-  .replace(/\\s+/g, ' ')
+  .replace(/\s+/g, ' ')
   .toLocaleLowerCase('es-ES')
 
 /**
