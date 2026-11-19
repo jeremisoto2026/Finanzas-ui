@@ -147,6 +147,24 @@ class LocalCapturesPlugin : Plugin() {
     }
 
     @PluginMethod
+    fun showRegisteredExpenses(call: PluginCall) {
+        try {
+            val expenses = call.getArray("expenses")
+            var processed = 0
+            if (expenses != null) {
+                for (index in 0 until expenses.length()) {
+                    val expense = expenses.optJSONObject(index) ?: continue
+                    ExpenseRegisteredNotifier.show(getContext().applicationContext, expense)
+                    processed += 1
+                }
+            }
+            call.resolve(JSObject().apply { put("processed", processed) })
+        } catch (error: Exception) {
+            call.reject("No se pudieron mostrar las confirmaciones de gastos.", error)
+        }
+    }
+
+    @PluginMethod
     fun clearCaptures(call: PluginCall) {
         try {
             captureStore.clear()
