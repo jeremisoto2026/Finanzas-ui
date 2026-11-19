@@ -97,7 +97,7 @@ class CaptureStore(context: Context) {
                     listOfNotNull(payment.notificationKey),
                 isPaired = true
             )
-            items[possiblePairIndex] = merged
+            items[possiblePairIndexes.single()] = merged
             persist(items)
             return CaptureResult(merged, wasPaired = true, wasDuplicate = false)
         }
