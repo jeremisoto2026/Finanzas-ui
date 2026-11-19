@@ -1,6 +1,7 @@
 package com.finanzas.companion
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -124,7 +125,7 @@ class NotificationParserTest {
             notificationKey = "new-notification-key"
         )
 
-        assertNull(isSameSourceDuplicate(item, laterPurchase).takeIf { it })
+        assertFalse(isSameSourceDuplicate(item, laterPurchase))
     }
 
     @Test
