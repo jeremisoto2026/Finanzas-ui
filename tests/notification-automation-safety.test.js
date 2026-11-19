@@ -121,3 +121,13 @@ test('el aviso solo se devuelve cuando se inserta un gasto automático nuevo', (
   assert.match(notifier, /VISIBILITY_PRIVATE/)
   assert.match(notifier, /areNotificationsEnabled\(\)/)
 })
+
+test('el aviso llega tanto desde la sincronización en segundo plano como desde la app abierta', () => {
+  const worker = read('android/app/src/main/java/com/finanzas/companion/NotificationCaptureSyncWorker.kt')
+  const plugin = read('android/app/src/main/java/com/finanzas/companion/LocalCapturesPlugin.kt')
+  const nativeCaptures = read('src/lib/native-captures.js')
+  assert.match(worker, /ExpenseRegisteredNotifier\.show\(applicationContext, expense\)/)
+  assert.match(plugin, /fun showRegisteredExpenses\(call: PluginCall\)/)
+  assert.match(plugin, /ExpenseRegisteredNotifier\.show\(getContext\(\)\.applicationContext, expense\)/)
+  assert.match(nativeCaptures, /LocalCaptures\.showRegisteredExpenses\(\{ expenses: data\.registeredExpenses \}\)/)
+})
