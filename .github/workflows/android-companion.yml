@@ -5,6 +5,7 @@ on:
     branches:
       - feat/finance-core-hardening
       - feat/finanzas-apk-capacitor
+      - feat/finanzas-cuentas-dinamicas-edicion
     paths:
       - "android/**"
       - "src/**"
