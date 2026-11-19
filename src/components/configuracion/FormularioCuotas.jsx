@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useScrollToForm } from '@/lib/useScrollToForm'
 import { X, Save, Calculator, Calendar, Euro, AlertCircle } from 'lucide-react'
 
 export default function FormularioCuotas({ 
@@ -10,6 +11,7 @@ export default function FormularioCuotas({
   pagoEditando,
   onEdit 
 }) {
+  const formRef = useScrollToForm(Boolean(pagoEditando), pagoEditando?.id)
   const [formData, setFormData] = useState({
     nombre: '',
     montoTotal: '',
@@ -93,7 +95,7 @@ export default function FormularioCuotas({
   }
 
   return (
-    <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-6 backdrop-blur-sm">
+    <div ref={formRef} className="scroll-mt-24 bg-slate-900/80 border border-slate-800 rounded-xl p-6 backdrop-blur-sm">
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-xl font-bold text-white">
           {pagoEditando ? 'Editar compra a cuotas' : 'Nueva compra a cuotas'}
