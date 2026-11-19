@@ -119,7 +119,7 @@ export default function CapturasAutomaticas() {
       mappingSource,
       mappingSourceLabel,
     ),
-    [accounts, accountMappings, mappingSource],
+    [accounts, accountMappings, mappingSource, mappingSourceLabel],
   )
   const currentSourceMapping = accountMappings.find((mapping) => mapping.source_app === mappingSource)
   const mappingAlreadySaved = Boolean(
@@ -241,6 +241,7 @@ export default function CapturasAutomaticas() {
       item.is_active !== false
     )
     if (existingMapping) {
+      setError('')
       setMappingFeedback(`Vinculada con tu cuenta ${account.name}.`)
       return true
     }
@@ -314,6 +315,7 @@ export default function CapturasAutomaticas() {
     mappingAlreadySaved,
     mappingSelectionTouched,
     mappingSource,
+    mappingSourceLabel,
     mappingSuggestion,
     persistAccountMapping,
   ])
