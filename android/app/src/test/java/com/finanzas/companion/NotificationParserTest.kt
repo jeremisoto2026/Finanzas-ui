@@ -138,6 +138,42 @@ class NotificationParserTest {
     }
 
     @Test
+    fun parsesBbvaAcceptedPaymentFromCurrentNotificationFormat() {
+        val result = NotificationParser.parse(
+            source = NotificationSource.BBVA,
+            title = "Pago aceptado",
+            text = "Pago aceptado de 2,50 EUR en SUPERMER-CADO ALTET con tu tarjeta terminada en XXXX",
+            occurredAtMillis = 1795033320000L
+        )
+
+        assertNotNull(result)
+        assertEquals("SUPERMER-CADO ALTET", result?.merchant)
+        assertEquals(250L, result?.amountCents)
+        assertEquals("BBVA", result?.accountName)
+        assertEquals("Alimentación", result?.categorySuggestion)
+    }
+
+    @Test
+    fun walletAquaDebitNotificationMatchesHyphenatedBbvaMerchant() {
+        val bbva = NotificationParser.parse(
+            source = NotificationSource.BBVA,
+            title = "Pago aceptado",
+            text = "Pago aceptado de 2,50 EUR en SUPERMER-CADO ALTET con tu tarjeta",
+            occurredAtMillis = 1795033320000L
+        )
+        val wallet = NotificationParser.parse(
+            source = NotificationSource.GOOGLE_WALLET,
+            title = "SUPERMERCADO ALTET",
+            text = "2,50 € con Aqua debito",
+            occurredAtMillis = 1795033321000L
+        )
+
+        assertNotNull(bbva)
+        assertNotNull(wallet)
+        assertEquals(bbva?.merchantKey, wallet?.merchantKey)
+    }
+
+    @Test
     fun walletWithoutIssuerDoesNotGuessBank() {
         val result = NotificationParser.parse(
             source = NotificationSource.GOOGLE_WALLET,
