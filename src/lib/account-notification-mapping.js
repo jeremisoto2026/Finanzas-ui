@@ -20,7 +20,7 @@ export function getAccountOptionLabel(account, sourceLabel = '') {
 
   if (
     normalizedName === normalizedInstitution ||
-    (normalizedSource && normalizedInstitution === normalizedSource)
+    (normalizedSource && (normalizedName === normalizedSource || normalizedInstitution === normalizedSource))
   ) {
     return name
   }
