@@ -141,7 +141,23 @@ async function budgets(db: any, userId: string, method: string, body: any) {
     if (method === "POST") {
       const { data, error } = await db.from("budgets").insert({ user_id: userId, ...patch })
         .select("id, period_start, planned_amount, notes, categories(name)").single();
-      if (error?.code === "23505") throw new HttpError("Ya existe un presupuesto para esa categoría y ese mes. Edita el existente.", 409);
+      if (error?.code === "23505") {
+        // A retried or repeated identical POST is idempotent: return the row that
+        // the first request already created. A different budget still gets 409.
+        const { data: existing, error: existingError } = await db.from("budgets")
+          .select("id, period_start, planned_amount, notes, categories(name)")
+          .eq("user_id", userId)
+          .eq("category_id", patch.category_id)
+          .eq("period_start", patch.period_start)
+          .maybeSingle();
+        if (existingError) throw existingError;
+        if (existing &&
+          cents(existing.planned_amount) === cents(patch.planned_amount) &&
+          (existing.notes || null) === (patch.notes || null)) {
+          return { status: 200, body: mapBudget(existing) };
+        }
+        throw new HttpError("Ya existe un presupuesto para esa categoría y ese mes. Edita el existente.", 409);
+      }
       if (error) throw error;
       return { status: 201, body: mapBudget(data) };
     }
