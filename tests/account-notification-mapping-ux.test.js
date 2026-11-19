@@ -15,6 +15,10 @@ test('el selector evita repetir la institución si coincide con la cuenta o la a
     'Cuenta diaria',
   )
   assert.equal(
+    getAccountOptionLabel({ name: 'Revolut', institution: 'Revolut Bank UAB' }, 'Revolut'),
+    'Revolut',
+  )
+  assert.equal(
     getAccountOptionLabel({ name: 'BBVA', institution: 'BBVA' }, 'BBVA'),
     'BBVA',
   )
