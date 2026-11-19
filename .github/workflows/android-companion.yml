@@ -77,6 +77,9 @@ jobs:
         with:
           gradle-version: "8.13"
 
+      - name: Run Android parser tests
+        run: gradle --no-daemon :app:testDebugUnitTest
+
       - name: Prepare persistent Preview signing key
         shell: bash
         env:
@@ -97,9 +100,6 @@ jobs:
           test -s "$keystore_path"
           chmod 600 "$keystore_path"
           echo "FINANZAS_PREVIEW_KEYSTORE_PATH=$keystore_path" >> "$GITHUB_ENV"
-
-      - name: Run Android parser tests
-        run: gradle --no-daemon :app:testDebugUnitTest
 
       - name: Assemble debug APK
         run: gradle --no-daemon :app:assembleDebug
