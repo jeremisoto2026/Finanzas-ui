@@ -3,6 +3,7 @@ package com.finanzas.companion
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class NotificationParserTest {
@@ -64,6 +65,66 @@ class NotificationParserTest {
             NotificationParser.normalizeMerchantKey("MERCADONA 0421 TPV"),
             NotificationParser.normalizeMerchantKey("Mercadona")
         )
+    }
+
+    @Test
+    fun deduplicatesSameBankPaymentEvenWhenAndroidRepostsWithNewNotificationKey() {
+        val item = LocalCapture(
+            id = "capture-1",
+            merchant = "Mercadona",
+            merchantKey = "MERCADONA",
+            amountCents = 2580L,
+            currencyCode = "EUR",
+            occurredAtMillis = 1795033320000L,
+            accountName = "BBVA",
+            cardLast4 = "1234",
+            categorySuggestion = "Alimentación",
+            sources = setOf(NotificationSource.BBVA),
+            notificationKeys = setOf("old-notification-key"),
+            isPaired = false
+        )
+        val repost = ParsedPayment(
+            source = NotificationSource.BBVA,
+            merchant = "Mercadona",
+            merchantKey = "MERCADONA",
+            amountCents = 2580L,
+            occurredAtMillis = 1795033325000L,
+            accountName = "BBVA",
+            cardLast4 = "1234",
+            categorySuggestion = "Alimentación",
+            notificationKey = "new-notification-key"
+        )
+
+        assertTrue(isSameSourceDuplicate(item, repost))
+    }
+
+    @Test
+    fun doesNotMergeSameMerchantAndAmountWhenNotificationsAreFarApart() {
+        val item = LocalCapture(
+            id = "capture-1",
+            merchant = "Mercadona",
+            merchantKey = "MERCADONA",
+            amountCents = 2580L,
+            currencyCode = "EUR",
+            occurredAtMillis = 1795033320000L,
+            accountName = "BBVA",
+            cardLast4 = "1234",
+            categorySuggestion = "Alimentación",
+            sources = setOf(NotificationSource.BBVA),
+            notificationKeys = setOf("old-notification-key"),
+            isPaired = false
+        )
+        val laterPurchase = ParsedPayment(
+            source = NotificationSource.BBVA,
+            merchant = "Mercadona",
+            merchantKey = "MERCADONA",
+            amountCents = 2580L,
+            occurredAtMillis = 1795033340000L,
+            accountName = "BBVA",
+            notificationKey = "new-notification-key"
+        )
+
+        assertNull(isSameSourceDuplicate(item, laterPurchase).takeIf { it })
     }
 
     @Test
