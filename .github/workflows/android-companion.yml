@@ -77,6 +77,27 @@ jobs:
         with:
           gradle-version: "8.13"
 
+      - name: Prepare persistent Preview signing key
+        shell: bash
+        env:
+          FINANZAS_PREVIEW_KEYSTORE_BASE64: ${{ secrets.FINANZAS_PREVIEW_KEYSTORE_BASE64 }}
+          FINANZAS_PREVIEW_KEYSTORE_PASSWORD: ${{ secrets.FINANZAS_PREVIEW_KEYSTORE_PASSWORD }}
+          FINANZAS_PREVIEW_KEY_ALIAS: ${{ secrets.FINANZAS_PREVIEW_KEY_ALIAS }}
+          FINANZAS_PREVIEW_KEY_PASSWORD: ${{ secrets.FINANZAS_PREVIEW_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          for secret_name in FINANZAS_PREVIEW_KEYSTORE_BASE64 FINANZAS_PREVIEW_KEYSTORE_PASSWORD FINANZAS_PREVIEW_KEY_ALIAS FINANZAS_PREVIEW_KEY_PASSWORD; do
+            if [[ -z "${!secret_name:-}" ]]; then
+              echo "::error::Missing GitHub Actions secret: $secret_name"
+              exit 1
+            fi
+          done
+          keystore_path="$RUNNER_TEMP/finanzas-preview-signing.jks"
+          printf '%s' "$FINANZAS_PREVIEW_KEYSTORE_BASE64" | base64 --decode > "$keystore_path"
+          test -s "$keystore_path"
+          chmod 600 "$keystore_path"
+          echo "FINANZAS_PREVIEW_KEYSTORE_PATH=$keystore_path" >> "$GITHUB_ENV"
+
       - name: Run Android parser tests
         run: gradle --no-daemon :app:testDebugUnitTest
 
