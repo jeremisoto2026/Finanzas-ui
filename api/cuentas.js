@@ -12,14 +12,67 @@ function localTodayKey() {
 
 export default async function handler(req, res) {
   if (handleCors(req, res)) return;
-  if (req.method !== 'GET') {
-    res.setHeader('Allow', 'GET')
+  if (!['GET', 'PATCH'].includes(req.method)) {
+    res.setHeader('Allow', 'GET, PATCH')
     return res.status(405).json({ error: 'Método no permitido.' })
   }
 
   res.setHeader('Cache-Control', 'no-store')
   try {
     const { supabase, user } = await createAuthenticatedClient(req)
+
+    if (req.method === 'PATCH') {
+      const body = req.body || {}
+      const accountId = String(body.accountId || '').trim()
+      const targetBalance = Number(body.balance)
+      if (!accountId || body.balance === undefined || !Number.isFinite(targetBalance) || Math.abs(targetBalance) > 999999999999) {
+        return res.status(400).json({ error: 'Indica una cuenta válida y un saldo real numérico.' })
+      }
+
+      const { data: account, error: accountError } = await supabase.from('accounts')
+        .select('id, name, currency_code, opening_balance_date')
+        .eq('user_id', user.id)
+        .eq('id', accountId)
+        .maybeSingle()
+      if (accountError) throw accountError
+      if (!account) return res.status(404).json({ error: 'No se encontró esa cuenta.' })
+
+      const today = localTodayKey()
+      const openingDate = account.opening_balance_date || '0001-01-01'
+      const { data: ledger, error: ledgerError } = await supabase.from('transactions')
+        .select('occurred_on, kind, amount')
+        .eq('user_id', user.id)
+        .eq('account_id', account.id)
+        .eq('status', 'posted')
+        .gte('occurred_on', openingDate)
+        .lte('occurred_on', today)
+      if (ledgerError) throw ledgerError
+
+      const ledgerNet = (ledger || []).reduce((total, transaction) => {
+        const amount = Number(transaction.amount || 0)
+        if (transaction.kind === 'income' || transaction.kind === 'transfer_in') return total + amount
+        if (transaction.kind === 'expense' || transaction.kind === 'transfer_out') return total - amount
+        return total
+      }, 0)
+      const nextOpeningBalance = Math.round((targetBalance - ledgerNet + Number.EPSILON) * 100) / 100
+      const { data: updatedAccount, error: updateError } = await supabase.from('accounts')
+        .update({ opening_balance: nextOpeningBalance })
+        .eq('user_id', user.id)
+        .eq('id', account.id)
+        .select('id, name, currency_code, opening_balance_date')
+        .single()
+      if (updateError) throw updateError
+
+      return res.status(200).json({
+        id: updatedAccount.id,
+        name: updatedAccount.name,
+        currencyCode: String(updatedAccount.currency_code || 'EUR').trim(),
+        balance: Math.round((targetBalance + Number.EPSILON) * 100) / 100,
+        openingBalanceDate: updatedAccount.opening_balance_date || null,
+        lastMovementOn: (ledger || []).reduce((latest, item) => !latest || item.occurred_on > latest ? item.occurred_on : latest, null),
+      })
+    }
+
     const today = localTodayKey()
     const [accountsResult, transactionsResult] = await Promise.all([
       supabase
