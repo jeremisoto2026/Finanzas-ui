@@ -3,11 +3,10 @@
 ## Alcance
 
 - Aplicación privada de Preview para Android.
-- Reconoce únicamente los paquetes permitidos de Revolut, BBVA y Google Wallet:
-  - Revolut: `com.revolut.revolut`
-  - BBVA: `com.bbva.bbvacontigo`
-  - Google Wallet: `com.google.android.apps.walletnfcrel`
-- Identifica la aplicación emisora por el paquete Android, sin pedir datos adicionales.
+- Reconoce Revolut, BBVA y Google Wallet con identificadores históricos estables.
+- Acepta como fuentes bancarias candidatas las aplicaciones Android no pertenecientes al sistema y excluye una lista de paquetes no financieros conocidos.
+- Las fuentes desconocidas se identifican con `android:<package>` y la etiqueta visible de la aplicación; no necesitan una plantilla de frases específica del banco.
+- El parser busca importes EUR, señales de cargo/compra/pago y el comercio; descarta OTP, avisos de seguridad y publicidad. Los avisos ambiguos o sin comercio se descartan o quedan para revisión, según el caso.
 - El usuario vincula una aplicación bancaria con una única cuenta por defecto de Finanzas.
 - Extrae localmente importe, comercio, moneda y hora. No extrae ni conserva datos de tarjetas.
 - Empareja avisos de banco y Google Wallet por importe exacto, comercio y cercanía temporal (hasta tres minutos).
@@ -16,8 +15,8 @@
 
 ## Asignación automática
 
-- Un aviso de Revolut o BBVA se registra en la cuenta vinculada a esa app.
-- Si llega también Google Wallet, ambas notificaciones se emparejan y se contabilizan como un solo gasto.
+- Un aviso de una app bancaria vinculada se registra en la cuenta configurada para esa app, incluidas futuras fuentes `android:<package>`.
+- Si llega también Google Wallet, ambas notificaciones se emparejan por importe exacto, comercio normalizado y proximidad de hasta tres minutos, y se contabilizan como un solo gasto.
 - Si solo llega Wallet, se usa el banco emisor cuando está identificado o la única vinculación bancaria configurada.
 - Cuando el banco no puede determinarse de forma única, la compra queda pendiente de revisión.
 - Los gastos automáticos usan una clave idempotente para evitar duplicados.
