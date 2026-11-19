@@ -75,13 +75,18 @@ test('Automatic capture posts bank-only alerts to the app default and pairs Wall
   const review = read('src/pages/CapturasAutomaticas.jsx')
   const migration = read('supabase/migrations/20261119120000_add_account_notification_bindings.sql')
   const removal = read('supabase/migrations/20261119143000_remove_card_suffix_notification_mappings.sql')
+  const universal = read('supabase/migrations/20261119190000_universal_bank_notification_sources.sql')
 
   assert.match(sync, /function resolveMappedAccount/)
   assert.match(sync, /account_notification_sources/)
-  assert.match(sync, /const activeBankMappings = mappings\.filter/)
-  assert.match(sync, /const bankSource = capture\.sources\.find/)
+  assert.match(sync, /const activeMappings = mappings\.filter/)
+  assert.match(sync, /const bankSources = capture\.sources\.filter/)
+  assert.match(sync, /source\.sourceApp/)
+  assert.match(sync, /android:/)
   assert.match(sync, /else if \(account\?\.id && categoryId\)/)
-  assert.match(sync, /candidates\.length !== 1/)
+  assert.match(sync, /bankSources\.length !== 1/)
+  assert.match(sync, /source_label: source\.label/)
+  assert.match(sync, /pendingReview\s*\+=\s*1/)
   assert.match(sync, /else pendingReview \+= 1/)
   assert.doesNotMatch(sync, /capture\.isPaired\s*&&/)
   assert.doesNotMatch(sync, /cardLast4|card_last4/)
@@ -96,6 +101,8 @@ test('Automatic capture posts bank-only alerts to the app default and pairs Wall
   assert.match(migration, /notification_capture_events_account_owner_fkey/)
   assert.match(removal, /drop column if exists card_last4/i)
   assert.match(removal, /unique \(user_id, source_app\)/i)
+  assert.match(universal, /android:%/)
+  assert.match(universal, /source_label/)
 })
 
 
@@ -154,8 +161,8 @@ test('Web Push VAPID key, subscription, storage, and service worker are wired', 
 
 test('Preview APK version is incremented for privacy-first bank notification linking', () => {
   const gradle = read('android/app/build.gradle.kts')
-  assert.match(gradle, /versionCode = 14/)
-  assert.match(gradle, /versionName = "1.0.13-preview"/)
+  assert.match(gradle, /versionCode = 15/)
+  assert.match(gradle, /versionName = "1.0.14-preview"/)
 })
 
 
