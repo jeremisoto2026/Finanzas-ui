@@ -85,6 +85,8 @@ test('Automatic capture only posts after paired bank and Wallet evidence plus an
   assert.match(review, /Vincular bancos con tus cuentas/)
   assert.match(review, /onConflict: 'user_id,source_app,card_last4'/)
   assert.match(review, /account_id: accountId/)
+  assert.match(review, /const idempotencyKey = item\.id \|\| item\.eventIds\?\.\[0\]/)
+  assert.match(sync, /idempotency_key: pairKey/)
   assert.match(migration, /notification_capture_events_account_owner_fkey/)
 })
 
