@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   BellRing,
   CheckCircle2,
@@ -20,7 +20,7 @@ import {
   syncLocalCaptures,
 } from '@/lib/native-captures'
 import { supabase } from '@/lib/supabase'
-import { getAccountMappingSuggestion, getAccountOptionLabel } from '@/lib/account-notification-mapping'
+import { getAccountMappingSuggestion, getAccountOptionLabel, isExactAccountNameMatch } from '@/lib/account-notification-mapping'
 
 const SOURCE_LABELS = {
   revolut: 'Revolut',
@@ -86,7 +86,9 @@ export default function CapturasAutomaticas() {
   const [mappingSource, setMappingSource] = useState('revolut')
   const [mappingAccountId, setMappingAccountId] = useState('')
   const [mappingSelectionTouched, setMappingSelectionTouched] = useState(false)
+  const [mappingFeedback, setMappingFeedback] = useState('')
   const [savingMapping, setSavingMapping] = useState(false)
+  const autoSaveAttemptRef = useRef('')
   const [accountSelections, setAccountSelections] = useState({})
   const [categorySelections, setCategorySelections] = useState({})
   const [savingReviewId, setSavingReviewId] = useState(null)
@@ -207,37 +209,98 @@ export default function CapturasAutomaticas() {
     }
   }, [isNative, loadCaptures])
 
-  const saveAccountMapping = async () => {
-    if (!mappingAccountId || !accounts.some((account) => account.id === mappingAccountId)) {
+  const persistAccountMapping = useCallback(async ({
+    sourceApp = mappingSource,
+    accountId = mappingAccountId,
+    automatic = false,
+  } = {}) => {
+    const account = accounts.find((item) => item.id === accountId)
+    if (!account) {
       setError('Selecciona una cuenta activa para vincular con la aplicación bancaria.')
-      return
+      setMappingFeedback('')
+      return false
+    }
+
+    const existingMapping = accountMappings.find((item) =>
+      item.source_app === sourceApp &&
+      item.account_id === accountId &&
+      item.is_active !== false
+    )
+    if (existingMapping) {
+      setMappingFeedback(`Vinculada con tu cuenta ${account.name}.`)
+      return true
     }
 
     setSavingMapping(true)
     setError('')
-    setNotice('')
+    setMappingFeedback('Guardando la vinculación…')
     try {
       const { data: authData, error: authError } = await supabase.auth.getUser()
       if (authError || !authData?.user) throw new Error('Tu sesión ha caducado. Inicia sesión de nuevo.')
-      const { error: saveError } = await supabase
+
+      const { data: savedMapping, error: saveError } = await supabase
         .from('account_notification_sources')
         .upsert({
           user_id: authData.user.id,
-          source_app: mappingSource,
-          account_id: mappingAccountId,
+          source_app: sourceApp,
+          account_id: accountId,
           is_active: true,
           updated_at: new Date().toISOString(),
         }, { onConflict: 'user_id,source_app' })
+        .select('id, source_app, account_id, is_active')
+        .single()
       if (saveError) throw saveError
 
-      setNotice(`${SOURCE_LABELS[mappingSource]} se ha vinculado correctamente. Sus avisos se asignarán a la cuenta seleccionada.`)
-      await loadCaptures(false)
+      setAccountMappings((current) => [
+        ...current.filter((item) => item.source_app !== sourceApp),
+        savedMapping,
+      ])
+      setMappingFeedback(automatic
+        ? `Vinculada automáticamente con tu cuenta ${account.name}.`
+        : `Vinculación guardada: ${account.name}.`)
+      setNotice('')
+      return true
     } catch (mappingError) {
+      setMappingFeedback('No se pudo guardar automáticamente. Puedes reintentarlo con el botón.')
       setError(mappingError?.message || 'No se pudo guardar la vinculación bancaria.')
+      return false
     } finally {
       setSavingMapping(false)
     }
-  }
+  }, [accounts, accountMappings, mappingAccountId, mappingSource])
+
+  const saveAccountMapping = () => persistAccountMapping({
+    sourceApp: mappingSource,
+    accountId: mappingAccountId,
+    automatic: false,
+  })
+
+  useEffect(() => {
+    if (mappingSelectionTouched || mappingSuggestion.reason !== 'matching' || !mappingSuggestion.accountId) return
+
+    const suggestedAccount = accounts.find((account) => account.id === mappingSuggestion.accountId)
+    const sourceLabel = SOURCE_LABELS[mappingSource] || mappingSource
+    if (!isExactAccountNameMatch(suggestedAccount, sourceLabel)) return
+    if (mappingAccountId !== mappingSuggestion.accountId || mappingAlreadySaved) return
+
+    const attemptKey = `${mappingSource}:${mappingSuggestion.accountId}`
+    if (autoSaveAttemptRef.current === attemptKey) return
+    autoSaveAttemptRef.current = attemptKey
+
+    void persistAccountMapping({
+      sourceApp: mappingSource,
+      accountId: mappingSuggestion.accountId,
+      automatic: true,
+    })
+  }, [
+    accounts,
+    mappingAccountId,
+    mappingAlreadySaved,
+    mappingSelectionTouched,
+    mappingSource,
+    mappingSuggestion,
+    persistAccountMapping,
+  ])
 
   const deactivateAccountMapping = async (mappingId) => {
     setSavingMapping(true)
@@ -498,7 +561,9 @@ export default function CapturasAutomaticas() {
             <select
               value={mappingSource}
               onChange={(event) => {
+                autoSaveAttemptRef.current = ''
                 setMappingSelectionTouched(false)
+                setMappingFeedback('')
                 setMappingSource(event.target.value)
               }}
               className="mt-1.5 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-white"
@@ -526,8 +591,18 @@ export default function CapturasAutomaticas() {
               <select
                 value={mappingAccountId}
                 onChange={(event) => {
+                  const accountId = event.target.value
+                  autoSaveAttemptRef.current = ''
                   setMappingSelectionTouched(true)
-                  setMappingAccountId(event.target.value)
+                  setMappingAccountId(accountId)
+                  setMappingFeedback('')
+                  if (accountId) {
+                    void persistAccountMapping({
+                      sourceApp: mappingSource,
+                      accountId,
+                      automatic: true,
+                    })
+                  }
                 }}
                 className="mt-1.5 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-white"
               >
@@ -545,14 +620,25 @@ export default function CapturasAutomaticas() {
                   Hemos preseleccionado esta cuenta porque su nombre o banco coincide con {SOURCE_LABELS[mappingSource]}. Puedes cambiarla.
                 </p>
               )}
-            {mappingSuggestion.reason === 'existing' && (
+            {mappingSuggestion.reason === 'existing' && !mappingFeedback && (
               <p className="mt-1.5 text-[11px] leading-relaxed text-slate-400">
                 Esta aplicación ya está vinculada a la cuenta seleccionada.
+              </p>
+            )}
+            {mappingFeedback && (
+              <p
+                role="status"
+                aria-live="polite"
+                className={`mt-1.5 text-[11px] leading-relaxed ${mappingFeedback.startsWith('No se pudo') ? 'text-amber-300' : 'text-emerald-300'}`}
+              >
+                {savingMapping && <Loader2 className="mr-1 inline h-3 w-3 animate-spin" />}
+                {mappingFeedback}
               </p>
             )}
           </div>
         </div>
         <p className="mt-2 text-xs leading-relaxed text-slate-400">
+          Si el nombre de la cuenta coincide con la aplicación (sin distinguir mayúsculas ni espacios repetidos), la vinculación se guarda automáticamente. Si eliges otra cuenta manualmente, el cambio también se guarda al instante. El botón queda como respaldo.
           Los avisos del banco se registran directamente en esta cuenta. Si también llega Google Wallet,
           unimos ambos avisos por importe exacto, comercio y hora (hasta 3 minutos) para evitar duplicados.
           Si solo llega Wallet y tienes una única app bancaria vinculada, usaremos esa cuenta; si hay varias,
