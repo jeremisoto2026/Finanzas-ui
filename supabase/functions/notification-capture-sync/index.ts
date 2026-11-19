@@ -9,29 +9,34 @@ const ALLOWED_ORIGINS = new Set([
   "https://finanzas-ui-preview.vercel.app",
 ])
 
-const SOURCE_PACKAGES: Record<string, { packageName: string; label: string }> = {
+const KNOWN_SOURCES: Record<string, { packageName: string; label: string; isWallet: boolean }> = {
   revolut: {
     packageName: "com.revolut.revolut",
     label: "Revolut",
-  },
-  google_wallet: {
-    packageName: "com.google.android.apps.walletnfcrel",
-    label: "Google Wallet",
+    isWallet: false,
   },
   bbva: {
     packageName: "com.bbva.bbvacontigo",
     label: "BBVA",
+    isWallet: false,
+  },
+  google_wallet: {
+    packageName: "com.google.android.apps.walletnfcrel",
+    label: "Google Wallet",
+    isWallet: true,
   },
 }
 
-const SOURCE_ALIASES: Record<string, string> = {
-  revolut: "revolut",
+const LEGACY_SOURCE_KEYS: Record<string, string> = {
+  REVOLUT: "revolut",
+  BBVA: "bbva",
+  GOOGLE_WALLET: "google_wallet",
   "google wallet": "google_wallet",
-  google_wallet: "google_wallet",
-  bbva: "bbva",
+  "Google Wallet": "google_wallet",
 }
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+const PACKAGE_PATTERN = /^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z0-9_]+)+$/
 
 function corsHeaders(origin: string) {
   return {
@@ -75,30 +80,43 @@ type AccountSourceMapping = {
   is_active: boolean
 }
 
+type CaptureSource = {
+  sourceApp: string
+  packageName: string
+  label: string
+  isWallet: boolean
+}
+
+type ValidCapture = {
+  id: string
+  merchant: string
+  amountCents: number
+  currencyCode: "EUR"
+  occurredAt: string
+  accountLabel: string | null
+  categorySuggestion: string | null
+  sources: CaptureSource[]
+  isPaired: boolean
+}
+
 /**
- * Resolve every notification to the user's app-to-account default:
- * - Bank-only or Wallet+bank: use the bank app identified by Android's package.
- * - Wallet-only with an explicit issuer: use that issuer's mapping.
- * - Wallet-only without an issuer: use a mapping only when exactly one bank app
- *   is linked, avoiding guesses when several banks are configured.
+ * A bank-only notice is routed through its own app-to-account mapping.
+ * Wallet-only is automatically routed only when the user has exactly one
+ * active bank source linked. Multiple linked banks require manual review.
  */
 function resolveMappedAccount(
   capture: ValidCapture,
   mappings: AccountSourceMapping[],
   accounts: AccountRow[],
 ) {
-  const bankSource = capture.sources.find((source) => source === "revolut" || source === "bbva") ||
-    (capture.accountLabel === "Revolut" ? "revolut" :
-      capture.accountLabel === "BBVA" ? "bbva" : null)
+  const bankSources = capture.sources.filter((source) => !source.isWallet)
+  const activeBankMappings = mappings.filter((mapping) => mapping.is_active)
+  const candidates = bankSources.length === 1
+    ? activeBankMappings.filter((mapping) => mapping.source_app === bankSources[0].sourceApp)
+    : bankSources.length === 0
+      ? activeBankMappings
+      : []
 
-  const activeBankMappings = mappings.filter((mapping) =>
-    mapping.is_active && (mapping.source_app === "revolut" || mapping.source_app === "bbva")
-  )
-  const candidates = bankSource
-    ? activeBankMappings.filter((mapping) => mapping.source_app === bankSource)
-    : activeBankMappings
-
-  // Wallet without issuer is safe only if one bank application is linked.
   if (candidates.length !== 1) return null
 
   const account = accounts.find((item) =>
@@ -119,21 +137,73 @@ async function sha256(value: string) {
     .join("")
 }
 
-type ValidCapture = {
-  id: string
-  merchant: string
-  amountCents: number
-  currencyCode: "EUR"
-  occurredAt: string
-  accountLabel: "Revolut" | "BBVA" | null
-  categorySuggestion: string | null
-  sources: string[]
-  isPaired: boolean
+function normalizeCaptureSource(value: unknown): CaptureSource {
+  if (typeof value === "string") {
+    const legacyKey = LEGACY_SOURCE_KEYS[value] ||
+      LEGACY_SOURCE_KEYS[value.trim()] ||
+      value.trim().toLocaleLowerCase("es")
+    const known = KNOWN_SOURCES[legacyKey]
+    if (!known) {
+      throw new Error("La aplicación de origen de una captura no es válida.")
+    }
+    return {
+      sourceApp: legacyKey,
+      packageName: known.packageName,
+      label: known.label,
+      isWallet: known.isWallet,
+    }
+  }
+
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("Una aplicación de origen tiene un formato incorrecto.")
+  }
+
+  const item = value as Record<string, unknown>
+  const requestedKey = String(item.sourceApp || item.appId || "").trim()
+  const known = KNOWN_SOURCES[requestedKey]
+  if (known) {
+    return {
+      sourceApp: requestedKey,
+      packageName: known.packageName,
+      label: known.label,
+      isWallet: known.isWallet,
+    }
+  }
+
+  if (!requestedKey.startsWith("android:")) {
+    throw new Error("La clave de una aplicación bancaria no es válida.")
+  }
+
+  const packageName = String(item.packageName || "").trim()
+  const expectedKey = "android:" + packageName
+  if (
+    !PACKAGE_PATTERN.test(packageName) ||
+    requestedKey !== expectedKey ||
+    packageName.length > 180
+  ) {
+    throw new Error("El paquete de la aplicación bancaria no es válido.")
+  }
+
+  const label = String(item.label || packageName.substring(packageName.lastIndexOf(".") + 1))
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 100)
+  if (label.length < 2) {
+    throw new Error("El nombre de la aplicación de origen no es válido.")
+  }
+
+  return {
+    sourceApp: requestedKey,
+    packageName,
+    label,
+    isWallet: false,
+  }
 }
 
 function normalizeMerchantKey(value: string) {
   return normalizeText(value)
     .toLocaleUpperCase("es")
+    .replace(/(?<=\p{L})-(?=\p{L})/gu, "")
     .replace(/\b(COMPRA|TARJETA|PAGO|PAGADO|PAYMENT|CONTACTLESS|TPV|POS|REVOLUT|GOOGLE|WALLET)\b/g, " ")
     .replace(/\b\d{2,}\b/g, " ")
     .replace(/[^\p{L}\p{N}]+/gu, " ")
@@ -175,32 +245,38 @@ function validateCapture(value: unknown): ValidCapture {
   }
 
   const rawSources = Array.isArray(item.sources) ? item.sources : []
-  const sources = [...new Set(rawSources.map((source) =>
-    SOURCE_ALIASES[String(source || "").trim().toLocaleLowerCase("es")]
-  ).filter((source): source is string => Boolean(source)))]
-
-  if (sources.length < 1 || sources.length > 2) {
-    throw new Error("Una captura debe proceder de Revolut, BBVA, Google Wallet o una combinación compatible.")
+  if (rawSources.length < 1 || rawSources.length > 2) {
+    throw new Error("Una captura debe proceder de una app bancaria o de Google Wallet.")
   }
-  const hasWallet = sources.includes("google_wallet")
-  const bankSources = sources.filter((source) => source === "revolut" || source === "bbva")
-  if (bankSources.length > 1 || (sources.length === 2 && (!hasWallet || bankSources.length !== 1))) {
-    throw new Error("Solo se pueden emparejar avisos de Google Wallet con un único banco.")
+
+  const sourceMap = new Map<string, CaptureSource>()
+  for (const rawSource of rawSources) {
+    const source = normalizeCaptureSource(rawSource)
+    sourceMap.set(source.sourceApp, source)
+  }
+  const sources = [...sourceMap.values()]
+  if (sources.length < 1 || sources.length > 2) {
+    throw new Error("Una captura contiene demasiadas aplicaciones de origen.")
+  }
+
+  const walletSources = sources.filter((source) => source.isWallet)
+  const bankSources = sources.filter((source) => !source.isWallet)
+  if (
+    walletSources.length > 1 ||
+    bankSources.length > 1 ||
+    (sources.length === 2 && (walletSources.length !== 1 || bankSources.length !== 1))
+  ) {
+    throw new Error("Solo se permite cruzar una app bancaria con Google Wallet.")
   }
 
   const rawCategory = String(item.categorySuggestion || "").trim()
   const categorySuggestion = rawCategory.length >= 2
     ? rawCategory.slice(0, 120)
     : null
-  const rawAccount = String(item.accountName || item.accountLabel || "").trim()
-  const accountLabel = rawAccount.toLocaleLowerCase("es") === "revolut"
-    ? "Revolut"
-    : rawAccount.toLocaleLowerCase("es") === "bbva"
-      ? "BBVA"
-      : null
-  const bankAccountLabel = bankSources.length === 1
-    ? SOURCE_PACKAGES[bankSources[0]].label as "Revolut" | "BBVA"
-    : accountLabel
+
+  const accountLabel = bankSources[0]?.label ||
+    String(item.accountName || item.accountLabel || "").trim().slice(0, 100) ||
+    null
 
   return {
     id,
@@ -208,7 +284,7 @@ function validateCapture(value: unknown): ValidCapture {
     amountCents,
     currencyCode: "EUR",
     occurredAt: new Date(occurredAtMillis).toISOString(),
-    accountLabel: bankAccountLabel,
+    accountLabel,
     categorySuggestion,
     sources,
     isPaired: sources.length > 1 && item.isPaired === true,
@@ -248,8 +324,8 @@ Deno.serve(async (req: Request) => {
       throw new Error("Falta la configuración del cliente Supabase.")
     }
 
-    // The caller's JWT is forwarded to PostgREST. RLS is the ownership boundary.
-    // Never use the service-role key for notification capture data.
+    // User JWT is forwarded to PostgREST; every query remains protected by RLS.
+    // The function does not use the service-role key.
     const supabase = createClient(supabaseUrl, publishableKey, {
       global: { headers: { Authorization: authorization } },
       auth: {
@@ -342,9 +418,8 @@ Deno.serve(async (req: Request) => {
         (accounts || []) as AccountRow[],
       )
 
-      // The pair key is also the manual-review idempotency key. This prevents
-      // a Wallet-only item that was manually reviewed from being posted again
-      // when the matching bank notification arrives later.
+      // Keep manual review idempotent when the bank alert arrives after Wallet
+      // or when an older Preview APK has already created this expense.
       let transactionId: string | null = null
       let transactionAccountId: string | null = null
       let transactionCategoryId: string | null = null
@@ -358,8 +433,6 @@ Deno.serve(async (req: Request) => {
         .maybeSingle()
       if (existingPairError) throw existingPairError
 
-      // Read the legacy capture UUID key once for records created by an older
-      // Preview build, without changing or deleting those existing movements.
       let existing = existingByPair
       if (!existing) {
         const { data: legacy, error: legacyError } = await supabase
@@ -430,16 +503,18 @@ Deno.serve(async (req: Request) => {
       const accountLabel = (accounts || []).find((item) => item.id === transactionAccountId)?.name ||
         account?.name || capture.accountLabel || null
       const amountLabel = (capture.amountCents / 100).toFixed(2).replace(".", ",")
-      for (const sourceApp of capture.sources) {
-        const source = SOURCE_PACKAGES[sourceApp]
-        const fingerprint = await sha256(userId + "|" + capture.id + "|" + sourceApp)
+      for (const source of capture.sources) {
+        const fingerprint = await sha256(userId + "|" + capture.id + "|" + source.sourceApp)
         rows.push({
           user_id: userId,
-          source_app: sourceApp,
+          source_app: source.sourceApp,
+          source_label: source.label,
           package_name: source.packageName,
           fingerprint,
           notification_title: capture.merchant,
-          notification_text: `Pago detectado: ${amountLabel} EUR · Cuenta ${accountLabel || "sin identificar"}`,
+          // Store a normalized summary, never the original notification body.
+          notification_text: "Pago detectado: " + amountLabel + " EUR · " +
+            source.label + " · Cuenta " + (accountLabel || "sin identificar"),
           occurred_at: capture.occurredAt,
           status: autoPost ? "posted" : "needs_review",
           pair_key: pairKey,
@@ -450,9 +525,9 @@ Deno.serve(async (req: Request) => {
           category_suggestion: capture.categorySuggestion,
           account_label: accountLabel,
           account_id: transactionAccountId,
-          payment_channel: capture.sources.includes("google_wallet")
+          payment_channel: capture.sources.some((item) => item.isWallet)
             ? "google_wallet"
-            : sourceApp,
+            : source.sourceApp,
           matched_transaction_id: transactionId,
         })
       }
