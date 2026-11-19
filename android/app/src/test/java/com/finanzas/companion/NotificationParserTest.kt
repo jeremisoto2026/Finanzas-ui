@@ -285,7 +285,7 @@ class NotificationParserTest {
         val result = NotificationParser.parse(
             source = source,
             title = "Pago aceptado",
-            text = "Pago aceptado de 2,50 EUR en SUPERMER-\\nCADO ALTET con tu tarjeta",
+            text = "Pago aceptado de 2,50 EUR en SUPERMER-\nCADO ALTET con tu tarjeta",
             occurredAtMillis = 1795033320000L
         )
 
