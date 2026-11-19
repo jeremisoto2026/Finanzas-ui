@@ -17,6 +17,20 @@ const frequencyFromDb = (value: string) => ({
   quarterly: "trimestral", yearly: "anual", custom: "personalizado",
 }[value] || value || "mensual");
 
+function transactionForUi(row: any) {
+  return {
+    id: row.id,
+    concepto: row.description || "",
+    monto: Number(row.amount || 0),
+    fecha: dateOnly(row.occurred_on) || "",
+    categoria: row.categories?.name || "Otros",
+    metodo: row.payment_method || "",
+    cuenta: row.accounts?.name || "",
+    cuentaId: row.account_id || null,
+    origen: "normal",
+  };
+}
+
 function installmentPlanForUi(plan: any, installments: any[]) {
   const history = installments.slice().sort((a, b) => a.installment_number - b.installment_number).map((item) => ({
     installmentId: item.id,
@@ -85,7 +99,7 @@ Deno.serve(async (req) => {
   const userId = userData.user.id;
 
   try {
-    const [plansResult, fixedResult, debtsResult, replenishmentsResult] = await Promise.all([
+    const [plansResult, fixedResult, debtsResult, replenishmentsResult, incomesResult, expensesResult] = await Promise.all([
       supabase.from("installment_plans")
         .select("id, name, total_amount, installments_total, start_on, frequency, status, payment_method, notes, start_date_precision, categories(name)")
         .eq("user_id", userId).neq("status", "cancelled").order("start_on", { ascending: true }),
@@ -98,9 +112,17 @@ Deno.serve(async (req) => {
       supabase.from("financial_items")
         .select("id, item_kind, title, amount, outstanding_amount, status, beneficiary, effective_on, due_on, notes")
         .eq("user_id", userId).eq("item_kind", "replenishment").order("title", { ascending: true }),
+      supabase.from("transactions")
+        .select("id, account_id, amount, occurred_on, description, payment_method, categories(name), accounts(name)")
+        .eq("user_id", userId).eq("kind", "income").eq("status", "posted")
+        .order("occurred_on", { ascending: false }),
+      supabase.from("transactions")
+        .select("id, account_id, amount, occurred_on, description, payment_method, categories(name), accounts(name)")
+        .eq("user_id", userId).eq("kind", "expense").eq("status", "posted")
+        .order("occurred_on", { ascending: false }),
     ]);
 
-    for (const result of [plansResult, fixedResult, debtsResult, replenishmentsResult]) {
+    for (const result of [plansResult, fixedResult, debtsResult, replenishmentsResult, incomesResult, expensesResult]) {
       if (result.error) throw result.error;
     }
 
@@ -122,6 +144,8 @@ Deno.serve(async (req) => {
     }
 
     return json({
+      incomes: (incomesResult.data || []).map(transactionForUi),
+      expenses: (expensesResult.data || []).map(transactionForUi),
       installmentPlans: plans.map((plan) => installmentPlanForUi(plan, grouped.get(plan.id) || [])),
       fixedPayments: (fixedResult.data || []).map(fixedPaymentForUi),
       debts: (debtsResult.data || []).map((row) => ({
