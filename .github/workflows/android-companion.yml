@@ -103,6 +103,12 @@ jobs:
 
       - name: Assemble debug APK
         run: gradle --no-daemon :app:assembleDebug
+        env:
+          # Gradle reads these in android/app/build.gradle.kts to select the
+          # persistent Preview signing config instead of the ephemeral debug key.
+          FINANZAS_PREVIEW_KEYSTORE_PASSWORD: ${{ secrets.FINANZAS_PREVIEW_KEYSTORE_PASSWORD }}
+          FINANZAS_PREVIEW_KEY_ALIAS: ${{ secrets.FINANZAS_PREVIEW_KEY_ALIAS }}
+          FINANZAS_PREVIEW_KEY_PASSWORD: ${{ secrets.FINANZAS_PREVIEW_KEY_PASSWORD }}
 
       - name: Upload personal preview APK
         uses: actions/upload-artifact@v4
