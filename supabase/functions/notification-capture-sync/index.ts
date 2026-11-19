@@ -304,7 +304,6 @@ Deno.serve(async (req: Request) => {
       .from("accounts")
       .select("id, name, currency_code, is_active")
       .eq("user_id", userId)
-      .eq("is_active", true)
     if (accountError) throw accountError
 
     const { data: accountMappings, error: mappingError } = await supabase
@@ -353,78 +352,99 @@ Deno.serve(async (req: Request) => {
         (accounts || []) as AccountRow[],
       )
 
+      // The pair key is also the manual-review idempotency key. This prevents
+      // a Wallet-only item that was manually reviewed from being posted again
+      // when the matching bank notification arrives later.
       let transactionId: string | null = null
-      if (
+      let transactionAccountId: string | null = null
+      let transactionCategoryId: string | null = null
+
+      const { data: existingByPair, error: existingPairError } = await supabase
+        .from("transactions")
+        .select("id, account_id, category_id")
+        .eq("user_id", userId)
+        .eq("idempotency_key", pairKey)
+        .eq("kind", "expense")
+        .maybeSingle()
+      if (existingPairError) throw existingPairError
+
+      // Read the legacy capture UUID key once for records created by an older
+      // Preview build, without changing or deleting those existing movements.
+      let existing = existingByPair
+      if (!existing) {
+        const { data: legacy, error: legacyError } = await supabase
+          .from("transactions")
+          .select("id, account_id, category_id")
+          .eq("user_id", userId)
+          .eq("idempotency_key", capture.id)
+          .eq("kind", "expense")
+          .maybeSingle()
+        if (legacyError) throw legacyError
+        existing = legacy
+      }
+
+      if (existing?.id) {
+        transactionId = existing.id
+        transactionAccountId = existing.account_id
+        transactionCategoryId = existing.category_id
+      } else if (
         account?.id &&
         categoryId &&
         capture.isPaired &&
         capture.sources.includes("google_wallet") &&
         capture.sources.some((source) => source === "revolut" || source === "bbva")
       ) {
-        const { data: existing, error: existingError } = await supabase
+        const occurredOn = new Intl.DateTimeFormat("sv-SE", {
+          timeZone: "Europe/Madrid",
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+        }).format(new Date(capture.occurredAt))
+        const { data: inserted, error: insertError } = await supabase
           .from("transactions")
+          .insert({
+            user_id: userId,
+            account_id: account.id,
+            category_id: categoryId,
+            kind: "expense",
+            status: "posted",
+            amount: Math.round((capture.amountCents / 100 + Number.EPSILON) * 100) / 100,
+            occurred_on: occurredOn,
+            description: capture.merchant,
+            payment_method: "Tarjeta",
+            idempotency_key: pairKey,
+          })
           .select("id")
-          .eq("user_id", userId)
-          .eq("idempotency_key", capture.id)
-          .eq("kind", "expense")
-          .maybeSingle()
-        if (existingError) throw existingError
+          .single()
 
-        if (existing?.id) {
-          transactionId = existing.id
-        } else {
-          const occurredOn = new Intl.DateTimeFormat("sv-SE", {
-            timeZone: "Europe/Madrid",
-            year: "numeric",
-            month: "2-digit",
-            day: "2-digit",
-          }).format(new Date(capture.occurredAt))
-          const { data: inserted, error: insertError } = await supabase
+        if (insertError && insertError.code === "23505") {
+          const { data: replay, error: replayError } = await supabase
             .from("transactions")
-            .insert({
-              user_id: userId,
-              account_id: account.id,
-              category_id: categoryId,
-              kind: "expense",
-              status: "posted",
-              amount: Math.round((capture.amountCents / 100 + Number.EPSILON) * 100) / 100,
-              occurred_on: occurredOn,
-              description: capture.merchant,
-              payment_method: "Tarjeta",
-              idempotency_key: capture.id,
-            })
-            .select("id")
+            .select("id, account_id, category_id")
+            .eq("user_id", userId)
+            .eq("idempotency_key", pairKey)
+            .eq("kind", "expense")
             .single()
-
-          if (insertError && insertError.code === "23505") {
-            const { data: replay, error: replayError } = await supabase
-              .from("transactions")
-              .select("id")
-              .eq("user_id", userId)
-              .eq("idempotency_key", capture.id)
-              .eq("kind", "expense")
-              .single()
-            if (replayError) throw replayError
-            transactionId = replay.id
-          } else if (insertError) {
-            throw insertError
-          } else {
-            transactionId = inserted.id
-          }
+          if (replayError) throw replayError
+          transactionId = replay.id
+          transactionAccountId = replay.account_id
+          transactionCategoryId = replay.category_id
+        } else if (insertError) {
+          throw insertError
+        } else {
+          transactionId = inserted.id
+          transactionAccountId = account.id
+          transactionCategoryId = categoryId
         }
       }
 
-      const autoPost = Boolean(
-        transactionId &&
-        account?.id &&
-        categoryId &&
-        capture.isPaired &&
-        capture.sources.includes("google_wallet")
-      )
+      const resolvedCategoryId = transactionCategoryId || categoryId
+      const autoPost = Boolean(transactionId && transactionAccountId && resolvedCategoryId)
       if (autoPost) autoPosted += 1
       else pendingReview += 1
 
-      const accountLabel = account?.name || capture.accountLabel || null
+      const accountLabel = (accounts || []).find((item) => item.id === transactionAccountId)?.name ||
+        account?.name || capture.accountLabel || null
       const amountLabel = (capture.amountCents / 100).toFixed(2).replace(".", ",")
       for (const sourceApp of capture.sources) {
         const source = SOURCE_PACKAGES[sourceApp]
@@ -442,10 +462,10 @@ Deno.serve(async (req: Request) => {
           parsed_merchant: capture.merchant,
           parsed_amount: capture.amountCents / 100,
           currency_code: capture.currencyCode,
-          category_id: categoryId,
+          category_id: resolvedCategoryId,
           category_suggestion: capture.categorySuggestion,
           account_label: accountLabel,
-          account_id: account?.id || null,
+          account_id: transactionAccountId,
           payment_channel: capture.sources.includes("google_wallet")
             ? "google_wallet"
             : sourceApp,
