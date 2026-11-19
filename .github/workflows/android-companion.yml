@@ -57,8 +57,9 @@ jobs:
         env:
           # These are the public Supabase project URL and publishable key.
           # Vite embeds VITE_* values into the APK at build time; they are not server secrets.
-          VITE_SUPABASE_URL: "https://xebgscmovaffrqckzpyz.supabase.co"
-          VITE_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_Mbxk3dAMZHoPKrh90zKHkw_yzzh22un"
+          VITE_SUPABASE_URL: "https://brkckgaicoqkqdcwwftm.supabase.co"
+          VITE_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_4aTVOdrHyro5iyDctv1mjg__yI6jqh-"
+          VITE_WEB_PUSH_PUBLIC_KEY: "BCCG0oqkafAUE2lXK9FsIWkT-qWSCQtwNk9PWCFYJa071-aZ9m7K1HsI-jc4JjTwMfX37dFPGlpIoXK58pUfBeQ"
 
       - name: Sync web assets and native Capacitor plugins into Android
         run: npx cap sync android
