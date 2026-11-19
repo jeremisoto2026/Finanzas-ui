@@ -5,6 +5,16 @@ const normalizeLabel = (value) => String(value || '')
   .toLocaleLowerCase('es-ES')
 
 /**
+ * Exact normalized account-name match for automatic linking.
+ * Matching ignores case, Unicode presentation differences and repeated spaces.
+ */
+export function isExactAccountNameMatch(account, sourceLabel = '') {
+  const accountName = normalizeLabel(account?.name)
+  const appName = normalizeLabel(sourceLabel)
+  return Boolean(accountName && appName && accountName === appName)
+}
+
+/**
  * Build a concise account option label. The selected bank app already provides
  * context, so its institution name is omitted when it would only repeat it.
  */
