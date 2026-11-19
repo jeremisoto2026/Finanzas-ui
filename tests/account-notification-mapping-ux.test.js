@@ -147,5 +147,5 @@ test('la coincidencia por nombre funciona también con fuentes bancarias futuras
 
 test('normaliza etiquetas genéricas de fuentes bancarias', () => {
   assert.equal(getBankSourceLabel('banco_nuevo'), 'Banco Nuevo')
-  assert.equal(getBankSourceLabel('banco-nuevo'), 'Banco-Nuevo')
+  assert.equal(getBankSourceLabel('banco-nuevo'), 'Banco Nuevo')
 })
