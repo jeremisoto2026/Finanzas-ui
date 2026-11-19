@@ -72,6 +72,7 @@ type AccountRow = {
   name: string
   currency_code: string
   is_active: boolean
+  account_type?: string
 }
 
 type AccountSourceMapping = {
@@ -104,27 +105,50 @@ type ValidCapture = {
  * Wallet-only is automatically routed only when the user has exactly one
  * active bank source linked. Multiple linked banks require manual review.
  */
+function isEligibleBankAccount(account: AccountRow, currencyCode: string) {
+  const accountType = String(account.account_type || "bank").toLowerCase()
+  return account.is_active === true &&
+    String(account.currency_code || "EUR").trim().toUpperCase() === currencyCode &&
+    ["bank", "debit_card", "credit_card", "digital_wallet", "savings"].includes(accountType)
+}
+
 function resolveMappedAccount(
   capture: ValidCapture,
   mappings: AccountSourceMapping[],
   accounts: AccountRow[],
 ) {
   const bankSources = capture.sources.filter((source) => !source.isWallet)
-  const activeBankMappings = mappings.filter((mapping) => mapping.is_active)
-  const candidates = bankSources.length === 1
-    ? activeBankMappings.filter((mapping) => mapping.source_app === bankSources[0].sourceApp)
-    : bankSources.length === 0
-      ? activeBankMappings
-      : []
+  const activeMappings = mappings.filter((mapping) => mapping.is_active)
 
-  if (candidates.length !== 1) return null
+  if (bankSources.length === 1) {
+    const bankSource = bankSources[0]
+    const savedMapping = mappings.find((mapping) => mapping.source_app === bankSource.sourceApp)
 
-  const account = accounts.find((item) =>
-    item.id === candidates[0].account_id &&
-    item.is_active === true &&
-    String(item.currency_code || "EUR").trim().toUpperCase() === capture.currencyCode
-  )
-  return account || null
+    // Respect an explicit opt-out. An inactive mapping must never be silently re-enabled.
+    if (savedMapping && !savedMapping.is_active) return null
+
+    if (savedMapping?.is_active) {
+      return accounts.find((item) =>
+        item.id === savedMapping.account_id && isEligibleBankAccount(item, capture.currencyCode)
+      ) || null
+    }
+
+    // First-use convenience: when this bank app is unknown and the user has
+    // exactly one eligible account, that destination is unambiguous.
+    const eligibleAccounts = accounts.filter((item) =>
+      isEligibleBankAccount(item, capture.currencyCode)
+    )
+    return eligibleAccounts.length === 1 ? eligibleAccounts[0] : null
+  }
+
+  if (bankSources.length > 1) return null
+
+  // Wallet-only notices can use an existing bank link only when exactly one is active.
+  if (activeMappings.length !== 1) return null
+  return accounts.find((item) =>
+    item.id === activeMappings[0].account_id &&
+    isEligibleBankAccount(item, capture.currencyCode)
+  ) || null
 }
 
 async function sha256(value: string) {
@@ -366,7 +390,7 @@ Deno.serve(async (req: Request) => {
 
     const { data: accounts, error: accountError } = await supabase
       .from("accounts")
-      .select("id, name, currency_code, is_active")
+      .select("id, name, currency_code, is_active, account_type")
       .eq("user_id", userId)
     if (accountError) throw accountError
 
@@ -374,7 +398,6 @@ Deno.serve(async (req: Request) => {
       .from("account_notification_sources")
       .select("account_id, source_app, is_active")
       .eq("user_id", userId)
-      .eq("is_active", true)
     if (mappingError) throw mappingError
 
     const { data: merchantRules, error: ruleError } = await supabase
@@ -417,6 +440,33 @@ Deno.serve(async (req: Request) => {
         (accountMappings || []) as AccountSourceMapping[],
         (accounts || []) as AccountRow[],
       )
+
+      // Persist the unambiguous single-account fallback as the user's default
+      // for this newly discovered bank package. Existing inactive links stay disabled.
+      const detectedBankSource = capture.sources.find((source) => !source.isWallet)
+      const savedSourceMapping = detectedBankSource
+        ? (accountMappings || []).find((mapping) =>
+            mapping.source_app === detectedBankSource.sourceApp
+          )
+        : null
+      if (account && detectedBankSource && !savedSourceMapping) {
+        const { error: autoLinkError } = await supabase
+          .from("account_notification_sources")
+          .upsert({
+            user_id: userId,
+            source_app: detectedBankSource.sourceApp,
+            source_label: detectedBankSource.label,
+            account_id: account.id,
+            is_active: true,
+            updated_at: new Date().toISOString(),
+          }, { onConflict: "user_id,source_app" })
+        if (autoLinkError) throw autoLinkError
+        accountMappings?.push({
+          account_id: account.id,
+          source_app: detectedBankSource.sourceApp,
+          is_active: true,
+        })
+      }
 
       // Keep manual review idempotent when the bank alert arrives after Wallet
       // or when an older Preview APK has already created this expense.
