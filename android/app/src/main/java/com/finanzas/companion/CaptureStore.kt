@@ -31,7 +31,7 @@ internal fun isSameSourceDuplicate(item: LocalCapture, payment: ParsedPayment): 
     val notificationKeyMatches = !payment.notificationKey.isNullOrBlank() &&
         payment.notificationKey in item.notificationKeys
     val samePaymentArrivedAgainImmediately =
-        abs(item.occurredAtMillis - payment.occurredAtMillis) <= 10_000L
+        abs(item.occurredAtMillis - payment.occurredAtMillis) <= 2_000L
 
     return item.merchantKey == payment.merchantKey &&
         item.amountCents == payment.amountCents &&
@@ -63,7 +63,8 @@ class CaptureStore(context: Context) {
             return CaptureResult(duplicate, wasPaired = false, wasDuplicate = true)
         }
 
-        val possiblePairIndex = items.indexOfFirst { item ->
+        val possiblePairIndexes = items.indices.filter { index ->
+            val item = items[index]
             val crossAppWalletPair =
                 (payment.source == NotificationSource.GOOGLE_WALLET && item.sources.any { it.isBank }) ||
                 (payment.source.isBank && NotificationSource.GOOGLE_WALLET in item.sources)
@@ -81,8 +82,10 @@ class CaptureStore(context: Context) {
                 abs(item.occurredAtMillis - payment.occurredAtMillis) <= PAIR_WINDOW_MS
         }
 
-        if (possiblePairIndex >= 0) {
-            val previous = items[possiblePairIndex]
+        // Pair only when there is exactly one possible counterpart. If two
+        // purchases look identical, keep both unmatched for manual review.
+        if (possiblePairIndexes.size == 1) {
+            val previous = items[possiblePairIndexes.single()]
             val trustedBank = previous.sources.firstOrNull { it.isBank }?.accountName
                 ?: payment.source.takeIf { it.isBank }?.accountName
             val merged = previous.copy(
@@ -212,6 +215,6 @@ class CaptureStore(context: Context) {
         private const val KEY = "captures"
         private const val MAX_LOCAL_CAPTURES = 100
         private const val PAIR_WINDOW_MS = 3 * 60 * 1000L
-        private const val SAME_SOURCE_DUPLICATE_WINDOW_MS = 10 * 1000L
+        private const val SAME_SOURCE_DUPLICATE_WINDOW_MS = 2 * 1000L
     }
 }
