@@ -238,7 +238,7 @@ async function createAndroidTransaction(parsedUrl, input, init, sourceRequest) {
 }
 
 
-async function readAndroidJsonBody(input, init, sourceRequest) {
+async function readAndroidJsonBody(init, sourceRequest) {
   let bodyValue = init?.body
   if (bodyValue == null && sourceRequest) bodyValue = await sourceRequest.clone().text()
   try {
@@ -248,9 +248,9 @@ async function readAndroidJsonBody(input, init, sourceRequest) {
   }
 }
 
-async function updateAndroidAccountBalance(input, init, sourceRequest) {
+async function updateAndroidAccountBalance(init, sourceRequest) {
   try {
-    const body = await readAndroidJsonBody(input, init, sourceRequest)
+    const body = await readAndroidJsonBody(init, sourceRequest)
     const accountId = String(body.accountId || '').trim()
     const targetBalance = Number(body.balance)
     if (!accountId || body.balance === undefined || !Number.isFinite(targetBalance) || Math.abs(targetBalance) > 999999999999) {
@@ -344,7 +344,7 @@ async function resolveAndroidCategory(userId, categoryValue, kind) {
   return category.id
 }
 
-async function updateAndroidTransaction(parsedUrl, method, input, init, sourceRequest) {
+async function updateAndroidTransaction(parsedUrl, method, init, sourceRequest) {
   try {
     const body = await readAndroidJsonBody(input, init, sourceRequest)
     const kind = getAndroidCreateKind(parsedUrl.pathname)
@@ -486,11 +486,11 @@ async function fetchAndroidApi(parsedUrl, method, input, init, sourceRequest) {
   }
 
   if (method === 'PATCH' && parsedUrl.pathname === '/api/cuentas') {
-    return updateAndroidAccountBalance(input, init, sourceRequest)
+    return updateAndroidAccountBalance(init, sourceRequest)
   }
 
   if ((method === 'PATCH' || method === 'DELETE') && getAndroidCreateKind(parsedUrl.pathname)) {
-    return updateAndroidTransaction(parsedUrl, method, input, init, sourceRequest)
+    return updateAndroidTransaction(parsedUrl, method, init, sourceRequest)
   }
 
   if (method === 'POST' && getAndroidCreateKind(parsedUrl.pathname)) {
