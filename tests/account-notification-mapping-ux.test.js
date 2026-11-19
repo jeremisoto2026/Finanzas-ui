@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import {
   getAccountMappingSuggestion,
   getAccountOptionLabel,
+  isExactAccountNameMatch,
 } from '../src/lib/account-notification-mapping.js'
 
 test('el selector evita repetir la institución si coincide con la cuenta o la app', () => {
@@ -48,7 +49,7 @@ test('preselecciona una cuenta cuyo nombre o institución coincide con la app', 
       'revolut',
       'Revolut',
     ),
-    { accountId: 'a', reason: 'matching' },
+    { accountId: 'a', reason: 'matching', matchType: 'name' },
   )
   assert.deepEqual(
     getAccountMappingSuggestion(
@@ -57,7 +58,7 @@ test('preselecciona una cuenta cuyo nombre o institución coincide con la app', 
       'bbva',
       'BBVA',
     ),
-    { accountId: 'a', reason: 'matching' },
+    { accountId: 'a', reason: 'matching', matchType: 'institution' },
   )
 })
 
@@ -85,7 +86,7 @@ test('no adivina entre varias cuentas si no hay una coincidencia única', () => 
       'revolut',
       'Revolut',
     ),
-    { accountId: '', reason: 'ambiguous' },
+    { accountId: 'a', reason: 'matching', matchType: 'name' },
   )
 })
 
@@ -101,6 +102,28 @@ test('la comparación de instituciones tolera espacios y diferencias de mayúscu
       'revolut',
       'Revolut',
     ),
-    { accountId: 'a', reason: 'matching' },
+    { accountId: 'a', reason: 'matching', matchType: 'institution' },
+  )
+})
+
+test('la coincidencia exacta del nombre ignora mayúsculas y espacios extra', () => {
+  assert.equal(isExactAccountNameMatch({ name: '  rEvOlUt   ' }, 'Revolut'), true)
+  assert.equal(isExactAccountNameMatch({ name: 'BBVA' }, '  bbva  '), true)
+  assert.equal(isExactAccountNameMatch({ name: 'Cuenta Revolut' }, 'Revolut'), false)
+  assert.equal(isExactAccountNameMatch({ name: 'Cuenta diaria', institution: 'Revolut' }, 'Revolut'), false)
+})
+
+test('prioriza el nombre exacto aunque otra cuenta coincida solo por institución', () => {
+  assert.deepEqual(
+    getAccountMappingSuggestion(
+      [
+        { id: 'exact', name: 'Revolut', institution: null },
+        { id: 'institution', name: 'Cuenta diaria', institution: 'Revolut' },
+      ],
+      [],
+      'revolut',
+      'revolut',
+    ),
+    { accountId: 'exact', reason: 'matching', matchType: 'name' },
   )
 })
