@@ -21,6 +21,8 @@ async function isInstallmentLinked(supabase, userId, transactionId) {
   return Boolean(data)
 }
 
+const DEFAULT_EXPENSE_CATEGORIES = ['Alimentación', 'Vivienda', 'Transporte', 'Salud', 'Ocio', 'Suscripciones', 'Servicios', 'Ropa', 'Educación', 'Familia', 'Otros']
+
 function normalizeCategoryName(value) {
   return String(value || '')
     .normalize('NFKC')
@@ -52,14 +54,14 @@ export default async function handler(req, res) {
 
         const seen = new Set()
         const categories = []
-        for (const row of data || []) {
-          const name = String(row.name || '').trim().replace(/\s+/g, ' ')
+        for (const value of [...DEFAULT_EXPENSE_CATEGORIES, ...(data || []).map((row) => row.name)]) {
+          const name = String(value || '').trim().replace(/\s+/g, ' ')
           const key = normalizeCategoryName(name)
           if (!name || seen.has(key)) continue
           seen.add(key)
           categories.push(name)
         }
-        return res.status(200).json(categories)
+        return res.status(200).json(categories.sort((a, b) => a.localeCompare(b, 'es', { sensitivity: 'base' })))
       }
 
       const { data, error } = await supabase
