@@ -313,7 +313,7 @@ async function updateAndroidAccountBalance(input, init, sourceRequest) {
 }
 
 async function resolveAndroidCategory(userId, categoryValue, kind) {
-  const categoryName = String(categoryValue || 'Otros').normalize('NFKC').trim().replace(/\\s+/g, ' ') || 'Otros'
+  const categoryName = String(categoryValue || 'Otros').normalize('NFKC').trim().replace(/\s+/g, ' ') || 'Otros'
   const normalizedCategory = categoryName.toLocaleLowerCase('es-ES')
   const { data: categoryRows, error: categoryReadError } = await supabase.from('categories')
     .select('id, name')
@@ -322,7 +322,7 @@ async function resolveAndroidCategory(userId, categoryValue, kind) {
   if (categoryReadError) throw categoryReadError
 
   let category = (categoryRows || []).find((row) =>
-    String(row.name || '').normalize('NFKC').trim().replace(/\\s+/g, ' ').toLocaleLowerCase('es-ES') === normalizedCategory
+    String(row.name || '').normalize('NFKC').trim().replace(/\s+/g, ' ').toLocaleLowerCase('es-ES') === normalizedCategory
   )
   if (!category) {
     const { data: createdCategory, error: categoryInsertError } = await supabase.from('categories')
@@ -411,7 +411,7 @@ async function updateAndroidTransaction(parsedUrl, method, input, init, sourceRe
     }
     if (body.fecha !== undefined) {
       const dateValue = String(body.fecha || '').slice(0, 10)
-      const date = /^\\d{4}-\\d{2}-\\d{2}$/.test(dateValue) ? new Date(dateValue + 'T00:00:00.000Z') : null
+      const date = /^\d{4}-\d{2}-\d{2}$/.test(dateValue) ? new Date(dateValue + 'T00:00:00.000Z') : null
       if (!date || !Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== dateValue) {
         return jsonResponse({ error: 'La fecha no es válida.' }, 400)
       }
