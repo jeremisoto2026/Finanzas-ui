@@ -112,6 +112,8 @@ test('Android expense and income history exposes edit and void actions', () => {
   assert.match(expenses, /Editar gasto/)
   assert.match(incomes, /Editar ingreso/)
   assert.match(native, /async function updateAndroidTransaction/)
+  assert.match(native, /readAndroidJsonBody\(init, sourceRequest\)/)
+  assert.doesNotMatch(native, /readAndroidJsonBody\(input, init, sourceRequest\)/)
   assert.match(native, /\.update\(\{ status: 'void' \}\)/)
   assert.match(native, /method === 'PATCH' \|\| method === 'DELETE'/)
 })
