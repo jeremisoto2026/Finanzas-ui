@@ -89,20 +89,6 @@ export default function CapturasAutomaticas() {
   const [mappingFeedback, setMappingFeedback] = useState('')
   const [savingMapping, setSavingMapping] = useState(false)
   const autoSaveAttemptRef = useRef('')
-  const mappingSourceLabel = sourceLabelMap[mappingSource] ||
-    getBankSourceLabel(mappingSource, sourceLabelMap)
-  const availableBankSources = useMemo(() => {
-    const sources = new Set(['revolut', 'bbva'])
-    for (const mapping of accountMappings) {
-      if (mapping.source_app && mapping.source_app !== 'google_wallet') sources.add(mapping.source_app)
-    }
-    for (const event of remoteEvents) {
-      if (event.source_app && event.source_app !== 'google_wallet') sources.add(event.source_app)
-    }
-    return [...sources].sort((a, b) =>
-      getBankSourceLabel(a, sourceLabelMap).localeCompare(getBankSourceLabel(b, sourceLabelMap), 'es')
-    )
-  }, [accountMappings, remoteEvents, sourceLabelMap])
   const [accountSelections, setAccountSelections] = useState({})
   const [categorySelections, setCategorySelections] = useState({})
   const [savingReviewId, setSavingReviewId] = useState(null)
@@ -125,6 +111,21 @@ export default function CapturasAutomaticas() {
     }
     return labels
   }, [accountMappings, remoteEvents])
+
+  const mappingSourceLabel = sourceLabelMap[mappingSource] ||
+    getBankSourceLabel(mappingSource, sourceLabelMap)
+  const availableBankSources = useMemo(() => {
+    const sources = new Set(['revolut', 'bbva'])
+    for (const mapping of accountMappings) {
+      if (mapping.source_app && mapping.source_app !== 'google_wallet') sources.add(mapping.source_app)
+    }
+    for (const event of remoteEvents) {
+      if (event.source_app && event.source_app !== 'google_wallet') sources.add(event.source_app)
+    }
+    return [...sources].sort((a, b) =>
+      getBankSourceLabel(a, sourceLabelMap).localeCompare(getBankSourceLabel(b, sourceLabelMap), 'es')
+    )
+  }, [accountMappings, remoteEvents, sourceLabelMap])
 
   const reviewItems = useMemo(() => groupRemoteEvents(remoteEvents), [remoteEvents])
 
