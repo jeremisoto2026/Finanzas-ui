@@ -66,7 +66,6 @@ export function parsePaymentNotification({ sourceApp, title = '', text = '', occ
 
   let amount = null
   let merchant = ''
-  let cardLast4 = null
   let accountLabel = null
 
   if (app === 'revolut') {
@@ -86,18 +85,12 @@ export function parsePaymentNotification({ sourceApp, title = '', text = '', occ
     if (signal && match) amount = parseLocalizedAmount(match[1])
     const merchantMatch = body.match(/\b(?:en|a)\s+(.+?)(?=\r?\n|saldo|\s+tarjeta|$)/i)
     merchant = cleanMerchant(merchantMatch?.[1] || (heading && !/^(bbva|notificación|compra|pago)$/i.test(heading) ? heading : ''))
-    const bankCardMatch = combined.match(/(?:visa|mastercard|maestro|amex)\s*[•·*\s]*([0-9]{4})/i)
-    cardLast4 = bankCardMatch?.[1] || null
     accountLabel = 'BBVA'
   }
 
   if (app === 'google_wallet') {
     const match = combined.match(/([\d.,]+)\s*(?:€|EUR)\s+(?:con\s+.+|en\s+.+)/i)
     if (match) amount = parseLocalizedAmount(match[1])
-
-    // Wallet can show a virtual card number whose suffix differs from the bank card.
-    // Only bank-notification suffixes are used for account-to-card bindings.
-    cardLast4 = null
 
     const issuer = combined.match(/\bcon\s+(Revolut|BBVA)\b/i)
     accountLabel = issuer ? (issuer[1].toLowerCase() === 'bbva' ? 'BBVA' : 'Revolut') : null
@@ -115,7 +108,6 @@ export function parsePaymentNotification({ sourceApp, title = '', text = '', occ
       reason: 'No se pudo extraer un importe y un comercio de forma segura.',
       amount,
       merchant,
-      cardLast4,
     }
   }
 
@@ -128,7 +120,6 @@ export function parsePaymentNotification({ sourceApp, title = '', text = '', occ
     merchantKey,
     accountLabel,
     paymentChannel: app,
-    cardLast4,
     occurredAt,
     categorySuggestion: categorySuggestion?.category || null,
     categoryConfidence: categorySuggestion?.confidence || null,
