@@ -175,9 +175,10 @@ object NotificationParser {
 
         val amountMatch = amountPattern.findAll(combined)
             .filterNot { match ->
-                val start = (match.range.first - 45).coerceAtLeast(0)
-                val end = (match.range.last + 46).coerceAtMost(combined.length)
-                balanceContext.containsMatchIn(combined.substring(start, end))
+                val lineStart = combined.lastIndexOf('\n', match.range.first).let { if (it < 0) 0 else it + 1 }
+                val lineEnd = combined.indexOf('\n', match.range.last).let { if (it < 0) combined.length else it }
+                val line = combined.substring(lineStart, lineEnd)
+                balanceContext.containsMatchIn(line) && !transactionSignal.containsMatchIn(line)
             }
             .maxByOrNull { match ->
                 val start = (match.range.first - 55).coerceAtLeast(0)
