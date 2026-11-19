@@ -61,6 +61,8 @@ export default function Configuracion() {
   const [guardandoPagoCuota, setGuardandoPagoCuota] = useState(false)
   const [guardandoCompraCuotas, setGuardandoCompraCuotas] = useState(false)
   const guardandoCompraCuotasRef = useRef(false)
+  const [guardandoPresupuesto, setGuardandoPresupuesto] = useState(false)
+  const guardandoPresupuestoRef = useRef(false)
   const [mensajeCuotas, setMensajeCuotas] = useState(null)
 
   // Estados para acordeones
@@ -296,11 +298,19 @@ export default function Configuracion() {
 
   const guardarPresupuesto = async (event) => {
     event.preventDefault()
+
+    // Prevent double taps or repeated submit events from creating two POST requests.
+    // The ref is set synchronously, before the first await, so a second event is ignored.
+    if (guardandoPresupuestoRef.current) return
+
     const amount = Number(presupuestoForm.amount)
     if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(presupuestoForm.month) || !presupuestoForm.category.trim() || !Number.isFinite(amount) || amount < 0) {
       setError('Revisa el mes, la categoría y el importe del presupuesto.')
       return
     }
+
+    guardandoPresupuestoRef.current = true
+    setGuardandoPresupuesto(true)
     try {
       setError(null)
       const response = await fetch('/api/presupuestos', {
@@ -318,6 +328,9 @@ export default function Configuracion() {
       setPresupuestoForm({ month: localDateInputValue().slice(0, 7), category: 'Alimentación', amount: '', notes: '' })
     } catch (err) {
       setError(err.message || 'No se pudo guardar el presupuesto.')
+    } finally {
+      guardandoPresupuestoRef.current = false
+      setGuardandoPresupuesto(false)
     }
   }
 
@@ -1333,7 +1346,7 @@ export default function Configuracion() {
             <label className="text-sm text-slate-300">Importe planificado (€)<input type="number" min="0" step="0.01" required value={presupuestoForm.amount} onChange={(e) => setPresupuestoForm({ ...presupuestoForm, amount: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-white" /></label>
             <label className="text-sm text-slate-300">Notas<input value={presupuestoForm.notes} onChange={(e) => setPresupuestoForm({ ...presupuestoForm, notes: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-white" /></label>
           </div>
-          <div className="flex justify-end gap-2"><button type="button" onClick={() => { setMostrarFormPresupuesto(false); setEditingPresupuestoId(null); }} className="rounded-lg bg-slate-800 px-4 py-2 text-sm text-slate-300">Cancelar</button><button type="submit" className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-semibold text-white">{editingPresupuestoId ? 'Guardar cambios' : 'Guardar presupuesto'}</button></div>
+          <div className="flex justify-end gap-2"><button type="button" onClick={() => { setMostrarFormPresupuesto(false); setEditingPresupuestoId(null); }} className="rounded-lg bg-slate-800 px-4 py-2 text-sm text-slate-300">Cancelar</button><button type="submit" disabled={guardandoPresupuesto} className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60">{guardandoPresupuesto ? 'Guardando...' : editingPresupuestoId ? 'Guardar cambios' : 'Guardar presupuesto'}</button></div>
         </form>
       )}
 
