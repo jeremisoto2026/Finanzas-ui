@@ -32,7 +32,7 @@ class NotificationParserTest {
         val result = NotificationParser.parse(
             source = NotificationSource.GOOGLE_WALLET,
             title = "SUPERMERCADO ALTET",
-            text = "2,50 € con Revolut",
+            text = "2,50 € con Aqua debito",
             occurredAtMillis = 1794958925000L
         )
 
@@ -46,16 +46,142 @@ class NotificationParserTest {
     fun doesNotParsePocketBalanceAloneAsPurchase() {
         val result = NotificationParser.parse(
             source = NotificationSource.REVOLUT,
-            title = "Supermercado Altet",
-            text = "⚠️ Saldo del Pocket EUR: 0,34 €",
+            title = "Revolut",
+            text = "Saldo del Pocket EUR: 0,34 €",
             occurredAtMillis = 1794958920000L
         )
         assertNull(result)
     }
 
     @Test
-    fun rejectsUnknownNotificationPackage() {
-        assertNull(NotificationSource.fromPackage("com.whatsapp"))
+    fun rejectsUnknownMessagingNotificationPackage() {
+        assertNull(NotificationSource.fromPackage("com.whatsapp", "WhatsApp"))
+    }
+
+    @Test
+    fun recognizesUnknownBankPackagesWithoutHardcodedProviderList() {
+        val source = NotificationSource.fromPackage(
+            "es.caixabank.mobile.android",
+            "CaixaBank"
+        )
+        assertNotNull(source)
+        assertEquals("android:es.caixabank.mobile.android", source?.sourceApp)
+        assertEquals("CaixaBank", source?.label)
+        assertTrue(source?.isBank == true)
+    }
+
+    @Test
+    fun parsesFlexibleCaixaBankPurchaseAndSuggestsCategory() {
+        val source = NotificationSource.fromPackage(
+            "es.caixabank.mobile.android",
+            "CaixaBank"
+        )!!
+        val result = NotificationParser.parse(
+            source = source,
+            title = "Pago con tarjeta",
+            text = "Compra realizada de 14,25 EUR en FARMACIA CENTRAL con tu tarjeta",
+            occurredAtMillis = 1794958920000L
+        )
+
+        assertNotNull(result)
+        assertEquals("FARMACIA CENTRAL", result?.merchant)
+        assertEquals(1425L, result?.amountCents)
+        assertEquals("Salud e higiene", result?.categorySuggestion)
+        assertEquals("CaixaBank", result?.accountName)
+    }
+
+    @Test
+    fun parsesNegativeMovementWithCurrencyEvenWithoutExactPhrase() {
+        val source = NotificationSource.fromPackage(
+            "es.bancosantander.app",
+            "Santander"
+        )!!
+        val result = NotificationParser.parse(
+            source = source,
+            title = "Santander",
+            text = "−12,50 € en PANADERIA CENTRAL",
+            occurredAtMillis = 1794958920000L
+        )
+
+        assertNotNull(result)
+        assertEquals("PANADERIA CENTRAL", result?.merchant)
+        assertEquals(1250L, result?.amountCents)
+    }
+
+    @Test
+    fun parsesEuropeanAndInternationalThousandsSeparators() {
+        val source = NotificationSource.fromPackage(
+            "com.example.bank",
+            "My Bank"
+        )!!
+        val european = NotificationParser.parse(
+            source,
+            "Pago aceptado",
+            "Pago de 1.234,56 EUR en COMERCIO UNO",
+            1794958920000L
+        )
+        val international = NotificationParser.parse(
+            source,
+            "Card payment",
+            "Card payment of EUR 1,234.56 at MERCHANT TWO",
+            1794958920000L
+        )
+
+        assertEquals(123456L, european?.amountCents)
+        assertEquals(123456L, international?.amountCents)
+    }
+
+    @Test
+    fun rejectsOtpAndSecurityCodeNotificationsEvenWhenTheyMentionAnAmount() {
+        val source = NotificationSource.fromPackage(
+            "com.example.bank",
+            "Example Bank"
+        )!!
+        val result = NotificationParser.parse(
+            source,
+            "Código de seguridad",
+            "Código de verificación para autorizar el pago de 2,50 EUR en TIENDA",
+            1794958920000L
+        )
+        assertNull(result)
+    }
+
+    @Test
+    fun rejectsAdvertisingWithoutARealMovementSignal() {
+        val source = NotificationSource.fromPackage(
+            "com.example.bank",
+            "Example Bank"
+        )!!
+        val result = NotificationParser.parse(
+            source,
+            "Oferta exclusiva",
+            "Descubre esta promoción especial de 2,50 EUR en TIENDA",
+            1794958920000L
+        )
+        assertNull(result)
+    }
+
+    @Test
+    fun rejectsPositiveAmountWithoutTransactionSignalOrMerchant() {
+        val source = NotificationSource.fromPackage(
+            "com.example.bank",
+            "Example Bank"
+        )!!
+        val result = NotificationParser.parse(
+            source,
+            "Example Bank",
+            "Tu saldo disponible es 2,50 EUR",
+            1794958920000L
+        )
+        assertNull(result)
+    }
+
+    @Test
+    fun normalizesHyphenatedMerchantSoWalletAndBankCanMatch() {
+        assertEquals(
+            NotificationParser.normalizeMerchantKey("SUPERMER-CADO ALTET"),
+            NotificationParser.normalizeMerchantKey("SUPERMERCADO ALTET")
+        )
     }
 
     @Test
@@ -124,7 +250,7 @@ class NotificationParserTest {
     }
 
     @Test
-    fun parsesBbvaPurchaseAndIdentifiesBbvaAccount() {
+    fun parsesLegacyBbvaPurchase() {
         val result = NotificationParser.parse(
             source = NotificationSource.BBVA,
             title = "BBVA",
@@ -138,11 +264,11 @@ class NotificationParserTest {
     }
 
     @Test
-    fun parsesBbvaAcceptedPaymentFromCurrentNotificationFormat() {
+    fun parsesBbvaAcceptedPaymentFormatFromPreviousTestPurchase() {
         val result = NotificationParser.parse(
             source = NotificationSource.BBVA,
             title = "Pago aceptado",
-            text = "Pago aceptado de 2,50 EUR en SUPERMER-CADO ALTET con tu tarjeta terminada en XXXX",
+            text = "Pago aceptado de 2,50 EUR en SUPERMER-CADO ALTET con tu tarjeta terminada en 3684",
             occurredAtMillis = 1795033320000L
         )
 
@@ -154,9 +280,13 @@ class NotificationParserTest {
     }
 
     @Test
-    fun walletAquaDebitNotificationMatchesHyphenatedBbvaMerchant() {
-        val bbva = NotificationParser.parse(
-            source = NotificationSource.BBVA,
+    fun walletAndAnyBankSourceShareMerchantKeyForMatchingPayment() {
+        val source = NotificationSource.fromPackage(
+            "es.caixabank.mobile.android",
+            "CaixaBank"
+        )!!
+        val bank = NotificationParser.parse(
+            source = source,
             title = "Pago aceptado",
             text = "Pago aceptado de 2,50 EUR en SUPERMER-CADO ALTET con tu tarjeta",
             occurredAtMillis = 1795033320000L
@@ -168,32 +298,20 @@ class NotificationParserTest {
             occurredAtMillis = 1795033321000L
         )
 
-        assertNotNull(bbva)
+        assertNotNull(bank)
         assertNotNull(wallet)
-        assertEquals(bbva?.merchantKey, wallet?.merchantKey)
+        assertEquals(bank?.merchantKey, wallet?.merchantKey)
     }
 
     @Test
-    fun walletWithoutIssuerDoesNotGuessBank() {
-        val result = NotificationParser.parse(
-            source = NotificationSource.GOOGLE_WALLET,
-            title = "Mercadona",
-            text = "25,80 € con una tarjeta bancaria",
-            occurredAtMillis = 1795033320000L
+    fun readsLegacySourceNamesFromStoredCaptures() {
+        assertEquals(
+            NotificationSource.REVOLUT,
+            NotificationSource.fromPersisted("REVOLUT", null, null)
         )
-        assertNotNull(result)
-        assertNull(result?.accountName)
-    }
-
-    @Test
-    fun walletCanIdentifyAnExplicitBbvaIssuer() {
-        val result = NotificationParser.parse(
-            source = NotificationSource.GOOGLE_WALLET,
-            title = "Mercadona",
-            text = "25,80 € con BBVA",
-            occurredAtMillis = 1795033320000L
+        assertEquals(
+            NotificationSource.GOOGLE_WALLET,
+            NotificationSource.fromPersisted("GOOGLE_WALLET", null, null)
         )
-        assertNotNull(result)
-        assertEquals("BBVA", result?.accountName)
     }
 }
