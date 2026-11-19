@@ -274,7 +274,7 @@ export default function FirstLoginPermissions({ userId }) {
                 </span>
                 <div className="min-w-0 flex-1">
                   <h2 className="text-sm font-semibold text-white">Capturas automáticas</h2>
-                  <p className="mt-1 text-xs leading-5 text-slate-400">Acceso especial de Android para detectar avisos de Revolut y Google Wallet.</p>
+                  <p className="mt-1 text-xs leading-5 text-slate-400">Acceso especial de Android para detectar avisos compatibles de Revolut, BBVA y Google Wallet.</p>
                 </div>
                 <StatusLabel checking={checking} enabled={captureEnabled} />
               </div>
@@ -283,7 +283,7 @@ export default function FirstLoginPermissions({ userId }) {
 
           <div className="mt-4 rounded-xl border border-amber-800/50 bg-amber-950/25 p-3">
             <p className="text-xs leading-5 text-amber-100/90">
-              Para las capturas, Android abrirá su pantalla de «Acceso a notificaciones» y tendrás que activar Finanzas manualmente. No es un permiso de Accesibilidad. La aplicación filtra los avisos y solo procesa los de Revolut y Google Wallet.
+              Para las capturas, Android abrirá su pantalla de «Acceso a notificaciones» y tendrás que activar Finanzas manualmente. No es un permiso de Accesibilidad. La aplicación filtra los avisos y solo procesa formatos compatibles de Revolut, BBVA y Google Wallet. Otros bancos se incorporarán cuando sus notificaciones estén identificadas y probadas.
             </p>
           </div>
 
