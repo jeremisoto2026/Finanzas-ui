@@ -63,18 +63,27 @@ export function getAccountMappingSuggestion(accounts = [], mappings = [], source
   }
 
   const sourceKey = normalizeLabel(sourceLabel || sourceApp)
-  const matchingAccounts = sourceKey
-    ? availableAccounts.filter((account) =>
-      normalizeLabel(account?.name) === sourceKey ||
-      normalizeLabel(account?.institution) === sourceKey
-    )
+  const nameMatches = sourceKey
+    ? availableAccounts.filter((account) => normalizeLabel(account?.name) === sourceKey)
     : []
 
-  if (matchingAccounts.length === 1) {
-    return { accountId: matchingAccounts[0].id, reason: 'matching' }
+  if (nameMatches.length === 1) {
+    return { accountId: nameMatches[0].id, reason: 'matching', matchType: 'name' }
   }
 
-  if (matchingAccounts.length > 1) {
+  if (nameMatches.length > 1) {
+    return { accountId: '', reason: 'ambiguous' }
+  }
+
+  const institutionMatches = sourceKey
+    ? availableAccounts.filter((account) => normalizeLabel(account?.institution) === sourceKey)
+    : []
+
+  if (institutionMatches.length === 1) {
+    return { accountId: institutionMatches[0].id, reason: 'matching', matchType: 'institution' }
+  }
+
+  if (institutionMatches.length > 1) {
     return { accountId: '', reason: 'ambiguous' }
   }
 
