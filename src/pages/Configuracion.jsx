@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { addInstallmentDate, distributeInstallmentAmounts, localDateInputValue, sumMoney, sumMonthlyEquivalent } from '@/lib/finance-core'
 import { uniqueCategoryNames } from '@/lib/category-utils'
 import { useScrollToForm } from '@/lib/useScrollToForm'
+import { useConfirmationDialog } from '@/components/ui/ConfirmationDialog'
 import { 
   Settings, 
   Pencil,
@@ -48,6 +49,7 @@ import {
 } from 'lucide-react'
 
 export default function Configuracion() {
+  const confirm = useConfirmationDialog()
   // Estados de pagos fijos y compras a cuotas
   const [pagosFijos, setPagosFijos] = useState([])
   const [comprasCuotas, setComprasCuotas] = useState([])
@@ -266,22 +268,26 @@ export default function Configuracion() {
   }
 
   const eliminarPagoFijo = async (id, nombre) => {
-    if (!confirm(`¿Eliminar "${nombre}"?`)) return
-    
+    const approved = await confirm({
+      title: '¿Eliminar este pago fijo?',
+      description: `Se cancelará "${nombre}" y dejará de aparecer entre tus pagos activos. Los movimientos anteriores no se modificarán.`,
+      confirmLabel: 'Eliminar pago fijo',
+    })
+    if (!approved) return
+
     try {
+      setError(null)
       const res = await fetch('/api/pagos-fijos', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id })
       })
-      
-      if (res.ok) {
-        setPagosFijos(pagosFijos.filter(p => p.id !== id))
-        alert('Pago fijo eliminado exitosamente')
-      }
+      const result = await res.json()
+      if (!res.ok) throw new Error(result.error || 'No se pudo eliminar el pago fijo.')
+      setPagosFijos((current) => current.filter((p) => p.id !== id))
     } catch (error) {
       console.error('Error eliminando pago fijo:', error)
-      alert('Error al eliminar el pago fijo')
+      setError(error.message || 'Error al eliminar el pago fijo.')
     }
   }
 
@@ -336,7 +342,12 @@ export default function Configuracion() {
   }
 
   const eliminarPresupuesto = async (item) => {
-    if (!confirm(`¿Eliminar el presupuesto de ${item.category} para ${item.month}?`)) return
+    const approved = await confirm({
+      title: '¿Eliminar este presupuesto?',
+      description: `Se eliminará el presupuesto de ${item.category} para ${item.month}. Los gastos e ingresos reales ya registrados se conservarán.`,
+      confirmLabel: 'Eliminar presupuesto',
+    })
+    if (!approved) return
     try {
       const response = await fetch('/api/presupuestos', {
         method: 'DELETE',
@@ -551,22 +562,25 @@ export default function Configuracion() {
   }
 
   const eliminarCompraCuotas = async (id, concepto) => {
-    if (!confirm(`¿Eliminar "${concepto}"?`)) return
-    
+    const approved = await confirm({
+      title: '¿Eliminar esta compra a cuotas?',
+      description: `Se cancelará "${concepto}" y su calendario de cuotas. Los movimientos de cuotas que ya estén registrados se conservarán.`,
+      confirmLabel: 'Eliminar compra',
+    })
+    if (!approved) return
+
     try {
       const res = await fetch('/api/compras-cuotas', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id })
       })
-      
-      if (res.ok) {
-        setComprasCuotas(comprasCuotas.filter(c => c.id !== id))
-        alert('Compra a cuotas eliminada exitosamente')
-      }
+      const result = await res.json()
+      if (!res.ok) throw new Error(result.error || 'No se pudo eliminar la compra a cuotas.')
+      setComprasCuotas((current) => current.filter((c) => c.id !== id))
     } catch (error) {
       console.error('Error eliminando compra a cuotas:', error)
-      alert('Error al eliminar la compra a cuotas')
+      setError(error.message || 'Error al eliminar la compra a cuotas.')
     }
   }
 
