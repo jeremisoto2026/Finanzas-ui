@@ -146,7 +146,7 @@ test('Web Push VAPID key, subscription, storage, and service worker are wired', 
 
 test('Preview APK version is incremented for these account and history fixes', () => {
   const gradle = read('android/app/build.gradle.kts')
-  assert.match(gradle, /versionCode = 10/)
+  assert.match(gradle, /versionCode = 11/)
   assert.match(gradle, /versionName = "1\.0\.9-preview"/)
 })
 
@@ -214,4 +214,16 @@ test('Inactive accounts remain in history but cannot receive new movements', () 
   assert.match(api, /patch\.is_active = Boolean\(body\.isActive\)/)
   assert.match(native, /if \(account\.is_active === false\)/)
   assert.match(api, /Las cuentas se desactivan para conservar su historial/)
+})
+
+
+test('Android debug Preview APK uses the isolated Supabase backend, never Production', () => {
+  const gradle = read('android/app/build.gradle.kts')
+  const workflow = read('.github/workflows/android-companion.yml')
+
+  assert.match(gradle, /getByName\("debug"\)[\s\S]*SUPABASE_URL[\s\S]*brkckgaicoqkqdcwwftm\.supabase\.co/)
+  assert.match(gradle, /SUPABASE_PUBLISHABLE_KEY[\s\S]*sb_publishable_4aTVOdrHyro5iyDctv1mjg__yI6jqh-/)
+  assert.match(workflow, /VITE_SUPABASE_URL: "https:\/\/brkckgaicoqkqdcwwftm\.supabase\.co"/)
+  assert.match(workflow, /VITE_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_4aTVOdrHyro5iyDctv1mjg__yI6jqh-"/)
+  assert.doesNotMatch(workflow, /https:\/\/xebgscmovaffrqckzpyz\.supabase\.co/)
 })
