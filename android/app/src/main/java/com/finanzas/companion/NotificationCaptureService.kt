@@ -18,8 +18,15 @@ class NotificationCaptureService : NotificationListenerService() {
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
-        // Check the source package before touching Notification.extras.
-        val source = NotificationSource.fromPackage(sbn.packageName) ?: return
+        // Derive a stable app key from the package. Unknown apps are accepted
+        // as candidate financial sources; the flexible parser filters non-payment alerts.
+        val appLabel = try {
+            val applicationInfo = packageManager.getApplicationInfo(sbn.packageName, 0)
+            packageManager.getApplicationLabel(applicationInfo).toString()
+        } catch (_: Exception) {
+            sbn.packageName.substringAfterLast('.')
+        }
+        val source = NotificationSource.fromPackage(sbn.packageName, appLabel) ?: return
         val notification = sbn.notification ?: return
         val extras = notification.extras ?: return
 
