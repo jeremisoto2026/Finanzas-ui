@@ -1,506 +1,205 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
-import { Wallet, TrendingUp, PieChart, RefreshCw, AlertCircle, Receipt, Repeat, Calculator } from 'lucide-react'
+import { Wallet, RefreshCw, AlertCircle, Landmark } from 'lucide-react'
+import { sumMoney, sumMoneyBy } from '@/lib/finance-core'
+
+const formatDate = (value) => value ? new Date(String(value).slice(0, 10) + 'T00:00:00').toLocaleDateString('es-ES') : null
+
+const formatMoney = (amount, currency = 'EUR') => new Intl.NumberFormat('es-ES', {
+  style: 'currency',
+  currency,
+}).format(Number(amount || 0))
 
 export default function DineroDisponible() {
-  // Estados para los datos
-  const [ingresoMensual, setIngresoMensual] = useState(0);
-  const [gastosNormales, setGastosNormales] = useState(0);
-  const [gastosFijos, setGastosFijos] = useState(0);
-  const [gastosCuotas, setGastosCuotas] = useState(0);
-  const [totalGastos, setTotalGastos] = useState(0);
-  const [disponible, setDisponible] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [mesFiltro, setMesFiltro] = useState('');
+  const [accounts, setAccounts] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [budgetReserve, setBudgetReserve] = useState({ loading: true, month: '', planned: 0, spent: 0, remaining: 0 })
 
-  // ========== OBTENER MES ACTUAL ==========
-  const obtenerMesActual = () => {
-    const ahora = new Date();
-    return `${ahora.getFullYear()}-${String(ahora.getMonth() + 1).padStart(2, '0')}`;
-  };
-
-  // ========== FORMATEAR MES A TEXTO ==========
-  const formatearMesTexto = (mesFormato) => {
-    if (!mesFormato) return '';
-    const [año, mes] = mesFormato.split('-');
-    const fecha = new Date(año, parseInt(mes) - 1);
-    return fecha.toLocaleDateString('es-ES', { 
-      month: 'long', 
-      year: 'numeric' 
-    });
-  };
-
-  // ========== CARGAR TODOS LOS DATOS ==========
   useEffect(() => {
-    const fetchDatosFinancieros = async () => {
+    let cancelled = false
+    const loadAccounts = async () => {
       try {
-        setLoading(true);
-        const mesActual = obtenerMesActual();
-        setMesFiltro(mesActual);
-        const hoy = new Date();
-        hoy.setHours(0, 0, 0, 0);
-        
-        console.log('Cargando datos para el mes:', mesActual);
-
-        // 1. Cargar ingresos del mes actual
-        let totalIngresos = 0;
-        try {
-          const resIngresos = await fetch('/api/ingresos');
-          if (resIngresos.ok) {
-            const ingresosData = await resIngresos.json();
-            
-            // Filtrar ingresos del mes actual
-            const ingresosMesActual = ingresosData.filter(ingreso => {
-              if (!ingreso.fecha) return false;
-              try {
-                const fechaIngreso = new Date(ingreso.fecha);
-                const mesIngreso = `${fechaIngreso.getFullYear()}-${String(fechaIngreso.getMonth() + 1).padStart(2, '0')}`;
-                return mesIngreso === mesActual;
-              } catch {
-                return false;
-              }
-            });
-
-            // Sumar todos los ingresos del mes actual
-            totalIngresos = ingresosMesActual.reduce((sum, ingreso) => {
-              const monto = parseFloat(ingreso.monto) || 0;
-              return sum + monto;
-            }, 0);
-          }
-        } catch (err) {
-          console.warn('Error cargando ingresos:', err);
-          totalIngresos = 1800; // Valor por defecto
-        }
-
-        // 2. Cargar gastos normales del mes actual
-        let totalGastosNormales = 0;
-        try {
-          const resGastos = await fetch('/api/gastos');
-          if (resGastos.ok) {
-            const gastosData = await resGastos.json();
-            
-            // Filtrar gastos del mes actual
-            const gastosMesActual = gastosData.filter(gasto => {
-              if (!gasto.fecha) return false;
-              try {
-                const fechaGasto = new Date(gasto.fecha);
-                const mesGasto = `${fechaGasto.getFullYear()}-${String(fechaGasto.getMonth() + 1).padStart(2, '0')}`;
-                return mesGasto === mesActual;
-              } catch {
-                return false;
-              }
-            });
-
-            // Sumar todos los gastos normales del mes actual
-            totalGastosNormales = gastosMesActual.reduce((sum, gasto) => {
-              const monto = parseFloat(gasto.monto) || 0;
-              return sum + monto;
-            }, 0);
-          }
-        } catch (err) {
-          console.warn('Error cargando gastos normales:', err);
-          totalGastosNormales = 72; // Valor por defecto (50+20+2)
-        }
-
-        // 3. Cargar pagos fijos activos
-        let totalPagosFijos = 0;
-        try {
-          const resPagosFijos = await fetch('/api/pagos-fijos');
-          if (resPagosFijos.ok) {
-            const pagosFijosData = await resPagosFijos.json();
-            
-            // Filtrar solo pagos fijos activos
-            const pagosActivos = pagosFijosData.filter(pago => {
-              const activo = pago.activo === true || pago.activo === 'true' || pago.activo === undefined;
-              return activo;
-            });
-
-            // Sumar montos de todos los pagos fijos activos
-            totalPagosFijos = pagosActivos.reduce((sum, pago) => {
-              const monto = parseFloat(pago.monto) || 0;
-              return sum + monto;
-            }, 0);
-          }
-        } catch (err) {
-          console.warn('Error cargando pagos fijos:', err);
-          totalPagosFijos = 750; // Valor por defecto
-        }
-
-        // 4. Cargar compras a cuotas y calcular cuotas pagadas del mes actual
-        let totalCuotasPagadasMes = 0;
-        try {
-          const resCuotas = await fetch('/api/compras-cuotas');
-          if (resCuotas.ok) {
-            const comprasCuotasData = await resCuotas.json();
-            
-            // Filtrar solo compras a cuotas activas
-            const comprasActivas = comprasCuotasData.filter(compra => {
-              const activo = compra.activo === true || compra.activo === 'true' || compra.activo === undefined;
-              return activo;
-            });
-
-            // Para cada compra activa, sumar las cuotas pagadas en el mes actual
-            comprasActivas.forEach(compra => {
-              if (compra.historialCuotas && Array.isArray(compra.historialCuotas)) {
-                compra.historialCuotas.forEach(cuota => {
-                  // Solo considerar cuotas pagadas
-                  if (cuota.pagada && cuota.fecha) {
-                    try {
-                      const fechaCuota = new Date(cuota.fecha);
-                      fechaCuota.setHours(0, 0, 0, 0);
-                      
-                      const mesCuota = `${fechaCuota.getFullYear()}-${String(fechaCuota.getMonth() + 1).padStart(2, '0')}`;
-                      
-                      // Solo incluir si la fecha es hoy o pasada y del mes actual
-                      if (fechaCuota <= hoy && mesCuota === mesActual) {
-                        const monto = parseFloat(cuota.monto) || 0;
-                        totalCuotasPagadasMes += monto;
-                      }
-                    } catch (err) {
-                      console.warn('Error procesando fecha de cuota:', err);
-                    }
-                  }
-                });
-              }
-            });
-          }
-        } catch (err) {
-          console.warn('Error cargando compras a cuotas:', err);
-          totalCuotasPagadasMes = 47.98; // Valor por defecto (cuota 1 de Shein + cuota 3 de Aliexpress 1 + cuota 1 de Aliexpress 3 + cuota 1 de Aliexpress 2)
-        }
-
-        // 5. Calcular total de gastos (normales + fijos + cuotas)
-        const totalGastosCalculado = totalGastosNormales + totalPagosFijos + totalCuotasPagadasMes;
-        
-        // 6. Calcular dinero disponible
-        const nuevoDisponible = totalIngresos - totalGastosCalculado;
-
-        // 7. Actualizar estados
-        setIngresoMensual(totalIngresos);
-        setGastosNormales(totalGastosNormales);
-        setGastosFijos(totalPagosFijos);
-        setGastosCuotas(totalCuotasPagadasMes);
-        setTotalGastos(totalGastosCalculado);
-        setDisponible(nuevoDisponible);
-
-        console.log('Resumen calculado:', {
-          ingresos: totalIngresos,
-          gastosNormales: totalGastosNormales,
-          gastosFijos: totalPagosFijos,
-          gastosCuotas: totalCuotasPagadasMes,
-          totalGastos: totalGastosCalculado,
-          disponible: nuevoDisponible,
-          mes: mesActual
-        });
-
+        setLoading(true)
+        setError('')
+        const response = await fetch('/api/cuentas', { cache: 'no-store' })
+        if (!response.ok) throw new Error('No se pudieron cargar los saldos bancarios.')
+        const data = await response.json()
+        if (!Array.isArray(data)) throw new Error('La respuesta de cuentas no es válida.')
+        if (!cancelled) setAccounts(data)
       } catch (err) {
-        setError(err.message);
-        console.error('Error general cargando datos financieros:', err);
-        
-        // Usar valores por defecto en caso de error
-        setIngresoMensual(1800);
-        setGastosNormales(72);
-        setGastosFijos(750);
-        setGastosCuotas(47.98);
-        setTotalGastos(869.98);
-        setDisponible(930.02);
+        if (!cancelled) {
+          setError(err.message || 'Error al cargar los saldos.')
+          setAccounts([])
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false)
       }
-    };
+    }
 
-    fetchDatosFinancieros();
-    
-    // Recargar datos cada 60 segundos para actualizaciones
-    const intervalo = setInterval(fetchDatosFinancieros, 60000);
-    return () => clearInterval(intervalo);
-  }, []);
+    loadAccounts()
+    return () => { cancelled = true }
+  }, [])
 
-  // ========== CÁLCULOS DERIVADOS ==========
-  const porcentajeDisponible = ingresoMensual > 0 ? (disponible / ingresoMensual) * 100 : 0;
-  const porcentajeGastos = ingresoMensual > 0 ? (totalGastos / ingresoMensual) * 100 : 0;
-  const porcentajeGastosNormales = totalGastos > 0 ? (gastosNormales / totalGastos) * 100 : 0;
-  const porcentajeGastosFijos = totalGastos > 0 ? (gastosFijos / totalGastos) * 100 : 0;
-  const porcentajeGastosCuotas = totalGastos > 0 ? (gastosCuotas / totalGastos) * 100 : 0;
+  useEffect(() => {
+    let cancelled = false
+    const loadBudgetReserve = async () => {
+      try {
+        const [budgetsResponse, expensesResponse] = await Promise.all([
+          fetch('/api/presupuestos', { cache: 'no-store' }),
+          fetch('/api/gastos', { cache: 'no-store' }),
+        ])
+        if (!budgetsResponse.ok || !expensesResponse.ok) throw new Error('No se pudo calcular el dinero apartado.')
+        const [budgets, expenses] = await Promise.all([budgetsResponse.json(), expensesResponse.json()])
+        const currentMonth = new Intl.DateTimeFormat('sv-SE', {
+          timeZone: 'Europe/Madrid', year: 'numeric', month: '2-digit',
+        }).format(new Date()).slice(0, 7)
+        const eligibleBudgets = (Array.isArray(budgets) ? budgets : [])
+          .filter((item) => item.month >= currentMonth)
+        const availableMonths = [...new Set(eligibleBudgets.map((item) => item.month))].sort()
+        const spendForBudget = (budget, month) => sumMoney(
+          (Array.isArray(expenses) ? expenses : []).filter((expense) =>
+            expense.categoria === budget.category && String(expense.fecha || '').slice(0, 7) === month
+          ),
+          (expense) => expense.monto || 0
+        )
+        const monthRemaining = (month) => sumMoney(
+          eligibleBudgets.filter((item) => item.month === month),
+          (item) => Math.max(0, Number(item.amount || 0) - spendForBudget(item, month))
+        )
+        const targetMonth = availableMonths.find((month) => monthRemaining(month) > 0) || ''
+        const monthBudgets = eligibleBudgets.filter((item) => item.month === targetMonth)
+        const planned = sumMoney(monthBudgets, (item) => item.amount || 0)
+        const spent = sumMoney(monthBudgets, (item) => spendForBudget(item, targetMonth))
+        const remaining = sumMoney(monthBudgets, (item) => Math.max(0, Number(item.amount || 0) - spendForBudget(item, targetMonth)))
+        if (!cancelled) setBudgetReserve({ loading: false, month: targetMonth, planned, spent, remaining })
+      } catch (reserveError) {
+        if (!cancelled) setBudgetReserve({ loading: false, month: '', planned: 0, spent: 0, remaining: 0 })
+        console.error('No se pudo calcular la reserva del presupuesto:', reserveError)
+      }
+    }
+    loadBudgetReserve()
+    return () => { cancelled = true }
+  }, [])
 
-  // ========== ESTADOS DE CARGA Y ERROR ==========
-  if (loading) {
-    return (
-      <Card className="bg-gradient-to-br from-emerald-900/40 to-slate-900/40 border border-emerald-800/30 backdrop-blur-sm">
-        <CardHeader>
-          <CardTitle className="text-lg font-semibold text-white flex items-center gap-2">
-            <div className="p-2 bg-emerald-900/30 rounded-lg">
-              <Wallet className="h-5 w-5 text-emerald-400" />
-            </div>
-            Dinero Disponible
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="flex items-center justify-center py-10">
-          <div className="text-center">
-            <RefreshCw className="h-8 w-8 text-emerald-400 animate-spin mx-auto mb-3" />
-            <p className="text-sm text-slate-400">Calculando...</p>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (error) {
-    return (
-      <Card className="bg-gradient-to-br from-emerald-900/40 to-slate-900/40 border border-emerald-800/30 backdrop-blur-sm">
-        <CardHeader>
-          <CardTitle className="text-lg font-semibold text-white flex items-center gap-2">
-            <div className="p-2 bg-emerald-900/30 rounded-lg">
-              <AlertCircle className="h-5 w-5 text-emerald-400" />
-            </div>
-            Dinero Disponible
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="text-center py-6">
-          <p className="text-sm text-amber-400 mb-2">Error cargando datos</p>
-          <button
-            onClick={() => window.location.reload()}
-            className="text-xs bg-emerald-700 hover:bg-emerald-600 text-white px-3 py-1.5 rounded-md transition"
-          >
-            Reintentar
-          </button>
-        </CardContent>
-      </Card>
-    );
-  }
+  const totalsByCurrency = useMemo(() => sumMoneyBy(
+    accounts,
+    (account) => String(account.currencyCode || 'EUR').trim().toUpperCase(),
+    (account) => account.balance || 0
+  ), [accounts])
 
   return (
-    <Card className="bg-gradient-to-br from-emerald-900/40 to-slate-900/40 border border-emerald-800/30 backdrop-blur-sm">
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-lg font-semibold text-white flex items-center gap-2">
-            <div className="p-2 bg-emerald-900/30 rounded-lg">
-              <Wallet className="h-5 w-5 text-emerald-400" />
-            </div>
-            <div>
-              <div>Dinero Disponible</div>
-              <div className="text-xs text-emerald-300 font-normal">
-                {mesFiltro ? formatearMesTexto(mesFiltro) : 'Mes actual'}
-              </div>
-            </div>
-          </CardTitle>
-          <div className={`text-xs px-2 py-1 rounded-lg ${
-            porcentajeDisponible > 30 ? 'bg-emerald-900/30 text-emerald-300' :
-            porcentajeDisponible > 10 ? 'bg-amber-900/30 text-amber-300' :
-            'bg-red-900/30 text-red-300'
-          }`}>
-            {porcentajeDisponible.toFixed(0)}% libre
+    <Card className="overflow-hidden border border-emerald-800/40 bg-gradient-to-br from-emerald-950/35 via-slate-900/95 to-slate-900 shadow-xl shadow-black/10">
+      <CardHeader className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="flex items-center gap-3">
+          <div className="rounded-xl border border-emerald-500/15 bg-emerald-500/10 p-2.5">
+            <Wallet className="h-5 w-5 text-emerald-400" />
+          </div>
+          <div>
+            <CardTitle className="text-base font-semibold text-white">Dinero en tus cuentas</CardTitle>
+            <p className="mt-0.5 text-xs text-slate-400">Saldo actual según el libro de movimientos</p>
           </div>
         </div>
+        {!loading && !error && (
+          <span className="sm:ml-auto rounded-full border border-slate-700 bg-slate-950/50 px-3 py-1 text-xs text-slate-400">
+            {accounts.length} {accounts.length === 1 ? 'cuenta' : 'cuentas'}
+          </span>
+        )}
       </CardHeader>
 
-      <CardContent className="space-y-5">
-        {/* MONTO PRINCIPAL */}
-        <div className="text-center">
-          <p className="text-4xl font-bold text-white mb-2">
-            €{disponible.toFixed(2)}
-          </p>
-          <p className="text-sm text-emerald-300">
-            Para gastos variables y ahorro
-          </p>
-        </div>
-
-        {/* BARRA DE PROGRESO */}
-        <div className="space-y-2">
-          <div className="flex justify-between text-sm">
-            <span className="text-slate-300">Distribución mensual</span>
-            <span className="font-medium text-slate-300">
-              €{disponible.toFixed(0)} disponible
-            </span>
+      <CardContent className="space-y-4">
+        {loading ? (
+          <div className="flex min-h-44 items-center justify-center gap-2 text-sm text-slate-400">
+            <RefreshCw className="h-5 w-5 animate-spin text-emerald-400" />
+            Consultando saldos…
           </div>
-          <div className="h-2 w-full bg-slate-800 rounded-full overflow-hidden flex">
-            <div 
-              className="h-full bg-emerald-500 transition-all duration-500"
-              style={{ width: `${Math.min(Math.max(porcentajeDisponible, 0), 100)}%` }}
-              title={`${porcentajeDisponible.toFixed(1)}% disponible`}
-            ></div>
-            <div 
-              className="h-full bg-slate-600 transition-all duration-500"
-              style={{ width: `${Math.min(Math.max(porcentajeGastos, 0), 100)}%` }}
-              title={`${porcentajeGastos.toFixed(1)}% gastos totales`}
-            ></div>
-          </div>
-        </div>
-
-        {/* DESGLOSE DETALLADO */}
-        <div className="space-y-3">
-          {/* INGRESO MENSUAL */}
-          <div className="flex items-center justify-between p-3 bg-emerald-900/20 rounded-lg">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-emerald-900/30 rounded-lg">
-                <TrendingUp className="h-4 w-4 text-emerald-400" />
-              </div>
-              <div>
-                <span className="text-sm text-slate-300">Ingresos totales</span>
-              </div>
+        ) : error ? (
+          <div role="alert" className="rounded-xl border border-rose-800/50 bg-rose-950/20 p-4 text-sm text-rose-200">
+            <div className="mb-3 flex items-center gap-2">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              {error}
             </div>
-            <div className="text-right">
-              <span className="text-lg font-bold text-emerald-400">
-                €{ingresoMensual.toFixed(2)}
-              </span>
-            </div>
+            <button type="button" onClick={() => window.location.reload()} className="text-xs font-medium text-emerald-300 underline underline-offset-4">
+              Volver a cargar
+            </button>
           </div>
-
-          {/* GASTOS TOTALES - CON DESGLOSE */}
-          <div className="space-y-2">
-            {/* GASTOS NORMALES */}
-            <div className="flex items-center justify-between p-3 bg-slate-800/30 rounded-lg">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-slate-800 rounded-lg">
-                  <Receipt className="h-4 w-4 text-slate-400" />
-                </div>
-                <div>
-                  <span className="text-sm text-slate-300">Gastos normales</span>
-                </div>
+        ) : (
+          <>
+            <div className="grid gap-4 xl:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
+              <div className="flex flex-col justify-center rounded-2xl border border-emerald-500/15 bg-slate-950/55 p-5 sm:p-6">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-300/80">
+                  Total por moneda
+                </p>
+                {Object.entries(totalsByCurrency).length === 0 ? (
+                  <p className="mt-3 text-2xl font-semibold text-white">Sin cuentas</p>
+                ) : (
+                  <div className="mt-3 space-y-4">
+                    {Object.entries(totalsByCurrency).map(([currency, amount]) => (
+                      <div key={currency}>
+                        <p className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
+                          {formatMoney(amount, currency)}
+                        </p>
+                        <p className="mt-1 text-xs text-slate-400">Saldo disponible en {currency}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
-              <div className="text-right">
-                <span className="text-lg font-bold text-slate-300">
-                  €{gastosNormales.toFixed(2)}
-                </span>
-                {totalGastos > 0 && (
-                  <div className="text-xs text-slate-500">
-                    {porcentajeGastosNormales.toFixed(0)}% del total gastos
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between px-1 pb-1">
+                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">Detalle de cuentas</p>
+                  <span className="text-[11px] text-slate-500">Saldo individual</span>
+                </div>
+                {accounts.length === 0 ? (
+                  <div className="flex min-h-28 items-center justify-center rounded-xl border border-dashed border-slate-700 px-4 text-sm text-slate-500">
+                    No hay cuentas configuradas.
+                  </div>
+                ) : (
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {accounts.map((account) => (
+                      <div key={account.id} className="min-w-0 rounded-xl border border-slate-800 bg-slate-950/45 p-3 transition-colors hover:border-slate-700">
+                        <div className="flex items-center gap-2">
+                          <Landmark className="h-4 w-4 shrink-0 text-slate-500" />
+                          <span className="min-w-0 truncate text-sm font-medium text-slate-200">{account.name}</span>
+                        </div>
+                        <p className="mt-3 text-xl font-semibold tabular-nums text-white">
+                          {formatMoney(account.balance, account.currencyCode)}
+                        </p>
+                        <p className="mt-1 truncate text-[11px] text-slate-500">
+                          {account.lastMovementOn
+                            ? 'Último movimiento: ' + formatDate(account.lastMovementOn)
+                            : 'Saldo inicial: ' + (formatDate(account.openingBalanceDate) || 'fecha no indicada')}
+                        </p>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
             </div>
 
-            {/* GASTOS FIJOS */}
-            <div className="flex items-center justify-between p-3 bg-slate-800/30 rounded-lg">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-slate-800 rounded-lg">
-                  <Repeat className="h-4 w-4 text-amber-400" />
+            {budgetReserve.month && (
+              <div className="grid gap-3 border-t border-slate-800/80 pt-4 sm:grid-cols-2">
+                <div className="rounded-xl border border-amber-500/20 bg-amber-500/[0.06] p-4">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.13em] text-amber-300/80">Apartado · {new Date(budgetReserve.month + '-01T00:00:00').toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}</p>
+                  <p className="mt-2 text-2xl font-semibold tabular-nums text-white">{formatMoney(budgetReserve.remaining)}</p>
+                  <p className="mt-1 text-xs text-slate-400">De {formatMoney(budgetReserve.planned)} planificados · {formatMoney(budgetReserve.spent)} gastados</p>
                 </div>
-                <div>
-                  <span className="text-sm text-slate-300">Gastos fijos</span>
-                </div>
-              </div>
-              <div className="text-right">
-                <span className="text-lg font-bold text-slate-300">
-                  €{gastosFijos.toFixed(2)}
-                </span>
-                {totalGastos > 0 && (
-                  <div className="text-xs text-slate-500">
-                    {porcentajeGastosFijos.toFixed(0)}% del total gastos
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* GASTOS DE CUOTAS */}
-            {gastosCuotas > 0 && (
-              <div className="flex items-center justify-between p-3 bg-slate-800/30 rounded-lg">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-slate-800 rounded-lg">
-                    <Calculator className="h-4 w-4 text-purple-400" />
-                  </div>
-                  <div>
-                    <span className="text-sm text-slate-300">Cuotas pagadas</span>
-                    <p className="text-xs text-slate-500">Compras financiadas</p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <span className="text-lg font-bold text-purple-400">
-                    €{gastosCuotas.toFixed(2)}
-                  </span>
-                  {totalGastos > 0 && (
-                    <div className="text-xs text-slate-500">
-                      {porcentajeGastosCuotas.toFixed(0)}% del total gastos
-                    </div>
-                  )}
+                <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/[0.06] p-4">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.13em] text-emerald-300/80">Dinero libre tras reservas</p>
+                  <p className="mt-2 text-2xl font-semibold tabular-nums text-white">{formatMoney(Number(totalsByCurrency.EUR || 0) - budgetReserve.remaining)}</p>
+                  <p className="mt-1 text-xs text-slate-400">Saldo EUR menos lo que aún queda por apartar</p>
                 </div>
               </div>
             )}
-
-            {/* TOTAL GASTOS */}
-            <div className="flex items-center justify-between p-3 bg-red-900/20 rounded-lg border border-red-800/30">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-red-900/30 rounded-lg">
-                  <PieChart className="h-4 w-4 text-red-400" />
-                </div>
-                <div>
-                  <span className="text-sm text-slate-300">Total gastos</span>
-                </div>
-              </div>
-              <div className="text-right">
-                <span className="text-lg font-bold text-red-400">
-                  €{totalGastos.toFixed(2)}
-                </span>
-                {ingresoMensual > 0 && (
-                  <div className="text-xs text-slate-500">
-                    {porcentajeGastos.toFixed(0)}% del ingreso
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* INDICADORES FINANCIEROS */}
-        <div className="pt-2 border-t border-slate-800/50">
-          <div className="grid grid-cols-2 gap-2 text-xs mb-3">
-            <div className="p-2 bg-slate-800/30 rounded">
-              <div className="text-slate-500">Salud financiera</div>
-              <div className={
-                porcentajeDisponible > 30 ? 'text-emerald-400' : 
-                porcentajeDisponible > 10 ? 'text-amber-400' : 
-                'text-red-400'
-              }>
-                {porcentajeDisponible > 30 ? 'Excelente' : 
-                 porcentajeDisponible > 10 ? 'Aceptable' : 
-                 'Crítica'}
-              </div>
-            </div>
-            
-            <div className="p-2 bg-slate-800/30 rounded">
-              <div className="text-slate-500">Relación D/G</div>
-              <div className="text-slate-300">
-                {totalGastos > 0 ? (disponible/totalGastos).toFixed(1) : '∞'}:1
-              </div>
-            </div>
-          </div>
-
-          {/* ALERTAS INTELIGENTES */}
-          {disponible < 0 ? (
-            <div className="mt-3 p-2 bg-red-900/20 border border-red-800/30 rounded text-center">
-              <p className="text-xs text-red-400">
-                ⚠️ ¡Atención! Los gastos superan tus ingresos en €{Math.abs(disponible).toFixed(2)}
+            <div className="flex items-start gap-2 border-t border-slate-800/80 pt-3 text-xs leading-5 text-slate-500">
+              <Landmark className="mt-0.5 h-4 w-4 shrink-0 text-slate-600" />
+              <p>
+                Incluye los saldos iniciales y los movimientos contabilizados. Las deudas por cobrar y el dinero pendiente de reponer no se suman al saldo bancario.
               </p>
             </div>
-          ) : disponible < ingresoMensual * 0.2 && disponible > 0 ? (
-            <div className="mt-3 p-2 bg-amber-900/20 border border-amber-800/30 rounded text-center">
-              <p className="text-xs text-amber-400">
-                💡 Solo el {porcentajeDisponible.toFixed(0)}% disponible
-              </p>
-            </div>
-          ) : porcentajeDisponible > 50 ? (
-            <div className="mt-3 p-2 bg-emerald-900/20 border border-emerald-800/30 rounded text-center">
-              <p className="text-xs text-emerald-400">
-                ✅ Excelente! Tienes {porcentajeDisponible.toFixed(0)}% disponible para ahorrar
-              </p>
-            </div>
-          ) : null}
-          
-          {/* RESUMEN RÁPIDO */}
-          <div className="mt-3 text-xs text-slate-600 text-center">
-            <span>
-              {gastosNormales > 0 && gastosFijos > 0 && gastosCuotas > 0 
-                ? `${gastosNormales.toFixed(0)}€ normales + ${gastosFijos.toFixed(0)}€ fijos + ${gastosCuotas.toFixed(0)}€ cuotas` 
-                : gastosNormales > 0 && gastosFijos > 0
-                ? `${gastosNormales.toFixed(0)}€ normales + ${gastosFijos.toFixed(0)}€ fijos`
-                : gastosNormales > 0 && gastosCuotas > 0
-                ? `${gastosNormales.toFixed(0)}€ normales + ${gastosCuotas.toFixed(0)}€ cuotas`
-                : 'Sin gastos registrados este mes'
-              }
-            </span>
-          </div>
-        </div>
+          </>
+        )}
       </CardContent>
     </Card>
   )

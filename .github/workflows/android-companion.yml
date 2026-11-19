@@ -1,0 +1,90 @@
+name: Android APK CI
+
+on:
+  push:
+    branches:
+      - feat/finance-core-hardening
+      - feat/finanzas-apk-capacitor
+    paths:
+      - "android/**"
+      - "src/**"
+      - "tests/**"
+      - "package.json"
+      - "capacitor.config.json"
+      - "index.html"
+      - ".github/workflows/android-companion.yml"
+  pull_request:
+    paths:
+      - "android/**"
+      - "src/**"
+      - "tests/**"
+      - "package.json"
+      - "capacitor.config.json"
+      - "index.html"
+      - ".github/workflows/android-companion.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-android:
+    name: Build Finanzas Android APK
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: android
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Install web and Capacitor dependencies
+        run: npm install --no-audit --no-fund
+        working-directory: .
+
+      - name: Run web tests
+        run: npm test
+        working-directory: .
+
+      - name: Build web application
+        run: npm run build
+        working-directory: .
+        env:
+          # These are the public Supabase project URL and publishable key.
+          # Vite embeds VITE_* values into the APK at build time; they are not server secrets.
+          VITE_SUPABASE_URL: "https://xebgscmovaffrqckzpyz.supabase.co"
+          VITE_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_Mbxk3dAMZHoPKrh90zKHkw_yzzh22un"
+
+      - name: Sync web assets and native Capacitor plugins into Android
+        run: npx cap sync android
+        working-directory: .
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.13"
+
+      - name: Run Android parser tests
+        run: gradle --no-daemon :app:testDebugUnitTest
+
+      - name: Assemble debug APK
+        run: gradle --no-daemon :app:assembleDebug
+
+      - name: Upload personal preview APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: finanzas-mobile-poco-f8-pro-preview
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14

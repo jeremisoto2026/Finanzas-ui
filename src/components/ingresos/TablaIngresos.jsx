@@ -1,4 +1,6 @@
-import { useState, useMemo, useEffect } from 'react';
+import { Capacitor } from '@capacitor/core'
+import { useState, useMemo, useEffect, useCallback } from 'react';
+import { localDateInputValue, monthKeyFromDate, parseDateOnlyLocal, sumMoney, sumMoneyBy } from '@/lib/finance-core';
 
 // ICONOS LUCIDE REACT para ingresos (paleta verde unificada)
 import { 
@@ -26,14 +28,39 @@ import {
   Percent,
   Zap,
   Shield,
-  Thermometer
+  Thermometer,
+  Plus,
+  Save,
+  X,
+  Pencil,
+  Trash2
 } from 'lucide-react';
 
+const normalizeIncomeCategory = (value) => String(value || '').trim().normalize('NFD').replace(/\p{Diacritic}/gu, '').toLocaleLowerCase('es-ES')
+const FIXED_INCOME_CATEGORIES = new Set(['sueldo', 'pension', 'alquiler recibido', 'subsidio', 'nomina'])
+
 export default function TablaIngresos() {
-  // Estados para los datos de Notion
+  const isAndroidApp = Capacitor.getPlatform() === 'android'
+  // Estados para los ingresos registrados en Supabase
   const [ingresosMensuales, setIngresosMensuales] = useState([]);
+  const [cuentasUsuario, setCuentasUsuario] = useState([]);
+  const [cuentasLoading, setCuentasLoading] = useState(true);
+  const [cuentasError, setCuentasError] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [formOpen, setFormOpen] = useState(false);
+  const [editingIngresoId, setEditingIngresoId] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState('');
+  const [nuevoIngreso, setNuevoIngreso] = useState({
+    concepto: '',
+    monto: '',
+    fecha: localDateInputValue(),
+    categoria: 'Nómina',
+    cuentaId: '',
+    metodo: 'Transferencia'
+  });
 
   // Estados de filtros
   const [filtroMes, setFiltroMes] = useState('');
@@ -41,36 +68,142 @@ export default function TablaIngresos() {
   const [filtroCuenta, setFiltroCuenta] = useState('');
   const [filtroCategoria, setFiltroCategoria] = useState('');
 
-  // Fetch de datos desde Notion API
+  // Load real data only. Failed requests never populate demo figures.
   useEffect(() => {
     const fetchIngresos = async () => {
       try {
+        setLoading(true);
+        setError(null);
         const res = await fetch('/api/ingresos');
-        if (!res.ok) throw new Error('Error cargando ingresos');
+        if (!res.ok) throw new Error('No se pudieron cargar los ingresos.');
         const data = await res.json();
+        if (!Array.isArray(data)) throw new Error('La respuesta de ingresos no tiene el formato esperado.');
         setIngresosMensuales(data);
       } catch (err) {
         setError(err.message);
         console.error('Error fetching ingresos:', err);
-        
-        // Datos de ejemplo como fallback
-        setIngresosMensuales([
-          { id: 1, fecha: '2025-10-01', concepto: 'Salario mensual', metodo: 'Transferencia', categoria: 'Sueldo', cuenta: 'BBVA', monto: 2500 },
-          { id: 2, fecha: '2025-10-05', concepto: 'Trabajo freelance', metodo: 'PayPal', categoria: 'Freelance', cuenta: 'PayPal', monto: 450 },
-          { id: 3, fecha: '2025-10-10', concepto: 'Venta de artículos', metodo: 'Bizum', categoria: 'Ventas', cuenta: 'Revolut', monto: 120 },
-          { id: 4, fecha: '2025-10-15', concepto: 'Consultoría', metodo: 'Transferencia', categoria: 'Freelance', cuenta: 'BBVA', monto: 800 },
-          { id: 5, fecha: '2025-10-20', concepto: 'Propinas', metodo: 'Efectivo', categoria: 'Extras', cuenta: 'Efectivo', monto: 85 },
-          { id: 6, fecha: '2025-09-01', concepto: 'Salario mensual', metodo: 'Transferencia', categoria: 'Sueldo', cuenta: 'BBVA', monto: 2400 },
-          { id: 7, fecha: '2025-09-10', concepto: 'Inversiones', metodo: 'Transferencia', categoria: 'Inversiones', cuenta: 'BBVA', monto: 300 },
-          { id: 8, fecha: '2025-09-15', concepto: 'Reembolso', metodo: 'Tarjeta', categoria: 'Reembolsos', cuenta: 'Santander', monto: 150 },
-        ]);
+        setIngresosMensuales([]);
       } finally {
         setLoading(false);
       }
     };
-
     fetchIngresos();
   }, []);
+
+  const cargarCuentasUsuario = useCallback(async () => {
+    setCuentasLoading(true)
+    setCuentasError('')
+    try {
+      const response = await fetch('/api/cuentas', { cache: 'no-store' })
+      if (!response.ok) throw new Error('No se pudieron cargar tus cuentas.')
+      const data = await response.json()
+      if (!Array.isArray(data)) throw new Error('La lista de cuentas recibida no es válida.')
+      setCuentasUsuario(data)
+    } catch (loadError) {
+      console.error('No se pudieron cargar las cuentas para registrar ingresos:', loadError)
+      setCuentasUsuario([])
+      setCuentasError(loadError?.message || 'No se pudieron cargar tus cuentas.')
+    } finally {
+      setCuentasLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    void cargarCuentasUsuario()
+  }, [cargarCuentasUsuario])
+
+  const abrirNuevoIngreso = () => {
+    setEditingIngresoId(null)
+    setNuevoIngreso({
+      concepto: '', monto: '', fecha: localDateInputValue(),
+      categoria: 'Nómina', cuentaId: '', metodo: 'Transferencia',
+      idempotencyKey: crypto.randomUUID(),
+    })
+    setFormError('')
+    setFormOpen(true)
+  }
+
+  const editarIngreso = (ingreso) => {
+    setEditingIngresoId(ingreso.id)
+    setNuevoIngreso({
+      concepto: ingreso.concepto || '',
+      monto: String(ingreso.monto ?? ''),
+      fecha: String(ingreso.fecha || '').slice(0, 10),
+      categoria: ingreso.categoria || 'Otros',
+      cuentaId: ingreso.cuentaId || '',
+      metodo: ingreso.metodo || 'Transferencia',
+    })
+    setFormError('')
+    setFormOpen(true)
+  }
+
+  const guardarIngreso = async (event) => {
+    event.preventDefault()
+    const amount = Number(nuevoIngreso.monto)
+    if (!nuevoIngreso.concepto.trim() || !Number.isFinite(amount) || amount <= 0 || !nuevoIngreso.fecha) {
+      setFormError('Completa el concepto, un importe positivo y la fecha.')
+      return
+    }
+    if (!nuevoIngreso.cuentaId || !cuentasUsuario.some((account) => account.id === nuevoIngreso.cuentaId)) {
+      setFormError('Selecciona una cuenta válida donde recibiste el dinero.')
+      return
+    }
+
+    try {
+      setSaving(true)
+      setFormError('')
+      const response = await fetch('/api/ingresos', {
+        method: editingIngresoId ? 'PATCH' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...(editingIngresoId ? { id: editingIngresoId } : { idempotencyKey: nuevoIngreso.idempotencyKey || crypto.randomUUID() }),
+          ...nuevoIngreso,
+          monto: amount,
+        }),
+      })
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.error || 'No se pudo guardar el ingreso.')
+
+      setIngresosMensuales((current) => editingIngresoId
+        ? current.map((item) => item.id === editingIngresoId ? result : item)
+        : [result, ...current])
+      setFiltroMes(result.fecha.slice(0, 7))
+      setNuevoIngreso({
+        concepto: '', monto: '', fecha: localDateInputValue(),
+        categoria: 'Nómina', cuentaId: '', metodo: 'Transferencia',
+        idempotencyKey: crypto.randomUUID(),
+      })
+      setEditingIngresoId(null)
+      setFormOpen(false)
+    } catch (err) {
+      setFormError(err.message || 'No se pudo guardar el ingreso.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const eliminarIngreso = (ingreso) => setDeleteTarget(ingreso)
+
+  const confirmarEliminarIngreso = async () => {
+    if (!deleteTarget) return
+    try {
+      setSaving(true)
+      const response = await fetch('/api/ingresos', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: deleteTarget.id }),
+      })
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.error || 'No se pudo anular el ingreso.')
+      setIngresosMensuales((current) => current.filter((item) => item.id !== deleteTarget.id))
+      setDeleteTarget(null)
+      setFormError('')
+    } catch (err) {
+      setFormError(err.message || 'No se pudo anular el ingreso.')
+    } finally {
+      setSaving(false)
+    }
+  }
 
   // ========== FUNCIONES PARA DATOS DINÁMICOS ==========
 
@@ -81,13 +214,8 @@ export default function TablaIngresos() {
     ingresosMensuales.forEach(ingreso => {
       if (ingreso.fecha) {
         try {
-          const fecha = new Date(ingreso.fecha);
-          if (!isNaN(fecha.getTime())) {
-            const año = fecha.getFullYear();
-            const mes = fecha.getMonth() + 1;
-            const mesFormateado = `${año}-${mes.toString().padStart(2, '0')}`;
-            mesesSet.add(mesFormateado);
-          }
+          const monthKey = monthKeyFromDate(ingreso.fecha);
+          if (monthKey) mesesSet.add(monthKey);
         } catch (error) {
           console.error('Error procesando fecha:', ingreso.fecha, error);
         }
@@ -147,8 +275,8 @@ export default function TablaIngresos() {
   const ingresosFiltrados = useMemo(() => {
     return ingresosMensuales.filter(ingreso => {
       if (ingreso.fecha) {
-        const fechaIngreso = new Date(ingreso.fecha);
-        const mesIngreso = `${fechaIngreso.getFullYear()}-${String(fechaIngreso.getMonth() + 1).padStart(2, '0')}`;
+        const mesIngreso = monthKeyFromDate(ingreso.fecha);
+        if (!mesIngreso) return false;
         
         const cumpleMes = !filtroMes || mesIngreso === filtroMes;
         const cumpleMetodo = !filtroMetodo || ingreso.metodo === filtroMetodo;
@@ -164,25 +292,20 @@ export default function TablaIngresos() {
   // ========== CÁLCULOS PRINCIPALES MEJORADOS ==========
 
   // 1. Total
-  const total = ingresosFiltrados.reduce((sum, ingreso) => sum + ingreso.monto, 0);
+  const total = sumMoney(ingresosFiltrados, (ingreso) => ingreso.monto || 0);
 
   // 2. Calcular estadísticas por categoría con clasificación
   const estadisticasCategorias = useMemo(() => {
-    const categorias = {};
-    
-    ingresosFiltrados.forEach(ingreso => {
-      if (!categorias[ingreso.categoria]) {
-        categorias[ingreso.categoria] = {
-          total: 0,
-          count: 0,
-          promedio: 0,
-          porcentaje: 0,
-          tipo: 'variable' // Valor por defecto
-        };
-      }
-      categorias[ingreso.categoria].total += ingreso.monto;
-      categorias[ingreso.categoria].count += 1;
-    });
+    const groupedTotals = sumMoneyBy(
+      ingresosFiltrados,
+      (ingreso) => ingreso.categoria || 'Otros',
+      (ingreso) => ingreso.monto || 0
+    );
+    const categorias = Object.fromEntries(Object.entries(groupedTotals).map(([name, value]) => [
+      name,
+      { total: value, count: ingresosFiltrados.filter((ingreso) => (ingreso.categoria || 'Otros') === name).length,
+        promedio: 0, porcentaje: 0, tipo: 'variable' }
+    ]));
     
     // Calcular promedio y porcentaje
     Object.keys(categorias).forEach(categoria => {
@@ -190,21 +313,11 @@ export default function TablaIngresos() {
       categorias[categoria].porcentaje = (categorias[categoria].total / total) * 100;
       
       // Determinar tipo de ingreso (FIJO vs VARIABLE)
-      const categoriasFijas = ['Sueldo', 'Pensión', 'Alquiler recibido', 'Subsidio', 'Nómina'];
-      const categoriasVariables = ['Freelance', 'Ventas', 'Inversiones', 'Propinas', 'Extras', 'Reembolsos', 'Consultoría'];
-      
-      if (categoriasFijas.includes(categoria)) {
-        categorias[categoria].tipo = 'fijo';
-      } else if (categoriasVariables.includes(categoria)) {
-        categorias[categoria].tipo = 'variable';
-      } else {
-        // Si no está en las listas, determinar por frecuencia
-        if (categorias[categoria].count >= 2) {
-          categorias[categoria].tipo = 'fijo';
-        } else {
-          categorias[categoria].tipo = 'variable';
-        }
-      }
+      // La categoría fija se identifica sin depender de mayúsculas o tildes.
+      // La repetición en un mismo mes nunca convierte automáticamente un ingreso en fijo.
+      categorias[categoria].tipo = FIXED_INCOME_CATEGORIES.has(normalizeIncomeCategory(categoria))
+        ? 'fijo'
+        : 'variable';
     });
     
     return categorias;
@@ -212,25 +325,24 @@ export default function TablaIngresos() {
 
   // 3. Análisis de ingresos FIJOS vs VARIABLES
   const analisisTiposIngresos = useMemo(() => {
-    let fijos = 0;
-    let variables = 0;
-    
-    Object.entries(estadisticasCategorias).forEach(([_, datos]) => {
-      if (datos.tipo === 'fijo') {
-        fijos += datos.total;
-      } else {
-        variables += datos.total;
-      }
-    });
-    
-    const totalCalculado = fijos + variables;
+    const categoryStats = Object.values(estadisticasCategorias)
+    const fijos = sumMoney(
+      categoryStats.filter((item) => item.tipo === 'fijo'),
+      (item) => item.total
+    )
+    const variables = sumMoney(
+      categoryStats.filter((item) => item.tipo !== 'fijo'),
+      (item) => item.total
+    )
+    const totalCalculado = sumMoney([fijos, variables])
+
     return {
       fijos,
       variables,
       porcentajeFijos: totalCalculado > 0 ? (fijos / totalCalculado) * 100 : 0,
       porcentajeVariables: totalCalculado > 0 ? (variables / totalCalculado) * 100 : 0,
-      estabilidad: totalCalculado > 0 && fijos >= 0.6 * totalCalculado ? 'Alta' : 'Media'
-    };
+      estabilidad: totalCalculado > 0 && fijos >= 0.6 * totalCalculado ? 'Alta' : 'Media',
+    }
   }, [estadisticasCategorias]);
 
   // 4. Calcular categoría principal con más detalles
@@ -382,34 +494,24 @@ export default function TablaIngresos() {
 
   // 10. Meta de ingresos y progreso (mantenemos esta funcionalidad única)
   const metaIngresos = useMemo(() => {
-    // Calcular promedio de los últimos 3 meses para establecer una meta realista
+    // El promedio solo utiliza meses con ingresos reales registrados.
     const meses = obtenerMesesDisponibles.slice(0, 3);
-    const totalesPorMes = {};
-    
-    ingresosMensuales.forEach(ingreso => {
-      if (ingreso.fecha) {
-        const fecha = new Date(ingreso.fecha);
-        const mes = `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}`;
-        
-        if (meses.includes(mes)) {
-          totalesPorMes[mes] = (totalesPorMes[mes] || 0) + ingreso.monto;
-        }
-      }
-    });
-    
-    const valores = Object.values(totalesPorMes);
-    const promedioUltimosMeses = valores.length > 0 
-      ? valores.reduce((a, b) => a + b, 0) / valores.length 
-      : 0;
-    
+    const movimientosRecientes = ingresosMensuales.filter((ingreso) => meses.includes(monthKeyFromDate(ingreso.fecha)));
+    const totalesPorMes = sumMoneyBy(
+      movimientosRecientes,
+      (ingreso) => monthKeyFromDate(ingreso.fecha),
+      (ingreso) => ingreso.monto || 0
+    );
+    const valores = meses.map((mes) => totalesPorMes[mes]).filter((value) => value !== undefined);
+    const promedioUltimosMeses = valores.length > 0 ? sumMoney(valores) / valores.length : 0;
     const meta = promedioUltimosMeses * 1.1;
-    const progreso = total > 0 ? (total / meta) * 100 : 0;
-    
+    const progreso = meta > 0 ? (total / meta) * 100 : 0;
+
     return {
-      meta: Math.round(meta),
+      meta: Math.round(meta * 100) / 100,
       progreso: Math.min(progreso, 100),
-      alcanzada: total >= meta,
-      diferencia: total - meta
+      alcanzada: meta > 0 && total >= meta,
+      diferencia: total - meta,
     };
   }, [ingresosMensuales, total, obtenerMesesDisponibles]);
 
@@ -417,9 +519,7 @@ export default function TablaIngresos() {
   const proximosIngresos = useMemo(() => {
     const ingresosMesActual = ingresosMensuales.filter(ingreso => {
       if (!ingreso.fecha) return false;
-      const fecha = new Date(ingreso.fecha);
-      const mesIngreso = `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}`;
-      return mesIngreso === mesActual;
+      return monthKeyFromDate(ingreso.fecha) === mesActual;
     });
     
     if (ingresosMesActual.length === 0) return [];
@@ -438,6 +538,8 @@ export default function TablaIngresos() {
           metodo: ingreso.metodo,
           ultimaFecha: ingreso.fecha
         };
+      } else if (String(ingreso.fecha).slice(0, 10) > String(conceptosRecurrentes[clave].ultimaFecha).slice(0, 10)) {
+        conceptosRecurrentes[clave].ultimaFecha = ingreso.fecha;
       }
       conceptosRecurrentes[clave].montos.push(ingreso.monto);
     });
@@ -445,15 +547,14 @@ export default function TablaIngresos() {
     const estimaciones = Object.values(conceptosRecurrentes)
       .filter(item => item.montos.length >= 1)
       .map(item => {
-        const montoPromedio = item.montos.reduce((a, b) => a + b, 0) / item.montos.length;
-        const fechaUltima = new Date(item.ultimaFecha);
-        
-        let proximaFechaEstimada = new Date(fechaUltima);
-        
-        if (item.concepto.toLowerCase().includes('salario') || 
+        const montoPromedio = sumMoney(item.montos) / item.montos.length;
+        const fechaUltima = parseDateOnlyLocal(item.ultimaFecha);
+        if (!fechaUltima) return null;
+
+        const proximaFechaEstimada = new Date(fechaUltima);
+        if (item.concepto.toLowerCase().includes('salario') ||
             item.concepto.toLowerCase().includes('nómina')) {
-          proximaFechaEstimada.setMonth(proximaFechaEstimada.getMonth() + 1);
-          proximaFechaEstimada.setDate(1);
+          proximaFechaEstimada.setMonth(proximaFechaEstimada.getMonth() + 1, 1);
         } else if (item.categoria === 'Freelance' || item.categoria === 'Consultoría') {
           proximaFechaEstimada.setDate(proximaFechaEstimada.getDate() + 15);
         } else {
@@ -464,12 +565,13 @@ export default function TablaIngresos() {
           concepto: item.concepto,
           categoria: item.categoria,
           montoEstimado: montoPromedio,
-          proximaFecha: proximaFechaEstimada.toISOString().split('T')[0],
+          proximaFecha: localDateInputValue(proximaFechaEstimada),
           confianza: item.montos.length > 1 ? 'Alta' : 'Media',
           cuenta: item.cuenta
         };
       })
-      .sort((a, b) => new Date(a.proximaFecha) - new Date(b.proximaFecha))
+      .filter(Boolean)
+      .sort((a, b) => a.proximaFecha.localeCompare(b.proximaFecha))
       .slice(0, 3);
     
     return estimaciones;
@@ -477,39 +579,32 @@ export default function TablaIngresos() {
 
   // 12. Tendencias mensuales mejoradas (igual que TablaGastos)
   const tendenciaMensual = useMemo(() => {
-    if (obtenerMesesDisponibles.length < 2) return { 
-      cambio: 0, 
-      mensaje: 'Datos insuficientes',
-      tendencia: 'neutral'
-    };
-    
+    if (obtenerMesesDisponibles.length < 2) {
+      return { cambio: 0, mensaje: 'Datos insuficientes', tendencia: 'neutral' };
+    }
+
     const meses = obtenerMesesDisponibles.slice(0, 2);
-    const totalesPorMes = {};
+    const movimientos = ingresosMensuales.filter((ingreso) => meses.includes(monthKeyFromDate(ingreso.fecha)));
+    const totalesPorMes = sumMoneyBy(
+      movimientos,
+      (ingreso) => monthKeyFromDate(ingreso.fecha),
+      (ingreso) => ingreso.monto || 0
+    );
     const categoriasPorMes = {};
-    
-    // Calcular total y categorías por mes
-    ingresosMensuales.forEach(ingreso => {
-      if (ingreso.fecha) {
-        const fecha = new Date(ingreso.fecha);
-        const mes = `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}`;
-        
-        if (meses.includes(mes)) {
-          totalesPorMes[mes] = (totalesPorMes[mes] || 0) + ingreso.monto;
-          
-          if (!categoriasPorMes[mes]) {
-            categoriasPorMes[mes] = {};
-          }
-          categoriasPorMes[mes][ingreso.categoria] = 
-            (categoriasPorMes[mes][ingreso.categoria] || 0) + ingreso.monto;
-        }
-      }
+    movimientos.forEach((ingreso) => {
+      const mes = monthKeyFromDate(ingreso.fecha);
+      const categoria = ingreso.categoria || 'Otros';
+      if (!categoriasPorMes[mes]) categoriasPorMes[mes] = {};
+      categoriasPorMes[mes][categoria] = sumMoney([
+        categoriasPorMes[mes][categoria] || 0,
+        ingreso.monto || 0,
+      ]);
     });
-    
-    // Comparar los dos meses
+
     const [mesActualKey, mesAnteriorKey] = meses;
     const actual = totalesPorMes[mesActualKey] || 0;
     const anterior = totalesPorMes[mesAnteriorKey] || 0;
-    
+
     if (anterior === 0) return { 
       cambio: 0, 
       mensaje: 'Sin datos previos',
@@ -567,7 +662,7 @@ export default function TablaIngresos() {
       <div className="min-h-screen bg-slate-950 flex items-center justify-center">
         <div className="text-center">
           <RefreshCw className="h-12 w-12 text-emerald-400 animate-spin mx-auto mb-4" />
-          <p className="text-slate-400 text-lg">Cargando ingresos desde Notion...</p>
+          <p className="text-slate-400 text-lg">Cargando ingresos desde Supabase...</p>
           <p className="text-slate-500 text-sm mt-2">Conectando con tu base de datos</p>
         </div>
       </div>
@@ -585,7 +680,7 @@ export default function TablaIngresos() {
             </div>
             <p className="text-slate-300 mb-4">{error}</p>
             <p className="text-slate-400 text-sm mb-6">
-              Mostrando datos de ejemplo. Asegúrate de que tu endpoint /api/ingresos esté configurado correctamente.
+              No se muestran importes hasta recuperar los datos reales. Comprueba la conexión y vuelve a intentarlo.
             </p>
             <button
               onClick={() => window.location.reload()}
@@ -600,7 +695,7 @@ export default function TablaIngresos() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 p-4 md:p-6">
+    <div className="mx-auto w-full max-w-7xl space-y-6 pb-8">
       {/* HEADER MEJORADO (igual que TablaGastos) */}
       <div className="mb-8">
         <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
@@ -663,6 +758,92 @@ export default function TablaIngresos() {
           </button>
         </div>
       </div>
+
+      <div className="mb-5 flex justify-end">
+        <button onClick={abrirNuevoIngreso} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-500"><Plus className="h-4 w-4" />Nuevo ingreso</button>
+      </div>
+
+      {formOpen && (
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/80 p-3 backdrop-blur-sm sm:p-6"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget && !saving) {
+              setFormOpen(false)
+              setEditingIngresoId(null)
+            }
+          }}
+        >
+          <form onSubmit={guardarIngreso} role="dialog" aria-modal="true" aria-labelledby="income-dialog-title" className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-slate-700 bg-slate-900 p-5 shadow-2xl sm:p-6">
+            <div className="mb-5 flex items-start justify-between gap-4 border-b border-slate-800 pb-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-400">Libro de ingresos</p>
+                <h2 id="income-dialog-title" className="mt-1 text-xl font-semibold text-white">{editingIngresoId ? 'Editar ingreso' : 'Registrar ingreso'}</h2>
+                <p className="mt-1 text-sm text-slate-400">El cambio actualizará el movimiento y el saldo de la cuenta.</p>
+              </div>
+              <button type="button" onClick={() => { setFormOpen(false); setEditingIngresoId(null); }} className="rounded-xl border border-slate-700 p-2 text-slate-400 transition hover:bg-slate-800 hover:text-white" aria-label="Cerrar formulario"><X className="h-5 w-5" /></button>
+            </div>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <label className="text-sm font-medium text-slate-300 md:col-span-2">Concepto
+                <input required value={nuevoIngreso.concepto} onChange={(e) => setNuevoIngreso({ ...nuevoIngreso, concepto: e.target.value })} className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-3 text-white outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20" placeholder="Ej. Nómina de noviembre" />
+              </label>
+              <label className="text-sm font-medium text-slate-300">Importe (€)
+                <input required type="number" min="0.01" step="0.01" value={nuevoIngreso.monto} onChange={(e) => setNuevoIngreso({ ...nuevoIngreso, monto: e.target.value })} className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-3 text-white outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20" />
+              </label>
+              <label className="text-sm font-medium text-slate-300">Fecha
+                <input required type="date" value={nuevoIngreso.fecha} onChange={(e) => setNuevoIngreso({ ...nuevoIngreso, fecha: e.target.value })} className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-3 text-white outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20" />
+              </label>
+              <label className="text-sm font-medium text-slate-300">Categoría
+                <select value={nuevoIngreso.categoria} onChange={(e) => setNuevoIngreso({ ...nuevoIngreso, categoria: e.target.value })} className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-3 text-white outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20">
+                  <optgroup label="Ingresos habituales"><option>Nómina</option><option>Trabajo / reparto</option><option>Horas extra</option><option>Extras</option><option>Alquiler recibido</option><option>Prestaciones y ayudas</option></optgroup>
+                  <optgroup label="Ingresos puntuales"><option>Propinas</option><option>Ventas</option><option>Cobros de préstamos</option><option>Préstamo recibido</option><option>Reembolsos</option><option>Intereses</option><option>Otros</option></optgroup>
+                </select>
+              </label>
+              <label className="text-sm font-medium text-slate-300">¿En qué cuenta recibiste el ingreso?
+                <select required value={nuevoIngreso.cuentaId} onChange={(e) => setNuevoIngreso({ ...nuevoIngreso, cuentaId: e.target.value })} disabled={cuentasLoading || cuentasUsuario.length === 0} className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-3 text-white outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 disabled:opacity-60">
+                  <option value="">{cuentasLoading ? 'Cargando cuentas…' : cuentasUsuario.length ? 'Selecciona una cuenta' : 'No hay cuentas disponibles'}</option>
+                  {cuentasUsuario.map((account) => <option key={account.id} value={account.id}>{account.name} · {account.currencyCode || 'EUR'}</option>)}
+                </select>
+                <span className="mt-1 block text-xs font-normal text-slate-500">El importe se sumará al saldo de esta cuenta.</span>
+                {cuentasError && (
+                  <span role="alert" className="mt-2 flex flex-wrap items-center gap-2 text-xs font-normal text-rose-300">
+                    {cuentasError}
+                    <button type="button" onClick={() => void cargarCuentasUsuario()} className="rounded-lg border border-rose-700/60 px-2 py-1 font-semibold text-rose-200 hover:bg-rose-950/40">Volver a cargar</button>
+                  </span>
+                )}
+              </label>
+              <label className="text-sm font-medium text-slate-300">Método de recepción
+                <select value={nuevoIngreso.metodo} onChange={(e) => setNuevoIngreso({ ...nuevoIngreso, metodo: e.target.value })} className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-3 text-white outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"><option>Transferencia</option><option>Bizum</option><option>Efectivo</option><option>Tarjeta</option></select>
+              </label>
+            </div>
+            {formError && <p role="alert" className="mt-4 rounded-xl border border-rose-800/50 bg-rose-950/30 px-3 py-2.5 text-sm text-rose-200">{formError}</p>}
+            <div className="mt-6 flex flex-col-reverse gap-2 border-t border-slate-800 pt-4 sm:flex-row sm:justify-end">
+              <button type="button" onClick={() => { setFormOpen(false); setEditingIngresoId(null); setFormError(''); }} className="rounded-xl border border-slate-700 px-4 py-2.5 text-sm font-medium text-slate-300 transition hover:bg-slate-800">Cancelar</button>
+              <button type="submit" disabled={saving} className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"><Save className="h-4 w-4" />{saving ? 'Guardando…' : editingIngresoId ? 'Guardar cambios' : 'Registrar ingreso'}</button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {deleteTarget && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm">
+          <section role="dialog" aria-modal="true" aria-labelledby="delete-income-title" className="w-full max-w-md rounded-2xl border border-slate-700 bg-slate-900 p-5 shadow-2xl">
+            <div className="flex items-start gap-3">
+              <span className="rounded-xl bg-rose-500/10 p-2.5 text-rose-300"><Trash2 className="h-5 w-5" /></span>
+              <div><h2 id="delete-income-title" className="font-semibold text-white">Anular este ingreso</h2><p className="mt-1 text-sm leading-6 text-slate-400">Se retirará del saldo y de los totales, pero quedará conservado en el registro para mantener la trazabilidad.</p></div>
+            </div>
+            <div className="mt-4 rounded-xl border border-slate-800 bg-slate-950/70 p-3">
+              <p className="truncate text-sm font-medium text-slate-200">{deleteTarget.concepto}</p>
+              <p className="mt-1 text-lg font-semibold tabular-nums text-emerald-300">{new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(deleteTarget.monto)}</p>
+            </div>
+            {formError && <p role="alert" className="mt-3 rounded-lg border border-rose-800/50 bg-rose-950/30 p-3 text-sm text-rose-200">{formError}</p>}
+            <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <button type="button" disabled={saving} onClick={() => setDeleteTarget(null)} className="rounded-xl border border-slate-700 px-4 py-2.5 text-sm text-slate-300 hover:bg-slate-800 disabled:opacity-50">Conservar ingreso</button>
+              <button type="button" disabled={saving} onClick={confirmarEliminarIngreso} className="rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-rose-500 disabled:opacity-50">{saving ? 'Anulando…' : 'Sí, anular ingreso'}</button>
+            </div>
+          </section>
+        </div>
+      )}
 
       {/* LAYOUT DE DOS COLUMNAS (igual que TablaGastos) */}
       <div className="flex flex-col lg:flex-row gap-6">
@@ -950,6 +1131,9 @@ export default function TablaIngresos() {
                     <th className="px-6 py-3 text-right text-xs font-medium text-slate-400 uppercase tracking-wider">
                       Monto
                     </th>
+                    {!isAndroidApp && (<th className="px-6 py-3 text-right text-xs font-medium text-slate-400 uppercase tracking-wider">
+                      Acciones
+                    </th>)}
                   </tr>
                 </thead>
                 
@@ -1003,6 +1187,14 @@ export default function TablaIngresos() {
                             </span>
                           </div>
                         </td>
+                        {!isAndroidApp && (
+                          <td className="px-6 py-4 whitespace-nowrap text-right">
+                                                    <div className="inline-flex items-center gap-1">
+                                                      <button type="button" disabled={saving} onClick={() => editarIngreso(ingreso)} className="rounded-lg bg-slate-800 p-2 text-sky-300 hover:bg-slate-700 disabled:opacity-50" title="Editar ingreso"><Pencil className="h-4 w-4" /></button>
+                                                      <button type="button" disabled={saving} onClick={() => eliminarIngreso(ingreso)} className="rounded-lg bg-rose-950/30 p-2 text-rose-300 hover:bg-rose-900/40 disabled:opacity-50" title="Anular ingreso"><Trash2 className="h-4 w-4" /></button>
+                                                    </div>
+                                                  </td>
+                          )}
                       </tr>
                     );
                   })}

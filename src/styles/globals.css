@@ -2,6 +2,153 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
-  @apply bg-slate-950 text-slate-100;
+@layer base {
+  :root {
+    --finance-safe-area-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+    --finance-safe-area-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
+  }
+
+  html {
+    color-scheme: dark;
+    scroll-behavior: smooth;
+    background: #080F1C;
+    min-height: 100%;
+  }
+
+  body {
+    @apply min-w-0 bg-slate-950 text-slate-100 antialiased;
+    min-height: 100vh;
+    min-height: 100dvh;
+    margin: 0;
+    font-feature-settings: "ss01" on, "cv11" on;
+    background-color: #080F1C;
+    background-image:
+      radial-gradient(ellipse at 12% 0%, rgba(16, 185, 129, 0.085), transparent 38rem),
+      radial-gradient(ellipse at 100% 16%, rgba(59, 130, 246, 0.045), transparent 32rem);
+    background-attachment: fixed;
+    overscroll-behavior-y: contain;
+  }
+
+  #root {
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+
+  button, input, select, textarea {
+    @apply disabled:cursor-not-allowed;
+  }
+
+  input, select, textarea {
+    @apply transition-colors;
+  }
+
+  button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+    @apply outline-none ring-2 ring-emerald-400 ring-offset-2 ring-offset-slate-950;
+  }
+
+  ::selection {
+    @apply bg-emerald-400/30 text-white;
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #334155 #080F1C;
+  }
+}
+
+@layer components {
+  .app-shell {
+    --finance-bg: #080F1C;
+    --finance-panel: rgba(15, 23, 42, 0.72);
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+
+  /*
+   * Keep safe-area padding in this component. Navbar must not add Tailwind
+   * py-* or min-h-* utilities that override these declarations.
+   */
+  .app-topbar {
+    box-sizing: border-box;
+    padding-top: calc(0.75rem + var(--finance-safe-area-top));
+    padding-bottom: 0.75rem;
+    min-height: calc(4.25rem + var(--finance-safe-area-top));
+  }
+
+  /*
+   * The shared main element owns the bottom scroll clearance for every page.
+   * Do not apply py-* utilities to it: utilities would override this padding.
+   */
+  .app-main {
+    padding-bottom: calc(10rem + var(--finance-safe-area-bottom));
+    scroll-padding-bottom: calc(10rem + var(--finance-safe-area-bottom));
+  }
+
+  .app-bottom-nav {
+    position: fixed;
+    z-index: 60;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.25rem;
+    padding: 0.55rem 0.65rem calc(var(--finance-safe-area-bottom) + 0.55rem);
+    border-top: 1px solid rgba(51, 65, 85, 0.7);
+    background: rgba(8, 15, 28, 0.94);
+    -webkit-backdrop-filter: blur(22px);
+    backdrop-filter: blur(22px);
+    box-shadow: 0 -12px 36px rgba(2, 6, 23, 0.34);
+  }
+
+  .mobile-nav-item {
+    display: flex;
+    min-width: 0;
+    min-height: 3.55rem;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
+    border: 1px solid transparent;
+    border-radius: 0.95rem;
+    color: #94a3b8;
+    font-size: 0.65rem;
+    font-weight: 600;
+    line-height: 1;
+    transition: color 150ms ease, background-color 150ms ease, border-color 150ms ease;
+  }
+
+  .mobile-nav-item.is-active {
+    border-color: rgba(16, 185, 129, 0.15);
+    background: rgba(16, 185, 129, 0.10);
+    color: #6ee7b7;
+  }
+
+  .finance-panel {
+    @apply rounded-2xl border border-slate-800/90 bg-slate-900/70 shadow-lg shadow-black/10;
+  }
+
+  .finance-page-title {
+    @apply text-2xl font-semibold tracking-tight text-white sm:text-3xl;
+  }
+
+  .finance-muted {
+    @apply text-sm leading-6 text-slate-400;
+  }
+}
+
+@media (min-width: 768px) {
+  .app-main {
+    padding-bottom: 2.5rem;
+    scroll-padding-bottom: 2.5rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
 }

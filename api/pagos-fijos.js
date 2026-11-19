@@ -1,124 +1,104 @@
-import { Client } from '@notionhq/client'
+import { handleCors } from '../server/cors.js'
+import { createAuthenticatedClient, findOrCreateCategory, findOrCreateAccount, sendApiError } from '../server/supabase.js'
+import { fixedPaymentForUi, frequencyToDb } from '../server/finance.js'
 
-const notion = new Client({ 
-  auth: process.env.NOTION_TOKEN 
-})
+const allowedFrequencies = new Set(['weekly', 'biweekly', 'monthly', 'quarterly', 'yearly', 'custom'])
+
+function validateFixedPayment(body, partial = false) {
+  const patch = {}
+  if (!partial || body.nombre !== undefined) {
+    const name = String(body.nombre || '').trim()
+    if (!name) throw new Error('Indica un nombre para el pago fijo.')
+    patch.name = name
+  }
+  if (!partial || body.monto !== undefined) {
+    const amount = Number(body.monto)
+    if (!Number.isFinite(amount) || amount <= 0) throw new Error('El importe debe ser mayor que cero.')
+    patch.amount = amount
+  }
+  if (body.frecuencia !== undefined) {
+    const frequency = frequencyToDb(body.frecuencia)
+    if (!allowedFrequencies.has(frequency)) throw new Error('La frecuencia del pago no es válida.')
+    patch.frequency = frequency
+  }
+  if (body.fechaInicio !== undefined) patch.next_due_on = body.fechaInicio ? String(body.fechaInicio).slice(0, 10) : null
+  if (body.metodo !== undefined) patch.payment_method = String(body.metodo || '').trim() || null
+  if (body.notificacion !== undefined) patch.notification_enabled = Boolean(body.notificacion)
+  if (body.notas !== undefined) patch.notes = String(body.notas || '').trim() || null
+  return patch
+}
 
 export default async function handler(req, res) {
-  if (req.method === 'GET') {
-    try {
-      const databaseId = process.env.NOTION_PAGOS_FIJOS_DATABASE_ID
-      
-      const response = await notion.databases.query({
-        database_id: databaseId,
-        sorts: [
-          { property: 'Activo', direction: 'descending' },
-          { property: 'Próximo pago', direction: 'ascending' }
-        ]
-      })
+  if (handleCors(req, res)) return;
+  res.setHeader('Cache-Control', 'no-store')
+  try {
+    const { supabase, user } = await createAuthenticatedClient(req)
 
-      const pagosFijos = response.results.map(page => ({
-        id: page.id,
-        nombre: page.properties.Nombre?.title[0]?.plain_text || '',
-        monto: page.properties.Monto?.number || 0,
-        metodo: page.properties['Método']?.select?.name || '',
-        categoria: page.properties['Categoría']?.select?.name || '',
-        frecuencia: page.properties.Frecuencia?.select?.name || 'mensual',
-        fechaInicio: page.properties['Próximo pago']?.date?.start || '',
-        activo: page.properties.Activo?.checkbox || false,
-        notificacion: page.properties['Notificación']?.checkbox || false
-      }))
-
-      res.status(200).json(pagosFijos)
-    } catch (error) {
-      console.error('Error fetching pagos fijos:', error)
-      res.status(500).json({ error: 'Error al obtener pagos fijos' })
+    if (req.method === 'GET') {
+      const { data, error } = await supabase
+        .from('fixed_payments')
+        .select('id, name, amount, payment_method, frequency, next_due_on, status, notification_enabled, notes, categories(name), accounts(name)')
+        .eq('user_id', user.id)
+        .neq('status', 'cancelled')
+        .order('next_due_on', { ascending: true })
+      if (error) throw error
+      return res.status(200).json((data || []).map(fixedPaymentForUi))
     }
-  }
-  
-  else if (req.method === 'POST') {
-    try {
-      const { nombre, monto, metodo, categoria, frecuencia, fechaInicio, notificacion } = req.body
-      
-      const response = await notion.pages.create({
-        parent: { 
-          database_id: process.env.NOTION_PAGOS_FIJOS_DATABASE_ID 
-        },
-        properties: {
-          Nombre: {
-            title: [{ text: { content: nombre } }]
-          },
-          Monto: { number: parseFloat(monto) },
-          'Método': { select: { name: metodo } },
-          'Categoría': { select: { name: categoria } },
-          Frecuencia: { select: { name: frecuencia } },
-          'Próximo pago': { date: { start: fechaInicio } },
-          Activo: { checkbox: true },
-          'Notificación': { checkbox: notificacion }
-        }
-      })
 
-      const nuevoPago = {
-        id: response.id,
-        nombre,
-        monto: parseFloat(monto),
-        metodo,
-        categoria,
-        frecuencia,
-        fechaInicio,
-        activo: true,
-        notificacion
+    if (req.method === 'POST') {
+      const body = req.body || {}
+      let patch
+      try { patch = validateFixedPayment(body) } catch (error) {
+        return res.status(400).json({ error: error.message })
       }
-
-      res.status(201).json(nuevoPago)
-    } catch (error) {
-      console.error('Error creating pago fijo:', error)
-      res.status(500).json({ error: 'Error al crear pago fijo' })
+      if (body.categoria) patch.category_id = await findOrCreateCategory(supabase, user.id, body.categoria, 'expense')
+      if (body.cuenta) patch.account_id = await findOrCreateAccount(supabase, user.id, body.cuenta)
+      const { data, error } = await supabase.from('fixed_payments').insert({
+        user_id: user.id,
+        ...patch,
+        status: 'active',
+      }).select('id, name, amount, payment_method, frequency, next_due_on, status, notification_enabled, notes, categories(name), accounts(name)').single()
+      if (error) throw error
+      return res.status(201).json(fixedPaymentForUi(data))
     }
-  }
 
-  else if (req.method === 'PATCH') {
-    try {
-      const { id, activo } = req.body
-      
-      const response = await notion.pages.update({
-        page_id: id,
-        properties: {
-          Activo: { checkbox: activo }
-        }
-      })
-
-      res.status(200).json({ 
-        id: response.id, 
-        activo: response.properties.Activo.checkbox 
-      })
-    } catch (error) {
-      console.error('Error updating pago fijo:', error)
-      res.status(500).json({ error: 'Error al actualizar pago fijo' })
+    if (req.method === 'PATCH') {
+      const body = req.body || {}
+      if (!body.id) return res.status(400).json({ error: 'Falta el identificador del pago fijo.' })
+      const patch = {}
+      if (body.activo !== undefined) {
+        if (typeof body.activo !== 'boolean') return res.status(400).json({ error: 'El estado activo no es válido.' })
+        patch.status = body.activo ? 'active' : 'paused'
+      }
+      try { Object.assign(patch, validateFixedPayment(body, true)) } catch (error) {
+        return res.status(400).json({ error: error.message })
+      }
+      if (body.categoria !== undefined) patch.category_id = await findOrCreateCategory(supabase, user.id, body.categoria, 'expense')
+      if (body.cuenta !== undefined) patch.account_id = body.cuenta ? await findOrCreateAccount(supabase, user.id, body.cuenta) : null
+      if (!Object.keys(patch).length) return res.status(400).json({ error: 'No hay cambios para guardar.' })
+      const { data, error } = await supabase.from('fixed_payments')
+        .update(patch).eq('id', body.id).eq('user_id', user.id)
+        .select('id, name, amount, payment_method, frequency, next_due_on, status, notification_enabled, notes, categories(name), accounts(name)')
+        .maybeSingle()
+      if (error) throw error
+      if (!data) return res.status(404).json({ error: 'No se encontró el pago fijo.' })
+      return res.status(200).json(fixedPaymentForUi(data))
     }
-  }
 
-  else if (req.method === 'DELETE') {
-    try {
-      const { id } = req.body
-      
-      const response = await notion.pages.update({
-        page_id: id,
-        archived: true
-      })
-
-      res.status(200).json({ 
-        success: true, 
-        id: response.id 
-      })
-    } catch (error) {
-      console.error('Error deleting pago fijo:', error)
-      res.status(500).json({ error: 'Error al eliminar pago fijo' })
+    if (req.method === 'DELETE') {
+      const { id } = req.body || {}
+      if (!id) return res.status(400).json({ error: 'Falta el identificador del pago.' })
+      const { data, error } = await supabase.from('fixed_payments')
+        .update({ status: 'cancelled' }).eq('id', id).eq('user_id', user.id)
+        .select('id').maybeSingle()
+      if (error) throw error
+      if (!data) return res.status(404).json({ error: 'No se encontró el pago fijo.' })
+      return res.status(200).json({ success: true, id })
     }
-  }
 
-  else {
-    res.setHeader('Allow', ['GET', 'POST', 'PATCH', 'DELETE'])
-    res.status(405).end(`Method ${req.method} Not Allowed`)
+    res.setHeader('Allow', 'GET, POST, PATCH, DELETE')
+    return res.status(405).json({ error: 'Método no permitido.' })
+  } catch (error) {
+    return sendApiError(res, error, 'No se pudo completar la operación de pagos fijos.')
   }
 }
