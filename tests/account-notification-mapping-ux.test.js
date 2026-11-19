@@ -144,3 +144,8 @@ test('la coincidencia por nombre funciona también con fuentes bancarias futuras
     { accountId: 'future-bank', reason: 'matching', matchType: 'name' },
   )
 })
+
+test('normaliza etiquetas genéricas de fuentes bancarias', () => {
+  assert.equal(getBankSourceLabel('banco_nuevo'), 'Banco Nuevo')
+  assert.equal(getBankSourceLabel('banco-nuevo'), 'Banco-Nuevo')
+})
