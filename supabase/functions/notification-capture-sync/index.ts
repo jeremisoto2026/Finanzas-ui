@@ -62,6 +62,12 @@ function normalizeText(value: string) {
     .toLocaleLowerCase("es")
 }
 
+function accountNameMatchesBank(accountName: string, bankLabel: string) {
+  const accountTokens = normalizeText(accountName).split(/[^a-z0-9]+/).filter(Boolean)
+  const bankToken = normalizeText(bankLabel)
+  return accountTokens.includes(bankToken)
+}
+
 async function sha256(value: string) {
   const digest = await crypto.subtle.digest(
     "SHA-256",
@@ -286,7 +292,7 @@ Deno.serve(async (req: Request) => {
 
       const candidateAccounts = capture.accountLabel
         ? (accounts || []).filter((account) =>
-            normalizeText(account.name) === normalizeText(capture.accountLabel) &&
+            accountNameMatchesBank(account.name, capture.accountLabel) &&
             String(account.currency_code || "EUR").toUpperCase() === "EUR"
           )
         : []
