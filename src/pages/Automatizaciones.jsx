@@ -565,7 +565,8 @@ export default function Automatizaciones({ onNavigate }) {
             </div>
             <p className="mt-3 text-xs leading-5 text-slate-400">
               Capturas cifradas en este móvil: {localCaptureCount}. Los avisos de otras aplicaciones se ignoran.
-              Las compras fiables se registran solas; las dudosas quedan pendientes.
+              Una compra solo se registra sola cuando coinciden Google Wallet y el aviso del banco, existe una cuenta vinculada
+              y la categoría es fiable. Si falta un aviso o hay ambigüedad, queda pendiente de revisión.
             </p>
             <div className="mt-4 flex flex-wrap gap-2">
               {isNativeAndroid && (
