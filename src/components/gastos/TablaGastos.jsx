@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { monthKeyFromDate, sumMoney } from '@/lib/finance-core';
+import { useConfirmationDialog } from '@/components/ui/ConfirmationDialog';
 import { uniqueCategoryNames } from '@/lib/category-utils';
 import { 
   Download, 
@@ -39,6 +40,7 @@ import {
 } from 'lucide-react';
 
 export default function TablaGastos() {
+  const confirm = useConfirmationDialog();
   // Movimientos de gasto contabilizados procedentes del libro mayor.
   const [gastosMensuales, setGastosMensuales] = useState([]);
   const [categoriasDisponibles, setCategoriasDisponibles] = useState([]);
@@ -49,7 +51,6 @@ export default function TablaGastos() {
   const [error, setError] = useState(null);
   const [formOpen, setFormOpen] = useState(false);
   const [editingGastoId, setEditingGastoId] = useState(null);
-  const [deleteTarget, setDeleteTarget] = useState(null);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState('');
   const [nuevoGasto, setNuevoGasto] = useState({
@@ -206,26 +207,27 @@ export default function TablaGastos() {
     }
   }
 
-  const eliminarGasto = (gasto) => {
-    setDeleteTarget(gasto)
-    setFormError('')
-  }
+  const eliminarGasto = async (gasto) => {
+    const amountLabel = new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(gasto.monto)
+    const approved = await confirm({
+      title: '¿Anular este gasto?',
+      description: `«${gasto.concepto}» · ${amountLabel}. Se retirará del saldo y de los totales, pero permanecerá en el historial con estado anulado.`,
+      confirmLabel: 'Anular gasto',
+    })
+    if (!approved) return
 
-  const confirmarEliminarGasto = async () => {
-    if (!deleteTarget) return
     try {
       setSaving(true)
       setFormError('')
       const response = await fetch('/api/gastos', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: deleteTarget.id }),
+        body: JSON.stringify({ id: gasto.id }),
       })
       const result = await response.json()
       if (!response.ok) throw new Error(result.error || 'No se pudo anular el gasto.')
-      setGastosMensuales((current) => current.filter((item) => item.id !== deleteTarget.id))
+      setGastosMensuales((current) => current.filter((item) => item.id !== gasto.id))
       window.dispatchEvent(new Event('finanzas:transactions-updated'))
-      setDeleteTarget(null)
     } catch (err) {
       setFormError(err.message || 'No se pudo anular el gasto.')
     } finally {
@@ -367,6 +369,9 @@ export default function TablaGastos() {
   // ========== RENDER ==========
   return (
     <div className="mx-auto w-full max-w-7xl space-y-6 pb-8">
+      {formError && !formOpen && (
+        <p role="alert" className="rounded-xl border border-rose-800/50 bg-rose-950/30 px-4 py-3 text-sm text-rose-200">{formError}</p>
+      )}
       {/* HEADER */}
       <div className="mb-8">
         <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
@@ -470,26 +475,6 @@ export default function TablaGastos() {
               <button type="submit" disabled={saving} className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"><Save className="h-4 w-4" />{saving ? 'Guardando…' : editingGastoId ? 'Guardar cambios' : 'Registrar gasto'}</button>
             </div>
           </form>
-        </div>
-      )}
-
-      {deleteTarget && (
-        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm">
-          <section role="dialog" aria-modal="true" aria-labelledby="delete-expense-title" className="w-full max-w-md rounded-2xl border border-slate-700 bg-slate-900 p-5 shadow-2xl">
-            <div className="flex items-start gap-3">
-              <span className="rounded-xl bg-rose-500/10 p-2.5 text-rose-300"><Trash2 className="h-5 w-5" /></span>
-              <div><h2 id="delete-expense-title" className="font-semibold text-white">Anular este gasto</h2><p className="mt-1 text-sm leading-6 text-slate-400">Se retirará del saldo y de los totales, pero permanecerá en el registro de forma anulada.</p></div>
-            </div>
-            <div className="mt-4 rounded-xl border border-slate-800 bg-slate-950/70 p-3">
-              <p className="truncate text-sm font-medium text-slate-200">{deleteTarget.concepto}</p>
-              <p className="mt-1 text-lg font-semibold tabular-nums text-rose-300">−{new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(deleteTarget.monto)}</p>
-            </div>
-            {formError && <p role="alert" className="mt-3 rounded-lg border border-rose-800/50 bg-rose-950/30 p-3 text-sm text-rose-200">{formError}</p>}
-            <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-              <button type="button" disabled={saving} onClick={() => { setDeleteTarget(null); setFormError('') }} className="rounded-xl border border-slate-700 px-4 py-2.5 text-sm text-slate-300 hover:bg-slate-800 disabled:opacity-50">Conservar gasto</button>
-              <button type="button" disabled={saving} onClick={confirmarEliminarGasto} className="rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-rose-500 disabled:opacity-50">{saving ? 'Anulando…' : 'Sí, anular gasto'}</button>
-            </div>
-          </section>
         </div>
       )}
 
