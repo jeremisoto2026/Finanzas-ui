@@ -48,15 +48,15 @@ object NotificationParser {
         RegexOption.IGNORE_CASE
     )
     private val bbvaPurchaseSignal = Regex(
-        """\b(compra|compraste|pago con tarjeta|pago realizado|compra realizada|operaci[oó]n de tarjeta)\b""",
+        """\b(compra|compraste|pago\s+(?:aceptado|autorizado|con\s+tarjeta|realizado)|compra realizada|operaci[oó]n de tarjeta)\b""",
         RegexOption.IGNORE_CASE
     )
     private val bbvaMerchant = Regex(
-        """\b(?:en|a)\s+(.+?)(?=\r?\n|saldo|\s+tarjeta|$)""",
+        """\b(?:en|a)\s+((?:[^\r\n]|-\s*\r?\n)+?)(?=\s+(?:con\s+tu\s+)?tarjeta\b|\s+saldo\b|$)""",
         RegexOption.IGNORE_CASE
     )
     private val genericNotificationTitle = Regex(
-        """^(bbva|notificaci[oó]n|compra|pago|google wallet|wallet|revolut)$""",
+        """^(bbva|notificaci[oó]n|compra|pago(?:\s+(?:aceptado|autorizado))?|google wallet|wallet|revolut)$""",
         RegexOption.IGNORE_CASE
     )
 
@@ -135,6 +135,7 @@ object NotificationParser {
                 Regex("\\b(?:COMPRA|TARJETA|PAGO|PAGADO|PAYMENT|CONTACTLESS|TPV|POS|REVOLUT|GOOGLE|WALLET)\\b"),
                 " "
             )
+            .replace(Regex("(?<=\\p{L})-(?=\\p{L})"), "")
             .replace(Regex("[^\\p{L}\\p{N}]+"), " ")
             .replace(Regex("\\b\\d{2,}\\b"), " ")
             .trim()
@@ -143,6 +144,7 @@ object NotificationParser {
 
     private fun cleanMerchant(value: String): String {
         return value
+            .replace(Regex("-[ \t]*\r?\n[ \t]*"), "")
             .lineSequence()
             .firstOrNull()
             .orEmpty()
