@@ -350,7 +350,7 @@ async function notificationCaptures(req, res, supabase, user) {
   if (req.method === 'GET') {
     const { data, error } = await supabase
       .from('notification_capture_events')
-      .select('id, source_app, notification_title, notification_text, occurred_at, status, created_at, parsed_merchant, parsed_amount, currency_code, account_label, payment_channel, card_last4, pair_key, categories(name)')
+      .select('id, source_app, notification_title, notification_text, occurred_at, status, created_at, parsed_merchant, parsed_amount, currency_code, account_label, payment_channel, pair_key, categories(name)')
       .eq('user_id', user.id)
       .order('occurred_at', { ascending: false })
       .limit(20)
@@ -377,7 +377,6 @@ async function notificationCaptures(req, res, supabase, user) {
         currencyCode: row.currency_code || 'EUR',
         account: row.account_label || '',
         paymentChannel: row.payment_channel || '',
-        cardLast4: row.card_last4 || null,
         category: row.categories?.name || '',
         pairKey: row.pair_key || null,
       })),
@@ -392,8 +391,8 @@ async function notificationCaptures(req, res, supabase, user) {
     const text = String(req.body?.text || '').trim().slice(0, 2000)
     const occurredDate = new Date(req.body?.occurredAt || '')
 
-    if (!['revolut', 'google_wallet'].includes(sourceApp)) {
-      res.status(400).json({ error: 'Solo se admiten notificaciones de Revolut y Google Wallet.' })
+    if (!['revolut', 'bbva', 'google_wallet'].includes(sourceApp)) {
+      res.status(400).json({ error: 'Solo se admiten notificaciones de Revolut, BBVA y Google Wallet.' })
       return
     }
     if (packageName.length < 3 || packageName.length > 180 || !title || !text || !Number.isFinite(occurredDate.getTime())) {
@@ -430,8 +429,10 @@ async function notificationCaptures(req, res, supabase, user) {
         source_app: sourceApp,
         package_name: packageName,
         fingerprint,
-        notification_title: title,
-        notification_text: text,
+        notification_title: parsed.isPayment ? parsed.merchant : sourceApp,
+        notification_text: parsed.isPayment
+          ? `Pago detectado: ${parsed.amount.toFixed(2)} ${parsed.currencyCode}`
+          : `Aviso recibido de ${sourceApp}`,
         occurred_at: occurredAt,
         status: parsed.isPayment ? 'needs_review' : 'received',
         parsed_merchant: parsed.isPayment ? parsed.merchant : null,
@@ -440,9 +441,8 @@ async function notificationCaptures(req, res, supabase, user) {
         category_id: categoryId,
         account_label: parsed.isPayment ? parsed.accountLabel : null,
         payment_channel: parsed.isPayment ? parsed.paymentChannel : null,
-        card_last4: parsed.isPayment ? parsed.cardLast4 : null,
       })
-      .select('id, source_app, parsed_merchant, parsed_amount, currency_code, occurred_at, status, card_last4, account_label, payment_channel')
+      .select('id, source_app, parsed_merchant, parsed_amount, currency_code, occurred_at, status, account_label, payment_channel')
       .single()
 
     if (error) {
@@ -520,7 +520,6 @@ async function notificationCaptures(req, res, supabase, user) {
         currencyCode: event.currency_code || 'EUR',
         account: event.account_label || '',
         paymentChannel: event.payment_channel || '',
-        cardLast4: event.card_last4 || null,
         categorySuggestion: parsed.categorySuggestion || null,
       },
       message: paired
