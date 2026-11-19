@@ -14,7 +14,6 @@ data class LocalCapture(
     val currencyCode: String,
     val occurredAtMillis: Long,
     val accountName: String?,
-    val cardLast4: String?,
     val categorySuggestion: String?,
     val sources: Set<NotificationSource>,
     val notificationKeys: Set<String>,
@@ -90,7 +89,6 @@ class CaptureStore(context: Context) {
                 ?: payment.source.takeIf { it.isBank }?.accountName
             val merged = previous.copy(
                 accountName = trustedBank ?: previous.accountName ?: payment.accountName,
-                cardLast4 = previous.cardLast4 ?: payment.cardLast4,
                 categorySuggestion = previous.categorySuggestion ?: payment.categorySuggestion,
                 sources = previous.sources + payment.source,
                 notificationKeys = previous.notificationKeys +
@@ -110,7 +108,6 @@ class CaptureStore(context: Context) {
             currencyCode = payment.currencyCode,
             occurredAtMillis = payment.occurredAtMillis,
             accountName = payment.accountName,
-            cardLast4 = payment.cardLast4,
             categorySuggestion = payment.categorySuggestion,
             sources = setOf(payment.source),
             notificationKeys = listOfNotNull(payment.notificationKey).toSet(),
@@ -124,7 +121,7 @@ class CaptureStore(context: Context) {
     @Synchronized
     fun readAll(): List<LocalCapture> {
         val raw = encrypted.getString(KEY) ?: return emptyList()
-        return try {
+        val captures = try {
             val array = JSONArray(raw)
             buildList {
                 for (index in 0 until array.length()) {
@@ -150,11 +147,10 @@ class CaptureStore(context: Context) {
                                 if (sources.any { it.isBank }) {
                                     stored ?: sources.firstOrNull { it.isBank }?.accountName
                                 } else if (NotificationSource.GOOGLE_WALLET in sources) {
-                                    // Older builds incorrectly labeled Wallet-only captures as Revolut.
+                                    // Wallet-only captures have no reliable bank until an issuer is identified.
                                     null
                                 } else stored
                             },
-                            cardLast4 = if (item.isNull("cardLast4")) null else item.optString("cardLast4").takeIf { it.isNotBlank() },
                             categorySuggestion = if (item.isNull("categorySuggestion")) null else item.optString("categorySuggestion").takeIf { it.isNotBlank() },
                             sources = sources,
                             notificationKeys = item.optJSONArray("notificationKeys").toStringSet(),
@@ -162,10 +158,14 @@ class CaptureStore(context: Context) {
                         )
                     )
                 }
-            }.sortedByDescending { it.occurredAtMillis }
+            }
         } catch (_: Exception) {
             emptyList()
         }
+
+        // Rewrite legacy encrypted records without the retired card-suffix field.
+        persist(captures)
+        return captures.sortedByDescending { it.occurredAtMillis }
     }
 
     @Synchronized
@@ -192,7 +192,6 @@ class CaptureStore(context: Context) {
                         .put("currencyCode", item.currencyCode)
                         .put("occurredAtMillis", item.occurredAtMillis)
                         .put("accountName", item.accountName ?: JSONObject.NULL)
-                        .put("cardLast4", item.cardLast4 ?: JSONObject.NULL)
                         .put("categorySuggestion", item.categorySuggestion ?: JSONObject.NULL)
                         .put("sources", sources)
                         .put("notificationKeys", keys)
