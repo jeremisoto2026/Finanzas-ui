@@ -152,10 +152,10 @@ test('Web Push VAPID key, subscription, storage, and service worker are wired', 
   assert.match(worker, /showNotification/)
 })
 
-test('Preview APK version is incremented for these account and history fixes', () => {
+test('Preview APK version is incremented for privacy-first bank notification linking', () => {
   const gradle = read('android/app/build.gradle.kts')
-  assert.match(gradle, /versionCode = 11/)
-  assert.match(gradle, /versionName = "1\.0\.10-preview"/)
+  assert.match(gradle, /versionCode = 12/)
+  assert.match(gradle, /versionName = "1.0.11-preview"/)
 })
 
 
