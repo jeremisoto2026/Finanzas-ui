@@ -73,10 +73,20 @@ class NotificationCaptureSyncWorker(
                 }
                 val status = connection.responseCode
                 val responseStream = if (status in 200..299) connection.inputStream else connection.errorStream
-                responseStream?.use { it.readBytes() }
+                val responseBody = responseStream?.use { it.readBytes().toString(Charsets.UTF_8) }.orEmpty()
 
                 when {
-                    status in 200..299 -> Result.success()
+                    status in 200..299 -> {
+                        val response = runCatching { JSONObject(responseBody) }.getOrNull()
+                        val registeredExpenses = response?.optJSONArray("registeredExpenses")
+                        if (registeredExpenses != null) {
+                            for (index in 0 until registeredExpenses.length()) {
+                                val expense = registeredExpenses.optJSONObject(index) ?: continue
+                                ExpenseRegisteredNotifier.show(applicationContext, expense)
+                            }
+                        }
+                        Result.success()
+                    }
                     status == 408 || status == 429 || status >= 500 -> Result.retry()
                     else -> {
                         android.util.Log.w(
