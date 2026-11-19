@@ -72,43 +72,35 @@ type AccountRow = {
 type AccountSourceMapping = {
   account_id: string
   source_app: string
-  card_last4: string | null
   is_active: boolean
 }
 
 /**
- * Only a paired Google Wallet + bank notification can identify the account.
- * The optional suffix is the one extracted from the BANK notification.
- * Wallet's virtual PAN suffix is deliberately not used for this lookup.
+ * Resolve every notification to the user's app-to-account default:
+ * - Bank-only or Wallet+bank: use the bank app identified by Android's package.
+ * - Wallet-only with an explicit issuer: use that issuer's mapping.
+ * - Wallet-only without an issuer: use a mapping only when exactly one bank app
+ *   is linked, avoiding guesses when several banks are configured.
  */
 function resolveMappedAccount(
   capture: ValidCapture,
   mappings: AccountSourceMapping[],
   accounts: AccountRow[],
 ) {
-  if (!capture.isPaired || !capture.sources.includes("google_wallet")) return null
+  const bankSource = capture.sources.find((source) => source === "revolut" || source === "bbva") ||
+    (capture.accountLabel === "Revolut" ? "revolut" :
+      capture.accountLabel === "BBVA" ? "bbva" : null)
 
-  const bankSource = capture.sources.find((source) => source === "revolut" || source === "bbva")
-  if (!bankSource) return null
-
-  const bankMappings = mappings.filter((mapping) =>
-    mapping.source_app === bankSource && mapping.is_active
+  const activeBankMappings = mappings.filter((mapping) =>
+    mapping.is_active && (mapping.source_app === "revolut" || mapping.source_app === "bbva")
   )
-  let candidates = capture.cardLast4
-    ? bankMappings.filter((mapping) => mapping.card_last4 === capture.cardLast4)
-    : []
+  const candidates = bankSource
+    ? activeBankMappings.filter((mapping) => mapping.source_app === bankSource)
+    : activeBankMappings
 
-  // A bank-wide mapping is safe only when the user has exactly one active
-  // mapping for that bank. Multiple cards/accounts must have an exact suffix.
-  if (
-    candidates.length === 0 &&
-    bankMappings.length === 1 &&
-    bankMappings[0].card_last4 == null
-  ) {
-    candidates = bankMappings
-  }
-
+  // Wallet without issuer is safe only if one bank application is linked.
   if (candidates.length !== 1) return null
+
   const account = accounts.find((item) =>
     item.id === candidates[0].account_id &&
     item.is_active === true &&
@@ -134,7 +126,6 @@ type ValidCapture = {
   currencyCode: "EUR"
   occurredAt: string
   accountLabel: "Revolut" | "BBVA" | null
-  cardLast4: string | null
   categorySuggestion: string | null
   sources: string[]
   isPaired: boolean
@@ -197,8 +188,6 @@ function validateCapture(value: unknown): ValidCapture {
     throw new Error("Solo se pueden emparejar avisos de Google Wallet con un único banco.")
   }
 
-  const rawCardLast4 = String(item.cardLast4 || "").trim()
-  const cardLast4 = /^[0-9]{4}$/.test(rawCardLast4) ? rawCardLast4 : null
   const rawCategory = String(item.categorySuggestion || "").trim()
   const categorySuggestion = rawCategory.length >= 2
     ? rawCategory.slice(0, 120)
@@ -220,7 +209,6 @@ function validateCapture(value: unknown): ValidCapture {
     currencyCode: "EUR",
     occurredAt: new Date(occurredAtMillis).toISOString(),
     accountLabel: bankAccountLabel,
-    cardLast4,
     categorySuggestion,
     sources,
     isPaired: sources.length > 1 && item.isPaired === true,
@@ -308,7 +296,7 @@ Deno.serve(async (req: Request) => {
 
     const { data: accountMappings, error: mappingError } = await supabase
       .from("account_notification_sources")
-      .select("account_id, source_app, card_last4, is_active")
+      .select("account_id, source_app, is_active")
       .eq("user_id", userId)
       .eq("is_active", true)
     if (mappingError) throw mappingError
@@ -344,7 +332,9 @@ Deno.serve(async (req: Request) => {
       const suggestedCategoryId = capture.categorySuggestion
         ? categoryIds.get(normalizeText(capture.categorySuggestion)) || null
         : null
-      const categoryId = ruleCategoryId || suggestedCategoryId
+      const fallbackCategoryId = categoryIds.get(normalizeText("Otros")) ||
+        (categories || [])[0]?.id || null
+      const categoryId = ruleCategoryId || suggestedCategoryId || fallbackCategoryId
 
       const account = resolveMappedAccount(
         capture,
@@ -387,13 +377,7 @@ Deno.serve(async (req: Request) => {
         transactionId = existing.id
         transactionAccountId = existing.account_id
         transactionCategoryId = existing.category_id
-      } else if (
-        account?.id &&
-        categoryId &&
-        capture.isPaired &&
-        capture.sources.includes("google_wallet") &&
-        capture.sources.some((source) => source === "revolut" || source === "bbva")
-      ) {
+      } else if (account?.id && categoryId) {
         const occurredOn = new Intl.DateTimeFormat("sv-SE", {
           timeZone: "Europe/Madrid",
           year: "numeric",
@@ -469,7 +453,6 @@ Deno.serve(async (req: Request) => {
           payment_channel: capture.sources.includes("google_wallet")
             ? "google_wallet"
             : sourceApp,
-          card_last4: capture.cardLast4,
           matched_transaction_id: transactionId,
         })
       }
