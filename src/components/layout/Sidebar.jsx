@@ -36,7 +36,7 @@ export default function Sidebar({ mobile = false, activePage, setActivePage }) {
       </div>
       <nav aria-label="Navegación principal" className="space-y-1">
         {items.map((item) => {
-          const isSettingsPage = item.name === 'Ajustes' && ['Recordatorios', 'Automatizaciones', 'Compras pendientes', 'Gestión financiera', 'Deudas', 'Compromisos'].includes(activePage)
+          const isSettingsPage = item.name === 'Ajustes' && ['Recordatorios', 'Automatizaciones', 'Compras pendientes', 'Gestión financiera', 'Cuentas', 'Deudas', 'Compromisos'].includes(activePage)
           const isActive = activePage === item.name || isSettingsPage
           const Icon = item.icon
           return (
