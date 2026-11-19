@@ -95,7 +95,9 @@ export function parsePaymentNotification({ sourceApp, title = '', text = '', occ
 
     const cardMatch = combined.match(/(?:visa|mastercard|maestro|amex)\s*[•·*\s]*([0-9]{4})/i) ||
       combined.match(/[•·*]{2,}\s*([0-9]{4})/)
-    if (cardMatch) cardLast4 = cardMatch[1]
+    // Wallet can show a virtual card number whose suffix differs from the bank card.
+    // Only bank-notification suffixes are used for account-to-card bindings.
+    cardLast4 = null
 
     const issuer = combined.match(/\bcon\s+(Revolut|BBVA)\b/i)
     accountLabel = issuer ? (issuer[1].toLowerCase() === 'bbva' ? 'BBVA' : 'Revolut') : null
