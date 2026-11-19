@@ -580,6 +580,8 @@ async function updateAndroidTransaction(parsedUrl, method, init, sourceRequest) 
   }
 }
 
+const DEFAULT_ANDROID_EXPENSE_CATEGORIES = ['Alimentación', 'Vivienda', 'Transporte', 'Salud', 'Ocio', 'Suscripciones', 'Servicios', 'Ropa', 'Educación', 'Familia', 'Otros']
+
 async function fetchAndroidApi(parsedUrl, method, input, init, sourceRequest) {
   if (method === 'GET') {
     // The expense form requests category names separately from the dashboard snapshot.
@@ -595,14 +597,14 @@ async function fetchAndroidApi(parsedUrl, method, input, init, sourceRequest) {
 
         const seen = new Set()
         const categories = []
-        for (const row of data || []) {
-          const name = String(row.name || '').trim().replace(/\\s+/g, ' ')
+        for (const value of [...DEFAULT_ANDROID_EXPENSE_CATEGORIES, ...(data || []).map((row) => row.name)]) {
+          const name = String(value || '').trim().replace(/\s+/g, ' ')
           const key = name.normalize('NFKC').toLocaleLowerCase('es-ES')
           if (!name || seen.has(key)) continue
           seen.add(key)
           categories.push(name)
         }
-        return jsonResponse(categories)
+        return jsonResponse(categories.sort((a, b) => a.localeCompare(b, 'es', { sensitivity: 'base' })))
       } catch (error) {
         console.error('No se pudieron cargar las categorías de gastos en Android:', error)
         return jsonResponse({ error: error?.message || 'No se pudieron cargar las categorías.' }, 502)
