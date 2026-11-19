@@ -36,3 +36,35 @@ test('Capacitor injects CSS edge-to-edge insets and viewport fit', () => {
   assert.match(styles, /env\(safe-area-inset-top, 0px\)/)
   assert.match(styles, /env\(safe-area-inset-bottom, 0px\)/)
 })
+
+test('Manual expense forms require an account and validate ownership through the API', () => {
+  const form = read('src/components/gastos/TablaGastos.jsx')
+  const api = read('api/gastos.js')
+
+  assert.match(form, /cuentaId:\s*''/)
+  assert.match(form, /¿De qué cuenta salió el dinero\?/)
+  assert.match(form, /<select required value=\{nuevoGasto\.cuentaId\}/)
+  assert.match(form, /!nuevoGasto\.cuentaId \|\| !cuentasUsuario\.some/)
+  assert.match(api, /findOwnedAccountId\(supabase, user\.id, body\.cuentaId\)/)
+})
+
+test('Manual income forms require the account where the money was received', () => {
+  const form = read('src/components/ingresos/TablaIngresos.jsx')
+  const api = read('api/ingresos.js')
+
+  assert.match(form, /cuentaId:\s*''/)
+  assert.match(form, /¿En qué cuenta recibiste el ingreso\?/)
+  assert.match(form, /<select required value=\{nuevoIngreso\.cuentaId\}/)
+  assert.match(form, /!nuevoIngreso\.cuentaId \|\| !cuentasUsuario\.some/)
+  assert.match(api, /findOwnedAccountId\(supabase, user\.id, body\.cuentaId\)/)
+})
+
+test('Android loads account options directly with the authenticated RLS session', () => {
+  const api = read('src/lib/supabase.js')
+
+  assert.match(api, /async function getAndroidAccounts\(\)/)
+  assert.match(api, /supabase\.from\('accounts'\)/)
+  assert.match(api, /\.eq\('user_id', userId\)/)
+  assert.match(api, /parsedUrl\.pathname === '\/api\/cuentas'/)
+  assert.match(api, /return jsonResponse\(await getAndroidAccounts\(\)\)/)
+})
