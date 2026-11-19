@@ -56,13 +56,13 @@ internal object ExpenseRegisteredNotifier {
         val compactText = "$merchant · $amount"
         val expandedText = buildString {
             append(merchant)
-            append("\\n")
+            append("\n")
             append(amount)
             if (detail.isNotBlank()) {
-                append("\\n")
+                append("\n")
                 append(detail)
             }
-            append("\\nRegistrado automáticamente por Finanzas.")
+            append("\nRegistrado automáticamente por Finanzas.")
         }
 
         val openAppIntent = Intent(appContext, MainActivity::class.java).apply {
