@@ -26,7 +26,6 @@ data class ParsedPayment(
     val currencyCode: String = "EUR",
     val occurredAtMillis: Long,
     val accountName: String?,
-    val cardLast4: String? = null,
     val categorySuggestion: String? = null,
     val notificationKey: String? = null
 )
@@ -60,10 +59,6 @@ object NotificationParser {
         """^(bbva|notificaci[oó]n|compra|pago|google wallet|wallet|revolut)$""",
         RegexOption.IGNORE_CASE
     )
-    private val cardEnding = Regex(
-        """(?:visa|mastercard|maestro|amex)\s*[•·*\s]*([0-9]{4})""",
-        RegexOption.IGNORE_CASE
-    )
 
     fun parse(
         source: NotificationSource,
@@ -78,7 +73,6 @@ object NotificationParser {
 
         val amountText: String
         val merchant: String
-        val cardLast4: String?
 
         val accountName: String?
 
@@ -87,7 +81,6 @@ object NotificationParser {
                 val match = revolutPayment.find(body) ?: return null
                 amountText = match.groupValues[1]
                 merchant = cleanMerchant(match.groupValues[2])
-                cardLast4 = null
                 accountName = "Revolut"
             }
             NotificationSource.BBVA -> {
@@ -100,7 +93,6 @@ object NotificationParser {
                     it.isNotBlank() && !genericNotificationTitle.matches(it.trim())
                 }
                 merchant = cleanMerchant(merchantMatch?.groupValues?.getOrNull(1) ?: headingMerchant.orEmpty())
-                cardLast4 = cardEnding.find(combined)?.groupValues?.getOrNull(1)
                 accountName = "BBVA"
             }
             NotificationSource.GOOGLE_WALLET -> {
@@ -114,10 +106,6 @@ object NotificationParser {
                 merchant = cleanMerchant(heading.takeIf {
                     it.isNotBlank() && !genericNotificationTitle.matches(it.trim())
                 } ?: walletMerchant.orEmpty())
-                // Google Wallet uses a virtual card number for in-store payments.
-                // Its last four digits may differ from the physical card suffix shown by the bank.
-                // Keep account matching based on the bank notification, never this Wallet suffix.
-                cardLast4 = null
                 accountName = walletIssuer.find(combined)?.groupValues?.getOrNull(1)?.let {
                     if (it.equals("BBVA", true)) "BBVA" else "Revolut"
                 }
@@ -135,7 +123,6 @@ object NotificationParser {
             amountCents = cents,
             occurredAtMillis = occurredAtMillis,
             accountName = accountName,
-            cardLast4 = cardLast4,
             categorySuggestion = suggestCategory(merchant),
             notificationKey = notificationKey
         )
