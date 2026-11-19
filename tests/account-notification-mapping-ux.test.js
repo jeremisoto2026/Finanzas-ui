@@ -84,3 +84,19 @@ test('no adivina entre varias cuentas si no hay una coincidencia única', () => 
     { accountId: '', reason: 'ambiguous' },
   )
 })
+
+test('la comparación de instituciones tolera espacios y diferencias de mayúsculas', () => {
+  assert.equal(
+    getAccountOptionLabel({ name: 'Mi cuenta', institution: '  REVOLUT   ' }, 'Revolut'),
+    'Mi cuenta',
+  )
+  assert.deepEqual(
+    getAccountMappingSuggestion(
+      [{ id: 'a', name: 'Cuenta diaria', institution: '  REVOLUT   ' }],
+      [],
+      'revolut',
+      'Revolut',
+    ),
+    { accountId: 'a', reason: 'matching' },
+  )
+})
