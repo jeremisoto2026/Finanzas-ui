@@ -346,7 +346,7 @@ async function resolveAndroidCategory(userId, categoryValue, kind) {
 
 async function updateAndroidTransaction(parsedUrl, method, init, sourceRequest) {
   try {
-    const body = await readAndroidJsonBody(input, init, sourceRequest)
+    const body = await readAndroidJsonBody(init, sourceRequest)
     const kind = getAndroidCreateKind(parsedUrl.pathname)
     if (!kind) return jsonResponse({ error: 'Movimiento no válido.' }, 404)
     const { data: authData, error: authError } = await supabase.auth.getUser()
