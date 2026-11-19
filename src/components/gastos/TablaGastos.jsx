@@ -170,8 +170,9 @@ export default function TablaGastos() {
       setFormError('Completa el concepto, un importe positivo y la fecha.')
       return
     }
-    if (!nuevoGasto.cuentaId || !cuentasUsuario.some((account) => account.id === nuevoGasto.cuentaId)) {
-      setFormError('Selecciona una cuenta válida desde la que salió el dinero.')
+    const cuentaSeleccionada = cuentasUsuario.find((account) => account.id === nuevoGasto.cuentaId)
+    if (!cuentaSeleccionada || (!editingGastoId && cuentaSeleccionada.isActive === false)) {
+      setFormError('Selecciona una cuenta activa desde la que salió el dinero.')
       return
     }
 
@@ -445,7 +446,7 @@ export default function TablaGastos() {
                 </select>
               </label>
               <label className="text-sm font-medium text-slate-300">¿De qué cuenta salió el dinero?
-                <select required value={nuevoGasto.cuentaId} onChange={(e) => setNuevoGasto({ ...nuevoGasto, cuentaId: e.target.value })} disabled={cuentasLoading || cuentasUsuario.length === 0} className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-3 text-white outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 disabled:opacity-60">
+                <select required value={nuevoGasto.cuentaId} onChange={(e) => setNuevoGasto({ ...nuevoGasto, cuentaId: e.target.value })} disabled={cuentasLoading || (!editingGastoId && !cuentasUsuario.some((account) => account.isActive !== false)) || (Boolean(editingGastoId) && cuentasUsuario.length === 0)} className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-3 text-white outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 disabled:opacity-60">
                   <option value="">{cuentasLoading ? 'Cargando cuentas…' : cuentasUsuario.length ? 'Selecciona una cuenta' : 'No hay cuentas disponibles'}</option>
                   {cuentasUsuario.filter((account) => account.isActive !== false || account.id === nuevoGasto.cuentaId).map((account) => <option key={account.id} value={account.id} disabled={account.isActive === false}>{account.name}{account.isActive === false ? ' · Desactivada' : ''} · {account.currencyCode || 'EUR'}</option>)}
                 </select>
