@@ -51,8 +51,10 @@ class LocalCapturesPlugin : Plugin() {
             val rows = JSArray()
             captureStore.readAll().forEach { capture ->
                 val sources = JSArray()
-                capture.sources.sortedBy { it.ordinal }.forEach { source ->
+                val sourceApps = JSArray()
+                capture.sources.sortedBy { it.sourceApp }.forEach { source ->
                     sources.put(source.label)
+                    sourceApps.put(source.sourceApp)
                 }
 
                 val row = JSObject().apply {
@@ -64,6 +66,7 @@ class LocalCapturesPlugin : Plugin() {
                     put("accountName", capture.accountName ?: JSONObject.NULL)
                     put("categorySuggestion", capture.categorySuggestion ?: JSONObject.NULL)
                     put("sources", sources)
+                    put("sourceApps", sourceApps)
                     put("isPaired", capture.isPaired)
                 }
                 rows.put(row)
