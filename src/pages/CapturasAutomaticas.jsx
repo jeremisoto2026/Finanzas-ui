@@ -90,6 +90,18 @@ export default function CapturasAutomaticas() {
   const [savingMapping, setSavingMapping] = useState(false)
   const autoSaveAttemptRef = useRef('')
   const mappingSourceLabel = getBankSourceLabel(mappingSource, SOURCE_LABELS)
+  const availableBankSources = useMemo(() => {
+    const sources = new Set(['revolut', 'bbva'])
+    for (const mapping of accountMappings) {
+      if (mapping.source_app && mapping.source_app !== 'google_wallet') sources.add(mapping.source_app)
+    }
+    for (const event of remoteEvents) {
+      if (event.source_app && event.source_app !== 'google_wallet') sources.add(event.source_app)
+    }
+    return [...sources].sort((a, b) =>
+      getBankSourceLabel(a, SOURCE_LABELS).localeCompare(getBankSourceLabel(b, SOURCE_LABELS), 'es')
+    )
+  }, [accountMappings, remoteEvents])
   const [accountSelections, setAccountSelections] = useState({})
   const [categorySelections, setCategorySelections] = useState({})
   const [savingReviewId, setSavingReviewId] = useState(null)
@@ -283,7 +295,7 @@ export default function CapturasAutomaticas() {
     if (mappingSelectionTouched || mappingSuggestion.reason !== 'matching' || !mappingSuggestion.accountId) return
 
     const suggestedAccount = accounts.find((account) => account.id === mappingSuggestion.accountId)
-    const sourceLabel = SOURCE_LABELS[mappingSource] || mappingSource
+    const sourceLabel = mappingSourceLabel
     if (!isExactAccountNameMatch(suggestedAccount, sourceLabel)) return
     if (mappingAccountId !== mappingSuggestion.accountId || mappingAlreadySaved) return
 
@@ -555,7 +567,7 @@ export default function CapturasAutomaticas() {
             <h2 className="text-lg font-semibold text-white">Vincular bancos con tus cuentas</h2>
             <p className="mt-1 text-xs leading-relaxed text-slate-400">
               Elige la aplicación bancaria y la cuenta de Finanzas donde deben registrarse sus movimientos.
-              Android identifica automáticamente la app que envía cada aviso. No solicitamos ni guardamos datos de tarjetas bancarias.
+              Android identifica automáticamente la app que envía cada aviso. No solicitamos ni guardamos datos de tarjetas bancarias. Cada aplicación bancaria reconocida puede vincularse con estas mismas reglas automáticas.
             </p>
           </div>
         </div>
@@ -573,8 +585,11 @@ export default function CapturasAutomaticas() {
               disabled={savingMapping}
               className="mt-1.5 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-white"
             >
-              <option value="revolut">Revolut</option>
-              <option value="bbva">BBVA</option>
+              {availableBankSources.map((sourceApp) => (
+                <option key={sourceApp} value={sourceApp}>
+                  {getBankSourceLabel(sourceApp, SOURCE_LABELS)}
+                </option>
+              ))}
             </select>
           </label>
           <div>
