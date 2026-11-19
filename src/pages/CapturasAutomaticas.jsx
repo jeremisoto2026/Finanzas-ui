@@ -68,7 +68,6 @@ function groupRemoteEvents(events) {
         eventIds: items.map((item) => item.id),
         accountLabel: items.find((item) => item.account_label)?.account_label || null,
         paymentChannel: first.payment_channel || null,
-        cardLast4: items.find((item) => item.card_last4)?.card_last4 || null,
         isPaired: sources.length > 1 || items.some((item) => item.status === 'paired'),
       }
     })
@@ -85,7 +84,6 @@ export default function CapturasAutomaticas() {
   const [categories, setCategories] = useState([])
   const [mappingSource, setMappingSource] = useState('revolut')
   const [mappingAccountId, setMappingAccountId] = useState('')
-  const [mappingCardLast4, setMappingCardLast4] = useState('')
   const [savingMapping, setSavingMapping] = useState(false)
   const [accountSelections, setAccountSelections] = useState({})
   const [categorySelections, setCategorySelections] = useState({})
@@ -96,6 +94,11 @@ export default function CapturasAutomaticas() {
   const [notice, setNotice] = useState('')
 
   const reviewItems = useMemo(() => groupRemoteEvents(remoteEvents), [remoteEvents])
+
+  useEffect(() => {
+    const existingMapping = accountMappings.find((mapping) => mapping.source_app === mappingSource)
+    setMappingAccountId(existingMapping?.account_id || '')
+  }, [accountMappings, mappingSource])
 
   const loadCaptures = useCallback(async (showSpinner = true) => {
     if (showSpinner) setLoading(true)
@@ -118,7 +121,7 @@ export default function CapturasAutomaticas() {
       const [eventsResult, accountsResult, categoriesResult, mappingsResult] = await Promise.all([
         supabase
           .from('notification_capture_events')
-          .select('id, source_app, pair_key, notification_title, parsed_merchant, parsed_amount, currency_code, category_id, category_suggestion, account_label, account_id, payment_channel, card_last4, occurred_at, status')
+          .select('id, source_app, pair_key, notification_title, parsed_merchant, parsed_amount, currency_code, category_id, category_suggestion, account_label, account_id, payment_channel, occurred_at, status')
           .in('status', ['paired', 'needs_review'])
           .order('occurred_at', { ascending: false })
           .limit(200),
@@ -137,7 +140,7 @@ export default function CapturasAutomaticas() {
           .order('name', { ascending: true }),
         supabase
           .from('account_notification_sources')
-          .select('id, source_app, account_id, card_last4, is_active')
+          .select('id, source_app, account_id, is_active')
           .eq('user_id', authData.user.id)
           .eq('is_active', true)
           .order('source_app', { ascending: true }),
@@ -189,13 +192,8 @@ export default function CapturasAutomaticas() {
   }, [isNative, loadCaptures])
 
   const saveAccountMapping = async () => {
-    const cardLast4 = mappingCardLast4.trim()
     if (!mappingAccountId || !accounts.some((account) => account.id === mappingAccountId)) {
-      setError('Selecciona una cuenta activa para vincular con el banco.')
-      return
-    }
-    if (cardLast4 && !/^[0-9]{4}$/.test(cardLast4)) {
-      setError('Introduce los últimos cuatro dígitos que aparecen en la notificación del banco, o déjalo vacío.')
+      setError('Selecciona una cuenta activa para vincular con la aplicación bancaria.')
       return
     }
 
@@ -211,14 +209,12 @@ export default function CapturasAutomaticas() {
           user_id: authData.user.id,
           source_app: mappingSource,
           account_id: mappingAccountId,
-          card_last4: cardLast4 || null,
           is_active: true,
           updated_at: new Date().toISOString(),
-        }, { onConflict: 'user_id,source_app,card_last4' })
+        }, { onConflict: 'user_id,source_app' })
       if (saveError) throw saveError
 
-      setMappingCardLast4('')
-      setNotice('Vinculación bancaria guardada. Las compras nuevas usarán esta relación cuando coincidan los dos avisos.')
+      setNotice(`${SOURCE_LABELS[mappingSource]} se ha vinculado correctamente. Sus avisos se asignarán a la cuenta seleccionada.`)
       await loadCaptures(false)
     } catch (mappingError) {
       setError(mappingError?.message || 'No se pudo guardar la vinculación bancaria.')
@@ -475,13 +471,13 @@ export default function CapturasAutomaticas() {
           <div>
             <h2 className="text-lg font-semibold text-white">Vincular bancos con tus cuentas</h2>
             <p className="mt-1 text-xs leading-relaxed text-slate-400">
-              Indica qué cuenta corresponde a cada aplicación bancaria. Para registrar automáticamente una compra,
-              Finanzas necesita emparejar Google Wallet con una notificación de ese banco.
+              Elige la aplicación bancaria y la cuenta de Finanzas donde deben registrarse sus movimientos.
+              Android identifica automáticamente la app que envía cada aviso. No solicitamos ni guardamos datos de tarjetas bancarias.
             </p>
           </div>
         </div>
 
-        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
           <label className="text-xs font-medium text-slate-300">Aplicación del banco
             <select
               value={mappingSource}
@@ -506,27 +502,18 @@ export default function CapturasAutomaticas() {
               ))}
             </select>
           </label>
-          <label className="text-xs font-medium text-slate-300">Últimos 4 dígitos del aviso del banco (opcional)
-            <input
-              inputMode="numeric"
-              autoComplete="off"
-              maxLength={4}
-              value={mappingCardLast4}
-              onChange={(event) => setMappingCardLast4(event.target.value.replace(/\D/g, '').slice(0, 4))}
-              placeholder="Ej. 4821"
-              className="mt-1.5 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-white"
-            />
-          </label>
         </div>
-        <p className="mt-2 text-xs text-amber-200/90">
-          Importante: usa los cuatro dígitos que aparecen en la notificación del BANCO. Google Wallet puede mostrar un número virtual distinto.
-          Deja el campo vacío solo cuando esa aplicación bancaria tenga una única cuenta vinculada.
+        <p className="mt-2 text-xs leading-relaxed text-slate-400">
+          Los avisos del banco se registran directamente en esta cuenta. Si también llega Google Wallet,
+          unimos ambos avisos por importe exacto, comercio y hora (hasta 3 minutos) para evitar duplicados.
+          Si solo llega Wallet y tienes una única app bancaria vinculada, usaremos esa cuenta; si hay varias,
+          dejaremos la compra para revisión para no asignarla incorrectamente.
         </p>
         <div className="mt-3 flex justify-end">
           <button
             type="button"
             onClick={saveAccountMapping}
-            disabled={savingMapping || accounts.length === 0 || (mappingCardLast4 !== '' && mappingCardLast4.length !== 4)}
+            disabled={savingMapping || accounts.length === 0}
             className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
           >
             {savingMapping ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
@@ -546,7 +533,7 @@ export default function CapturasAutomaticas() {
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-white">
                     {SOURCE_LABELS[mapping.source_app] || mapping.source_app}
-                    {mapping.card_last4 ? ` · Tarjeta ··${mapping.card_last4}` : ' · Vinculación única'}
+                     · Cuenta automática
                   </p>
                   <p className="text-xs text-slate-400">{account?.name || 'Cuenta no disponible'}</p>
                 </div>
@@ -613,7 +600,7 @@ export default function CapturasAutomaticas() {
                   )}
                 </div>
                 <p className="mt-2 text-xs text-slate-500">
-                  {[item.accountLabel, item.cardLast4 ? 'Tarjeta del banco ··' + item.cardLast4 : null].filter(Boolean).join(' · ')}
+                  {item.accountLabel || 'Origen detectado automáticamente'}
                 </p>
                 <div className="mt-4 grid gap-3 sm:grid-cols-2">
                   <label className="text-xs font-medium text-slate-300">Cuenta del cargo
