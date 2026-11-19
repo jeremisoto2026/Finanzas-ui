@@ -26,6 +26,12 @@ test('la pantalla vincula solo aplicación y cuenta y explica el tratamiento de 
   assert.match(screen, /Cuenta que recibe el cargo/)
   assert.match(screen, /No solicitamos ni guardamos datos de tarjetas bancarias/)
   assert.match(screen, /importe exacto, comercio y hora/)
+  assert.match(screen, /isExactAccountNameMatch/)
+  assert.match(screen, /persistAccountMapping/)
+  assert.match(screen, /selectionChange: true/)
+  assert.match(screen, /Vinculada automáticamente con tu cuenta/)
+  assert.match(screen, /Cambio guardado automáticamente/)
+  assert.match(screen, /onConflict: 'user_id,source_app'/)
   assert.doesNotMatch(screen, /mappingCardLast4|cardLast4|card_last4|Últimos 4 dígitos|últimos cuatro dígitos/)
 })
 
