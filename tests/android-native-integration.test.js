@@ -44,7 +44,8 @@ test('Manual expense forms require an account and validate ownership through the
   assert.match(form, /cuentaId:\s*''/)
   assert.match(form, /¿De qué cuenta salió el dinero\?/)
   assert.match(form, /<select required value=\{nuevoGasto\.cuentaId\}/)
-  assert.match(form, /!nuevoGasto\.cuentaId \|\| !cuentasUsuario\.some/)
+  assert.match(form, /const cuentaSeleccionada = cuentasUsuario\.find/)
+  assert.match(form, /!editingGastoId && cuentaSeleccionada\.isActive === false/)
   assert.match(api, /findOwnedAccountId\(supabase, user\.id, body\.cuentaId\)/)
 })
 
@@ -55,7 +56,8 @@ test('Manual income forms require the account where the money was received', () 
   assert.match(form, /cuentaId:\s*''/)
   assert.match(form, /¿En qué cuenta recibiste el ingreso\?/)
   assert.match(form, /<select required value=\{nuevoIngreso\.cuentaId\}/)
-  assert.match(form, /!nuevoIngreso\.cuentaId \|\| !cuentasUsuario\.some/)
+  assert.match(form, /const cuentaSeleccionada = cuentasUsuario\.find/)
+  assert.match(form, /!editingIngresoId && cuentaSeleccionada\.isActive === false/)
   assert.match(api, /findOwnedAccountId\(supabase, user\.id, body\.cuentaId\)/)
 })
 
@@ -81,9 +83,11 @@ test('Automatic capture only posts to a unique account matching the detected ban
 test('Quota editor scrolls into view and edit actions use a pencil icon', () => {
   const page = read('src/pages/Configuracion.jsx')
 
-  assert.match(page, /const cuotasFormRef = useRef\(null\)/)
-  assert.match(page, /scrollIntoView\(\{ behavior: 'smooth', block: 'start' \}\)/)
+  assert.match(page, /useScrollToForm\(mostrarFormCuotas, editingCompraCuotasId\)/)
+  assert.match(page, /useScrollToForm\(mostrarFormPresupuesto, editingPresupuestoId\)/)
   assert.match(page, /ref=\{cuotasFormRef\}/)
+  assert.match(page, /ref=\{presupuestoFormRef\}/)
+  assert.match(read('src/lib/useScrollToForm.js'), /scrollIntoView\(\{/)
   assert.match(page, /title="Editar plan"[^>]*><Pencil/)
   assert.match(page, /title="Editar presupuesto"[^>]*><Pencil/)
 })
@@ -96,9 +100,9 @@ test('Account balance adjustment updates the opening baseline without inserting 
   assert.match(page, /method: 'PATCH'/)
   assert.match(page, /accountId: editingAccount\.id, balance/)
   assert.match(api, /req\.method === 'PATCH'/)
-  assert.match(api, /\.update\(\{ opening_balance: nextOpeningBalance \}\)/)
-  assert.match(native, /async function updateAndroidAccountBalance/)
-  assert.match(native, /\.update\(\{ opening_balance: nextOpeningBalance \}\)/)
+  assert.match(api, /patch\.opening_balance = money\(targetBalance - ledgerNet\)/)
+  assert.match(native, /async function updateAndroidAccount/)
+  assert.match(native, /patch\.opening_balance = androidMoney\(targetBalance - ledgerNet\)/)
   assert.doesNotMatch(api, /from\('transactions'\)\.insert/)
 })
 
@@ -133,4 +137,70 @@ test('Preview APK version is incremented for these account and history fixes', (
   const gradle = read('android/app/build.gradle.kts')
   assert.match(gradle, /versionCode = 10/)
   assert.match(gradle, /versionName = "1\.0\.9-preview"/)
+})
+
+
+test('All visible edit forms focus the corresponding form after selecting a record', () => {
+  const page = read('src/pages/Configuracion.jsx')
+  const legacyFixed = read('src/components/configuracion/FormularioPagoFijo.jsx')
+  const legacyInstallments = read('src/components/configuracion/FormularioCuotas.jsx')
+  const expense = read('src/components/gastos/TablaGastos.jsx')
+  const income = read('src/components/ingresos/TablaIngresos.jsx')
+
+  assert.match(page, /useScrollToForm\(mostrarFormPagoFijo, editingPagoFijoId\)/)
+  assert.match(page, /useScrollToForm\(mostrarFormCuotas, editingCompraCuotasId\)/)
+  assert.match(page, /useScrollToForm\(mostrarFormPresupuesto, editingPresupuestoId\)/)
+  assert.match(legacyFixed, /useScrollToForm\(Boolean\(pagoEditando\), pagoEditando\?\.id\)/)
+  assert.match(legacyInstallments, /useScrollToForm\(Boolean\(pagoEditando\), pagoEditando\?\.id\)/)
+  assert.match(expense, /fixed inset-0 z-\[70\]/)
+  assert.match(income, /fixed inset-0 z-\[70\]/)
+})
+
+test('Dynamic account schema keeps ownership and supports account classifications', () => {
+  const migration = read('supabase/migrations/20261119102400_add_dynamic_account_types.sql')
+  const api = read('api/cuentas.js')
+
+  assert.match(migration, /add column if not exists account_type text not null default 'bank'/)
+  for (const type of ['bank', 'cash', 'debit_card', 'credit_card', 'digital_wallet', 'savings', 'other']) {
+    assert.match(migration, new RegExp(`'${type}'`))
+  }
+  assert.match(api, /const ACCOUNT_TYPES = new Set/)
+  assert.match(api, /createAuthenticatedClient\(req\)/)
+  assert.match(api, /user_id: user\.id/)
+  assert.match(api, /\.eq\('user_id', user\.id\)/)
+  assert.match(api, /if \(req\.method === 'POST'\)/)
+  assert.match(api, /if \(req\.method === 'PATCH'\)/)
+  assert.doesNotMatch(api, /req\.method === 'DELETE'/)
+})
+
+test('User account management is available from settings and uses authenticated routes', () => {
+  const page = read('src/pages/Cuentas.jsx')
+  const settings = read('src/pages/Ajustes.jsx')
+  const layout = read('src/components/layout/Layout.jsx')
+  const native = read('src/lib/supabase.js')
+
+  assert.match(settings, /page: 'Cuentas'/)
+  assert.match(layout, /const Cuentas = lazy\(\(\) => import\('\/pages\/Cuentas'\)\)/)
+  assert.match(layout, /activePage === 'Cuentas'/)
+  assert.match(page, /fetch\('\/api\/cuentas'/)
+  assert.match(page, /method: editingId \? 'PATCH' : 'POST'/)
+  assert.match(page, /isActive: nextState/)
+  assert.match(page, /Cuentas desactivadas/)
+  assert.match(native, /async function createAndroidAccount/)
+  assert.match(native, /async function updateAndroidAccount/)
+  assert.match(native, /account\.is_active === false/)
+  assert.match(native, /\.eq\('user_id', userId\)/)
+})
+
+test('Inactive accounts remain in history but cannot receive new movements', () => {
+  const expense = read('src/components/gastos/TablaGastos.jsx')
+  const income = read('src/components/ingresos/TablaIngresos.jsx')
+  const api = read('api/cuentas.js')
+  const native = read('src/lib/supabase.js')
+
+  assert.match(expense, /account\.isActive === false \? ' · Desactivada'/)
+  assert.match(income, /account\.isActive === false \? ' · Desactivada'/)
+  assert.match(api, /patch\.is_active = Boolean\(body\.isActive\)/)
+  assert.match(native, /if \(account\.is_active === false\)/)
+  assert.match(api, /Las cuentas se desactivan para conservar su historial/)
 })
