@@ -14,6 +14,7 @@ import {
   X,
 } from 'lucide-react'
 import { useScrollToForm } from '@/lib/useScrollToForm'
+import { useConfirmationDialog } from '@/components/ui/ConfirmationDialog'
 
 const ACCOUNT_TYPES = [
   { value: 'bank', label: 'Cuenta bancaria', icon: Landmark },
@@ -102,6 +103,7 @@ function AccountCard({ account, onEdit, onToggleActive, busyId }) {
 }
 
 export default function Cuentas() {
+  const confirm = useConfirmationDialog()
   const [accounts, setAccounts] = useState([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
@@ -202,6 +204,14 @@ export default function Cuentas() {
 
   const toggleActive = async (account) => {
     const nextState = !account.isActive
+    if (!nextState) {
+      const approved = await confirm({
+        title: '¿Desactivar esta cuenta?',
+        description: `«${account.name}» dejará de estar disponible para nuevos movimientos. Su saldo y su historial se conservarán, y podrás reactivarla más adelante.`,
+        confirmLabel: 'Desactivar cuenta',
+      })
+      if (!approved) return
+    }
     try {
       setBusyId(account.id)
       setNotice('')
