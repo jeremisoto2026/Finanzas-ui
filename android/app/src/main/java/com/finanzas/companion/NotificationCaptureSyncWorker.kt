@@ -41,7 +41,6 @@ class NotificationCaptureSyncWorker(
                         .put("currencyCode", capture.currencyCode)
                         .put("occurredAtMillis", capture.occurredAtMillis)
                         .put("accountName", capture.accountName ?: JSONObject.NULL)
-                        .put("cardLast4", capture.cardLast4 ?: JSONObject.NULL)
                         .put("categorySuggestion", capture.categorySuggestion ?: JSONObject.NULL)
                         .put("sources", JSONArray().apply {
                             capture.sources.sortedBy { it.ordinal }.forEach { put(it.name) }
