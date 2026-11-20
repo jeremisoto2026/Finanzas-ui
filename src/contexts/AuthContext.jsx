@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import { Capacitor, registerPlugin } from '@capacitor/core'
 import { Loader2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { GastosProvider } from '@/contexts/GastosContext'
@@ -9,6 +10,7 @@ import NativeReminderSync from '@/components/NativeReminderSync'
 import FirstLoginPermissions from '@/components/FirstLoginPermissions'
 
 const AuthContext = createContext(null)
+const LocalCaptures = registerPlugin('LocalCaptures')
 
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(null)
@@ -44,6 +46,17 @@ export function AuthProvider({ children }) {
       password,
       options: { emailRedirectTo: window.location.origin },
     }),
+    signInWithGoogle: async () => {
+      if (Capacitor.getPlatform() === 'android') {
+        const { idToken } = await LocalCaptures.signInWithGoogle()
+        if (!idToken) throw new Error('Google no devolvió un token de acceso.')
+        return supabase.auth.signInWithIdToken({ provider: 'google', token: idToken })
+      }
+      return supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: window.location.origin },
+      })
+    },
     signOut: () => supabase.auth.signOut(),
   }), [session, loading])
 
@@ -57,8 +70,8 @@ export function useAuth() {
 }
 
 function AuthScreen() {
-  const { signIn, signUp } = useAuth()
-  return <LandingPage signIn={signIn} signUp={signUp} />
+  const { signIn, signUp, signInWithGoogle } = useAuth()
+  return <LandingPage signIn={signIn} signUp={signUp} signInWithGoogle={signInWithGoogle} />
 }
 
 function AuthenticatedFinanceApp() {
