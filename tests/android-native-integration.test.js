@@ -202,7 +202,7 @@ test('Preview APK version is incremented and uses a persistent signing identity'
   const gradle = read('android/app/build.gradle.kts')
   const workflow = read('.github/workflows/android-companion.yml')
   assert.match(gradle, /versionCode = 22/)
-  assert.match(gradle, /versionName = "1.0.20-preview"/)
+  assert.match(gradle, /versionName = "1.0.21-preview"/)
   assert.match(gradle, /create\("preview"\)/)
   assert.match(gradle, /hasPersistentPreviewSigning/)
   assert.match(gradle, /signingConfig = signingConfigs\.getByName\("preview"\)/)
