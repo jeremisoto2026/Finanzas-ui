@@ -201,8 +201,8 @@ test('Google sign-in keeps the encrypted Android bank-notification session in sy
 test('Preview APK version is incremented and uses a persistent signing identity', () => {
   const gradle = read('android/app/build.gradle.kts')
   const workflow = read('.github/workflows/android-companion.yml')
-  assert.match(gradle, /versionCode = 24/)
-  assert.match(gradle, /versionName = "1.0.23-preview"/)
+  assert.match(gradle, /versionCode = 25/)
+  assert.match(gradle, /versionName = "1.0.24-preview"/)
   assert.match(gradle, /create\("preview"\)/)
   assert.match(gradle, /hasPersistentPreviewSigning/)
   assert.match(gradle, /signingConfig = signingConfigs\.getByName\("preview"\)/)
@@ -310,4 +310,15 @@ test('Android forwards budget and payment writes through the authenticated Previ
   assert.match(writer, /register_installment_payment/)
   assert.match(writer, /user_id: userId/)
   assert.doesNotMatch(writer, /SERVICE_ROLE/)
+})
+
+test('Authenticated Android topbar preserves the status-bar safe area', () => {
+  const navbar = read('src/components/layout/Navbar.jsx')
+  const styles = read('src/styles/globals.css')
+
+  assert.match(navbar, /className="app-topbar sticky top-0/)
+  assert.doesNotMatch(navbar, /className="app-topbar[^"]*\\b(?:py|pt|pb)-\\d/)
+  assert.doesNotMatch(navbar, /className="app-topbar[^"]*\\bmin-h-/)
+  assert.match(styles, /\\.app-topbar\\s*\\{[^}]*padding-top:\\s*calc\\(0\\.75rem \\+ var\\(--finance-safe-area-top\\)\\)/s)
+  assert.match(styles, /\\.app-topbar\\s*\\{[^}]*min-height:\\s*calc\\(4\\.25rem \\+ var\\(--finance-safe-area-top\\)\\)/s)
 })
