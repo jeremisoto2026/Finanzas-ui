@@ -70,7 +70,7 @@ const sampleMovements = [
   { title: 'Cuota mensual', category: 'Compromisos · 18 nov.', amount: '−29,90 €', incoming: false },
 ]
 
-export default function LandingPage({ signIn, signUp }) {
+export default function LandingPage({ signIn, signUp, signInWithGoogle }) {
   const [mode, setMode] = useState('signin')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -216,6 +216,33 @@ export default function LandingPage({ signIn, signUp }) {
               <div className="mb-5 grid grid-cols-2 rounded-xl border border-slate-800 bg-slate-950/70 p-1">
                 <button type="button" onClick={() => changeMode('signin')} aria-pressed={mode === 'signin'} className={'rounded-lg px-3 py-2.5 text-sm font-medium transition ' + (mode === 'signin' ? 'bg-slate-800 text-white shadow' : 'text-slate-500 hover:text-slate-200')}>Entrar</button>
                 <button type="button" onClick={() => changeMode('signup')} aria-pressed={mode === 'signup'} className={'rounded-lg px-3 py-2.5 text-sm font-medium transition ' + (mode === 'signup' ? 'bg-slate-800 text-white shadow' : 'text-slate-500 hover:text-slate-200')}>Crear cuenta</button>
+              </div>
+
+              <button
+                type="button"
+                disabled={busy}
+                onClick={async () => {
+                  setError('')
+                  setNotice('')
+                  setBusy(true)
+                  try {
+                    const { error: authError } = await signInWithGoogle()
+                    if (authError) throw authError
+                  } catch (authError) {
+                    setError(authError.message || 'No se pudo iniciar sesión con Google.')
+                  } finally {
+                    setBusy(false)
+                  }
+                }}
+                className="inline-flex min-h-12 w-full items-center justify-center gap-3 rounded-xl border border-slate-700 bg-slate-950/70 px-4 py-3 text-sm font-semibold text-slate-100 transition hover:border-slate-600 hover:bg-slate-800 disabled:cursor-wait disabled:opacity-60"
+              >
+                <span aria-hidden="true" className="flex h-5 w-5 items-center justify-center rounded-full bg-white text-sm font-bold text-[#4285F4]">G</span>
+                Continuar con Google
+              </button>
+              <div className="relative my-4 flex items-center">
+                <span className="h-px flex-1 bg-slate-800" />
+                <span className="px-3 text-[11px] text-slate-500">o con correo electrónico</span>
+                <span className="h-px flex-1 bg-slate-800" />
               </div>
 
               <form onSubmit={submit} className="space-y-4">
