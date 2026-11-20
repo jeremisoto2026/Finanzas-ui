@@ -10,11 +10,6 @@
   "background_color": "#080F1C",
   "theme_color": "#080F1C",
   "icons": [
-    {
-      "src": "/icons/finanzas.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "any"
-    }
+    { "src": "/icons/finanzas.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
   ]
 }
