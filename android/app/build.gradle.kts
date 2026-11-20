@@ -24,8 +24,8 @@ android {
         applicationId = "com.finanzas.mobile"
         minSdk = 26
         targetSdk = 36
-        versionCode = 18
-        versionName = "1.0.17-preview"
+        versionCode = 19
+        versionName = "1.0.18-preview"
 
         // Public Supabase values only. RLS remains the security boundary.
         buildConfigField("String", "SUPABASE_URL", "\"https://xebgscmovaffrqckzpyz.supabase.co\"")
