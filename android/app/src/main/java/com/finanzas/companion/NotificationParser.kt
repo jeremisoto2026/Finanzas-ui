@@ -139,18 +139,18 @@ object NotificationParser {
     )
 
     private val failedPaymentSignal = Regex(
-        """(?x)\\b(
+        """(?x)\b(
             rechazad[oa]s?|denegad[oa]s?|declinad[oa]s?|fallid[oa]s?|cancelad[oa]s?|
             declined|rejected|failed|failure|unsuccessful|cancelled|canceled|
-            no\\s+aceptad[oa]|not\\s+accepted|
-            no\\s+(?:ha\\s+sido\\s+)?(?:autorizad[oa]|aprobad[oa]|aceptad[oa]|completad[oa]|procesad[oa])|
-            not\\s+(?:authorized|authorised|approved|completed|processed|successful)|
-            (?:fondos|saldo)\\s+insuficient(?:e|es)|insufficient\\s+(?:funds|balance)|not\\s+enough\\s+(?:funds|balance|money)|
-            falta\\s+de\\s+fondos|
-            no\\s+se\\s+(?:(?:ha\\s+)?podido|pudo)\\s+(?:realizar|procesar|completar|efectuar|autorizar)|
-            no\\s+fue\\s+posible\\s+(?:realizar|procesar|completar|efectuar|autorizar)|
-            could\\s+not\\s+(?:be\\s+)?(?:processed|completed|authorized|authorised)|unable\\s+to\\s+(?:process|complete|authorize|authorise)
-        )\\b""",
+            no\s+aceptad[oa]|not\s+accepted|
+            no\s+(?:ha\s+sido\s+)?(?:autorizad[oa]|aprobad[oa]|aceptad[oa]|completad[oa]|procesad[oa])|
+            not\s+(?:authorized|authorised|approved|completed|processed|successful)|
+            (?:fondos|saldo)\s+insuficient(?:e|es)|insufficient\s+(?:funds|balance)|not\s+enough\s+(?:funds|balance|money)|
+            falta\s+de\s+fondos|
+            no\s+se\s+(?:(?:ha\s+)?podido|pudo)\s+(?:realizar|procesar|completar|efectuar|autorizar)|
+            no\s+fue\s+posible\s+(?:realizar|procesar|completar|efectuar|autorizar)|
+            could\s+not\s+(?:be\s+)?(?:processed|completed|authorized|authorised)|unable\s+to\s+(?:process|complete|authorize|authorise)
+        )\b""",
         RegexOption.IGNORE_CASE
     )
 
