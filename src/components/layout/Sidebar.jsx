@@ -23,9 +23,13 @@ export default function Sidebar({
         ${mobile ? 'flex' : 'hidden md:flex'}
       `}
     >
-      <h2 className="mb-6 text-lg font-semibold text-emerald-400">
-        Finanzas
-      </h2>
+      {/* Logo de la marca (archivo en /public) */}
+      <img
+        src="/finanzas-logo-horizontal-dark.svg"
+        alt="Finanzas"
+        className="mb-6 h-10 w-auto self-start object-contain"
+        draggable="false"
+      />
 
       <nav className="space-y-1">
         {items.map((item) => {
