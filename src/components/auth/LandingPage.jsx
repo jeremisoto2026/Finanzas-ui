@@ -234,12 +234,17 @@ export default function LandingPage({ signIn, signUp, signInWithGoogle }) {
                     setBusy(false)
                   }
                 }}
-                className="inline-flex min-h-12 w-full items-center justify-center gap-3 rounded-xl border border-slate-700 bg-slate-950/70 px-4 py-3 text-sm font-semibold text-slate-100 transition hover:border-slate-600 hover:bg-slate-800 disabled:cursor-wait disabled:opacity-60"
+                className="group inline-flex min-h-12 w-full items-center justify-center gap-3 rounded-xl border border-slate-500/80 bg-slate-100 px-4 py-3 text-sm font-semibold text-slate-900 shadow-md shadow-black/20 transition hover:border-white hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 active:scale-[0.99] disabled:cursor-wait disabled:opacity-60"
               >
-                <span aria-hidden="true" className="flex h-5 w-5 items-center justify-center rounded-full bg-white text-sm font-bold text-[#4285F4]">G</span>
-                Continuar con Google
+                <svg aria-hidden="true" viewBox="0 0 48 48" className="h-5 w-5 shrink-0">
+                  <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5Z" transform="translate(0 4)" />
+                  <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.73 7.18l7.66 5.94c4.48-4.14 7.11-10.24 7.11-17.59Z" />
+                  <path fill="#FBBC05" d="M10.53 28.59a14.4 14.4 0 0 1 0-9.18l-7.98-6.19a23.9 23.9 0 0 0 0 21.56l7.98-6.19Z" />
+                  <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.91-5.86l-7.66-5.94c-2.13 1.43-4.86 2.27-8.25 2.27-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48Z" />
+                </svg>
+                <span>Continuar con Google</span>
               </button>
-              <div className="relative my-4 flex items-center">
+              <div className="relative my-6 flex items-center">
                 <span className="h-px flex-1 bg-slate-800" />
                 <span className="px-3 text-[11px] text-slate-500">o con correo electrónico</span>
                 <span className="h-px flex-1 bg-slate-800" />
