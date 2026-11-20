@@ -37,6 +37,18 @@ test('Capacitor injects CSS edge-to-edge insets and viewport fit', () => {
   assert.match(styles, /env\(safe-area-inset-bottom, 0px\)/)
 })
 
+test('Android landing page respects status-bar and gesture-navigation safe areas', () => {
+  const landing = read('src/components/auth/LandingPage.jsx')
+  const styles = read('src/styles/globals.css')
+
+  assert.match(landing, /className="landing-page relative/)
+  assert.match(landing, /className="landing-header sticky top-0/)
+  assert.match(landing, /className="landing-footer border-t/)
+  assert.match(styles, /\.landing-header\s*\{[^}]*padding-top:\s*var\(--finance-safe-area-top\)/s)
+  assert.match(styles, /\.landing-footer\s*\{[^}]*padding-bottom:\s*var\(--finance-safe-area-bottom\)/s)
+  assert.match(styles, /\.landing-page\s*\{[^}]*overflow-x:\s*clip/s)
+})
+
 test('Manual expense forms require an account and validate ownership through the API', () => {
   const form = read('src/components/gastos/TablaGastos.jsx')
   const api = read('api/gastos.js')
@@ -168,8 +180,8 @@ test('Web Push VAPID key, subscription, storage, and service worker are wired', 
 test('Preview APK version is incremented and uses a persistent signing identity', () => {
   const gradle = read('android/app/build.gradle.kts')
   const workflow = read('.github/workflows/android-companion.yml')
-  assert.match(gradle, /versionCode = 18/)
-  assert.match(gradle, /versionName = "1.0.17-preview"/)
+  assert.match(gradle, /versionCode = 19/)
+  assert.match(gradle, /versionName = "1.0.18-preview"/)
   assert.match(gradle, /create\("preview"\)/)
   assert.match(gradle, /hasPersistentPreviewSigning/)
   assert.match(gradle, /signingConfig = signingConfigs\.getByName\("preview"\)/)
