@@ -7,9 +7,13 @@ export default function Navbar({ onMenu }) {
         <Bars3Icon className="h-6 w-6 text-slate-300" />
       </button>
 
-      <h1 className="text-sm font-semibold text-emerald-400">
-        Finanzas
-      </h1>
+      {/* Logo de la marca (archivo en /public) */}
+      <img
+        src="/finanzas-logo-horizontal-dark.svg"
+        alt="Finanzas"
+        className="h-8 w-auto object-contain"
+        draggable="false"
+      />
 
       <BellIcon className="h-6 w-6 text-slate-300" />
     </header>
