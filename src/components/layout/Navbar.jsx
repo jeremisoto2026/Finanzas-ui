@@ -32,7 +32,7 @@ export default function Navbar({ onAdd, onSignOut, activePage = 'Dashboard' }) {
     <header className="app-topbar sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-slate-800/80 bg-[#080F1C]/95 px-4 backdrop-blur-xl sm:px-6 lg:px-8">
       <div className="flex min-w-0 items-center gap-3">
         <img
-          src="/finanzas-logo-horizontal-dark.svg"
+          src="/finanzas-logo-horizontal-dark.webp"
           alt="Finanzas"
           className="h-7 w-auto max-w-[160px] shrink-0 object-contain sm:h-8 sm:max-w-[190px]"
           draggable="false"
