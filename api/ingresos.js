@@ -1,6 +1,8 @@
 import { handleCors } from '../server/cors.js'
 import { createAuthenticatedClient, findOrCreateCategory, findOwnedAccountId, sendApiError } from '../server/supabase.js'
 import { transactionForUi } from '../server/finance.js'
+import { DEFAULT_INCOME_CATEGORIES } from '../src/lib/category-catalog.js'
+import { uniqueCategoryNames } from '../src/lib/category-utils.js'
 
 function isDateOnly(value) {
   const text = String(value || '').slice(0, 10)
@@ -15,6 +17,21 @@ export default async function handler(req, res) {
 
   try {
     const { supabase, user } = await createAuthenticatedClient(req)
+
+    if (req.method === 'GET' && req.query?.resource === 'categories') {
+      const { data, error } = await supabase
+        .from('categories')
+        .select('name')
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+        .in('direction', ['income', 'both'])
+        .order('name', { ascending: true })
+      if (error) throw error
+      return res.status(200).json(uniqueCategoryNames([
+        ...DEFAULT_INCOME_CATEGORIES,
+        ...(data || []).map((row) => row.name),
+      ]))
+    }
 
     if (req.method === 'GET') {
       const { data, error } = await supabase

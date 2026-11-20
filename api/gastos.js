@@ -2,6 +2,8 @@ import { handleCors } from '../server/cors.js'
 import { createAuthenticatedClient, findOrCreateCategory, findOwnedAccountId, sendApiError } from '../server/supabase.js'
 import { transactionForUi } from '../server/finance.js'
 import { handleMerchantResource } from '../server/merchant-capture.js'
+import { DEFAULT_EXPENSE_CATEGORIES } from '../src/lib/category-catalog.js'
+import { uniqueCategoryNames } from '../src/lib/category-utils.js'
 
 function isDateOnly(value) {
   const text = String(value || '').slice(0, 10)
@@ -19,16 +21,6 @@ async function isInstallmentLinked(supabase, userId, transactionId) {
     .maybeSingle()
   if (error) throw error
   return Boolean(data)
-}
-
-const DEFAULT_EXPENSE_CATEGORIES = ['Alimentación', 'Vivienda', 'Transporte', 'Salud', 'Ocio', 'Suscripciones', 'Servicios', 'Ropa', 'Educación', 'Familia', 'Otros']
-
-function normalizeCategoryName(value) {
-  return String(value || '')
-    .normalize('NFKC')
-    .trim()
-    .replace(/\s+/g, ' ')
-    .toLowerCase()
 }
 
 export default async function handler(req, res) {
@@ -52,16 +44,10 @@ export default async function handler(req, res) {
 
         if (error) throw error
 
-        const seen = new Set()
-        const categories = []
-        for (const value of [...DEFAULT_EXPENSE_CATEGORIES, ...(data || []).map((row) => row.name)]) {
-          const name = String(value || '').trim().replace(/\s+/g, ' ')
-          const key = normalizeCategoryName(name)
-          if (!name || seen.has(key)) continue
-          seen.add(key)
-          categories.push(name)
-        }
-        return res.status(200).json(categories.sort((a, b) => a.localeCompare(b, 'es', { sensitivity: 'base' })))
+        return res.status(200).json(uniqueCategoryNames([
+          ...DEFAULT_EXPENSE_CATEGORIES,
+          ...(data || []).map((row) => row.name),
+        ]))
       }
 
       const { data, error } = await supabase

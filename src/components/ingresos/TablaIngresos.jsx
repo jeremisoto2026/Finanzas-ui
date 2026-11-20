@@ -1,4 +1,6 @@
 import FinanceSelect from '@/components/ui/FinanceSelect'
+import { DEFAULT_INCOME_CATEGORIES } from '@/lib/category-catalog'
+import { uniqueCategoryNames } from '@/lib/category-utils'
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { localDateInputValue, monthKeyFromDate, parseDateOnlyLocal, sumMoney, sumMoneyBy } from '@/lib/finance-core';
 import { useConfirmationDialog } from '@/components/ui/ConfirmationDialog';
@@ -44,6 +46,7 @@ export default function TablaIngresos() {
   const confirm = useConfirmationDialog();
   // Estados para los ingresos registrados en Supabase
   const [ingresosMensuales, setIngresosMensuales] = useState([]);
+  const [categoriasCatalogo, setCategoriasCatalogo] = useState(DEFAULT_INCOME_CATEGORIES);
   const [cuentasUsuario, setCuentasUsuario] = useState([]);
   const [cuentasLoading, setCuentasLoading] = useState(true);
   const [cuentasError, setCuentasError] = useState('');
@@ -89,6 +92,20 @@ export default function TablaIngresos() {
     };
     fetchIngresos();
   }, []);
+
+  useEffect(() => {
+    let active = true
+    fetch('/api/ingresos?resource=categories', { cache: 'no-store' })
+      .then((response) => {
+        if (!response.ok) throw new Error('No se pudieron cargar las categorías de ingresos.')
+        return response.json()
+      })
+      .then((data) => {
+        if (active && Array.isArray(data)) setCategoriasCatalogo(uniqueCategoryNames([...DEFAULT_INCOME_CATEGORIES, ...data]))
+      })
+      .catch((loadError) => console.error('No se pudieron cargar las categorías de ingresos:', loadError))
+    return () => { active = false }
+  }, [])
 
   const cargarCuentasUsuario = useCallback(async () => {
     setCuentasLoading(true)
@@ -250,14 +267,11 @@ export default function TablaIngresos() {
     return Array.from(cuentasSet).sort();
   }, [ingresosMensuales]);
 
-  // 4. Obtener categorías únicas
-  const categoriasDisponibles = useMemo(() => {
-    const categoriasSet = new Set();
-    ingresosMensuales.forEach(ingreso => {
-      if (ingreso.categoria) categoriasSet.add(ingreso.categoria);
-    });
-    return Array.from(categoriasSet).sort();
-  }, [ingresosMensuales]);
+  // El formulario y el filtro comparten el catálogo del usuario y conservan categorías históricas.
+  const categoriasDisponibles = useMemo(() => uniqueCategoryNames([
+    ...categoriasCatalogo,
+    ...ingresosMensuales.map((ingreso) => ingreso.categoria),
+  ]), [categoriasCatalogo, ingresosMensuales]);
 
   // 5. Función para formatear mes a texto
   const formatearMesTexto = (mesFormato) => {
@@ -803,8 +817,7 @@ export default function TablaIngresos() {
               </label>
               <label className="text-sm font-medium text-slate-300">Categoría
                 <FinanceSelect value={nuevoIngreso.categoria} onChange={(e) => setNuevoIngreso({ ...nuevoIngreso, categoria: e.target.value })} className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-3 text-white outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20">
-                  <optgroup label="Ingresos habituales"><option>Nómina</option><option>Trabajo / reparto</option><option>Horas extra</option><option>Extras</option><option>Alquiler recibido</option><option>Prestaciones y ayudas</option></optgroup>
-                  <optgroup label="Ingresos puntuales"><option>Propinas</option><option>Ventas</option><option>Cobros de préstamos</option><option>Préstamo recibido</option><option>Reembolsos</option><option>Intereses</option><option>Otros</option></optgroup>
+                  {categoriasDisponibles.map((categoria) => <option key={categoria} value={categoria}>{categoria}</option>)}
                 </FinanceSelect>
               </label>
               <label className="text-sm font-medium text-slate-300">¿En qué cuenta recibiste el ingreso?

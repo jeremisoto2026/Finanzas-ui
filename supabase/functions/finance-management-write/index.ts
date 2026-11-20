@@ -21,8 +21,8 @@ const dateIsValid = (value: unknown) => {
   return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === date;
 };
 const cents = (value: unknown) => Math.round((Number(value || 0) + Number.EPSILON) * 100);
-const normalize = (value: unknown) => String(value || "").normalize("NFD")
-  .replace(/[\u0300-\u036f]/g, "").trim().replace(/\s+/g, " ").toLocaleLowerCase("es");
+const normalize = (value: unknown) => String(value || "").normalize("NFKC")
+  .trim().replace(/\s+/g, " ").toLocaleLowerCase("es");
 const frequencyToDb = (value: unknown) => ({
   mensual: "monthly", mensualidad: "monthly", quincenal: "biweekly", semanal: "weekly",
   trimestral: "quarterly", anual: "yearly", annual: "yearly", monthly: "monthly",
@@ -37,19 +37,28 @@ const dateOnly = (value: unknown) => value ? String(value).slice(0, 10) : null;
 async function categoryId(db: any, userId: string, label: unknown) {
   const name = String(label || "").normalize("NFKC").trim().replace(/\s+/g, " ");
   if (!name) return null;
-  const { data, error } = await db.from("categories").select("id, name")
+  const { data, error } = await db.from("categories").select("id, name, direction")
     .eq("user_id", userId).order("created_at", { ascending: true });
   if (error) throw error;
+  const reconcileDirection = async (category: any) => {
+    if (!category) return null;
+    if (category.direction !== "expense" && category.direction !== "both") {
+      const { error: updateError } = await db.from("categories").update({ direction: "both" })
+        .eq("id", category.id).eq("user_id", userId);
+      if (updateError) throw updateError;
+    }
+    return category.id;
+  };
   const found = (data || []).find((row: any) => normalize(row.name) === normalize(name));
-  if (found) return found.id;
+  if (found) return reconcileDirection(found);
   const { data: inserted, error: insertError } = await db.from("categories")
     .insert({ user_id: userId, name, direction: "expense" }).select("id").single();
   if (insertError) {
     if (insertError.code === "23505") {
-      const retry = await db.from("categories").select("id, name").eq("user_id", userId);
+      const retry = await db.from("categories").select("id, name, direction").eq("user_id", userId);
       if (retry.error) throw retry.error;
       const existing = (retry.data || []).find((row: any) => normalize(row.name) === normalize(name));
-      if (existing) return existing.id;
+      if (existing) return reconcileDirection(existing);
     }
     throw insertError;
   }

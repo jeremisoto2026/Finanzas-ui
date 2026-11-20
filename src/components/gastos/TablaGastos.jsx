@@ -3,6 +3,7 @@ import { useState, useMemo, useEffect, useCallback } from 'react';
 import { monthKeyFromDate, sumMoney } from '@/lib/finance-core';
 import { useConfirmationDialog } from '@/components/ui/ConfirmationDialog';
 import { uniqueCategoryNames } from '@/lib/category-utils';
+import { DEFAULT_EXPENSE_CATEGORIES } from '@/lib/category-catalog';
 import { 
   Download, 
   Filter,
@@ -44,7 +45,7 @@ export default function TablaGastos() {
   const confirm = useConfirmationDialog();
   // Movimientos de gasto contabilizados procedentes del libro mayor.
   const [gastosMensuales, setGastosMensuales] = useState([]);
-  const [categoriasDisponibles, setCategoriasDisponibles] = useState([]);
+  const [categoriasDisponibles, setCategoriasDisponibles] = useState(DEFAULT_EXPENSE_CATEGORIES);
   const [cuentasUsuario, setCuentasUsuario] = useState([]);
   const [cuentasLoading, setCuentasLoading] = useState(true);
   const [cuentasError, setCuentasError] = useState('');
@@ -80,7 +81,13 @@ export default function TablaGastos() {
         if (!response.ok) throw new Error('No se pudieron cargar los gastos.')
         const data = await response.json()
         if (!Array.isArray(data)) throw new Error('La respuesta de gastos no tiene el formato esperado.')
-        if (!cancelled) setGastosMensuales(data)
+        if (!cancelled) {
+          setGastosMensuales(data)
+          setCategoriasDisponibles((current) => uniqueCategoryNames([
+            ...current,
+            ...data.map((gasto) => gasto.categoria),
+          ]))
+        }
       } catch (err) {
         if (!cancelled) {
           setError(err.message || 'Error al cargar los gastos.')
