@@ -30,7 +30,7 @@ const sections = [
   },
   {
     title: 'Dispositivo y avisos',
-    description: 'Configura las funciones que trabajan junto a tu teléfono.',
+    description: 'Configura los avisos y las funciones de tus dispositivos.',
     items: [
       { page: 'Recordatorios', title: 'Notificaciones y recordatorios', description: 'Avisos de vencimientos, cuotas y pagos próximos.', icon: BellRing },
     ],

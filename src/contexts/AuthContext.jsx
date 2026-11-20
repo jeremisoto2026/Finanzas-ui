@@ -10,6 +10,7 @@ import LandingPage from '@/components/auth/LandingPage'
 import NotificationCaptureSync from '@/components/NotificationCaptureSync'
 import NativeReminderSync from '@/components/NativeReminderSync'
 import FirstLoginPermissions from '@/components/FirstLoginPermissions'
+import FirstLoginWebSetup from '@/components/FirstLoginWebSetup'
 
 const AuthContext = createContext(null)
 const LocalCaptures = registerPlugin('LocalCaptures')
@@ -160,6 +161,7 @@ function AuthenticatedFinanceApp() {
       <NotificationCaptureSync />
       <NativeReminderSync />
       <FirstLoginPermissions userId={user.id} />
+      <FirstLoginWebSetup userId={user.id} />
       <div className="relative">
         <Layout onSignOut={() => signOut()} />
       </div>

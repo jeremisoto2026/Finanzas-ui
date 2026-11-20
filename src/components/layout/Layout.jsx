@@ -69,20 +69,20 @@ export default function Layout({ onSignOut }) {
   }
 
   return (
-    <div className="app-shell min-h-screen text-slate-100 md:flex">
+    <div className="app-shell min-h-screen text-slate-100 lg:flex">
       <Sidebar activePage={activePage} setActivePage={cambiarPagina} />
 
       <div className="min-w-0 flex-1">
         <Navbar activePage={activePage} onAdd={abrirNuevoGasto} onSignOut={onSignOut} />
 
-        <main className="app-main mx-auto min-w-0 w-full max-w-[1600px] px-3 pt-5 sm:px-5 md:px-7 md:pt-7 xl:px-9">
+        <main className="app-main mx-auto min-w-0 w-full max-w-[1760px] px-3 pb-28 pt-5 sm:px-5 md:px-7 md:pt-7 lg:px-8 lg:pb-10 2xl:px-10">
           <Suspense fallback={<LoadingView />}>
             <PageContent activePage={activePage} onNavigate={cambiarPagina} />
           </Suspense>
         </main>
       </div>
 
-      <nav aria-label="Navegación móvil" className="app-bottom-nav md:hidden">
+      <nav aria-label="Navegación móvil" className="app-bottom-nav lg:hidden">
         {primaryItems.map((item) => {
           const Icon = item.icon
           const active = activePage === item.name || (item.name === 'Ajustes' && [
