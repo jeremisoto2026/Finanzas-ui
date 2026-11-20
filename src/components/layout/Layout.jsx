@@ -60,11 +60,20 @@ export default function Layout({ onSignOut }) {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  const abrirNuevoGasto = async () => {
-    await import('@/pages/Gastos')
-    cambiarPagina('Gastos')
+  const abrirNuevoMovimiento = async (tipo = 'expense') => {
+    const esIngreso = tipo === 'income'
+    const pagina = esIngreso ? 'Ingresos' : 'Gastos'
+    const evento = esIngreso ? 'finanzas:open-new-income' : 'finanzas:open-new-expense'
+
+    if (esIngreso) {
+      await import('@/pages/Ingresos')
+    } else {
+      await import('@/pages/Gastos')
+    }
+
+    cambiarPagina(pagina)
     window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
-      window.dispatchEvent(new Event('finanzas:open-new-expense'))
+      window.dispatchEvent(new Event(evento))
     }))
   }
 
@@ -73,7 +82,7 @@ export default function Layout({ onSignOut }) {
       <Sidebar activePage={activePage} setActivePage={cambiarPagina} />
 
       <div className="min-w-0 flex-1">
-        <Navbar activePage={activePage} onAdd={abrirNuevoGasto} onSignOut={onSignOut} />
+        <Navbar activePage={activePage} onAdd={abrirNuevoMovimiento} onSignOut={onSignOut} />
 
         <main className="app-main mx-auto min-w-0 w-full max-w-[1760px] px-3 pb-28 pt-5 sm:px-5 md:px-7 md:pt-7 lg:px-8 lg:pb-10 2xl:px-10">
           <Suspense fallback={<LoadingView />}>

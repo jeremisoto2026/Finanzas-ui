@@ -140,6 +140,12 @@ export default function TablaIngresos() {
     setFormOpen(true)
   }
 
+  useEffect(() => {
+    const handleQuickCreate = () => abrirNuevoIngreso()
+    window.addEventListener('finanzas:open-new-income', handleQuickCreate)
+    return () => window.removeEventListener('finanzas:open-new-income', handleQuickCreate)
+  }, [])
+
   const editarIngreso = (ingreso) => {
     setEditingIngresoId(ingreso.id)
     setNuevoIngreso({

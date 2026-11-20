@@ -322,3 +322,29 @@ test('Authenticated Android topbar preserves the status-bar safe area', () => {
   assert.match(styles, /\.app-topbar\s*\{[^}]*padding-top:\s*calc\(0\.75rem \+ var\(--finance-safe-area-top\)\)/s)
   assert.match(styles, /\.app-topbar\s*\{[^}]*min-height:\s*calc\(4\.25rem \+ var\(--finance-safe-area-top\)\)/s)
 })
+
+
+test('Global quick-add lets users select expenses or income from every screen', () => {
+  const navbar = read('src/components/layout/Navbar.jsx')
+  const layout = read('src/components/layout/Layout.jsx')
+  const expenses = read('src/components/gastos/TablaGastos.jsx')
+  const incomes = read('src/components/ingresos/TablaIngresos.jsx')
+
+  assert.ok(navbar.includes('aria-haspopup="menu"'))
+  assert.ok(navbar.includes('aria-label="Añadir movimiento"'))
+  assert.ok(navbar.includes("seleccionarMovimiento('expense')"))
+  assert.ok(navbar.includes("seleccionarMovimiento('income')"))
+  assert.ok(layout.includes('onAdd={abrirNuevoMovimiento}'))
+  assert.ok(layout.includes("import('@/pages/Gastos')"))
+  assert.ok(layout.includes("import('@/pages/Ingresos')"))
+  assert.ok(layout.includes('finanzas:open-new-expense'))
+  assert.ok(layout.includes('finanzas:open-new-income'))
+  assert.ok(expenses.includes("window.addEventListener('finanzas:open-new-expense'"))
+  assert.ok(incomes.includes("window.addEventListener('finanzas:open-new-income'"))
+})
+
+test('Global quick-add Preview APK version is incremented for in-place installation', () => {
+  const gradle = read('android/app/build.gradle.kts')
+  assert.match(gradle, /versionCode = 26/)
+  assert.match(gradle, /versionName = "1.0.25-preview"/)
+})
