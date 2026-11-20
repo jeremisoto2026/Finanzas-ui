@@ -49,14 +49,13 @@ const groups = [
 export default function Sidebar({ activePage, setActivePage }) {
   return (
     <aside className="app-sidebar hidden w-[16.5rem] shrink-0 flex-col border-r border-slate-800/80 bg-[#080F1C] shadow-2xl shadow-black/10 lg:sticky lg:top-0 lg:flex lg:h-screen lg:overflow-y-auto">
-      <div className="flex items-center gap-3 border-b border-slate-800/70 px-5 py-6">
-        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-emerald-400/20 bg-gradient-to-br from-emerald-400/15 to-emerald-900/10 shadow-inner shadow-emerald-400/5">
-          <Wallet className="h-6 w-6 text-emerald-300" />
-        </div>
-        <div className="min-w-0">
-          <h2 className="text-base font-semibold tracking-tight text-white">Finanzas</h2>
-          <p className="mt-0.5 text-[11px] text-slate-500">Control personal y familiar</p>
-        </div>
+      <div className="flex items-center border-b border-slate-800/70 px-5 py-6">
+        <img
+          src="/finanzas-logo-horizontal-dark.svg"
+          alt="Finanzas"
+          className="h-10 w-auto max-w-full self-start object-contain"
+          draggable="false"
+        />
       </div>
       <nav aria-label="Navegación principal" className="flex-1 space-y-6 px-3 py-5">
         {groups.map((group) => (
