@@ -317,8 +317,8 @@ test('Authenticated Android topbar preserves the status-bar safe area', () => {
   const styles = read('src/styles/globals.css')
 
   assert.match(navbar, /className="app-topbar sticky top-0/)
-  assert.doesNotMatch(navbar, /className="app-topbar[^"]*\\b(?:py|pt|pb)-\\d/)
-  assert.doesNotMatch(navbar, /className="app-topbar[^"]*\\bmin-h-/)
-  assert.match(styles, /\\.app-topbar\\s*\\{[^}]*padding-top:\\s*calc\\(0\\.75rem \\+ var\\(--finance-safe-area-top\\)\\)/s)
-  assert.match(styles, /\\.app-topbar\\s*\\{[^}]*min-height:\\s*calc\\(4\\.25rem \\+ var\\(--finance-safe-area-top\\)\\)/s)
+  assert.doesNotMatch(navbar, /className="app-topbar[^"]*\b(?:py|pt|pb)-\d/)
+  assert.doesNotMatch(navbar, /className="app-topbar[^"]*\bmin-h-/)
+  assert.match(styles, /\.app-topbar\s*\{[^}]*padding-top:\s*calc\(0\.75rem \+ var\(--finance-safe-area-top\)\)/s)
+  assert.match(styles, /\.app-topbar\s*\{[^}]*min-height:\s*calc\(4\.25rem \+ var\(--finance-safe-area-top\)\)/s)
 })
