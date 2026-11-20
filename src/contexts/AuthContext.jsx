@@ -2,6 +2,8 @@ import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import { Capacitor, registerPlugin } from '@capacitor/core'
 import { Loader2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { DEFAULT_EXPENSE_CATEGORIES } from '@/lib/category-catalog'
+import { normalizeCategoryName } from '@/lib/category-utils'
 import { GastosProvider } from '@/contexts/GastosContext'
 import Layout from '@/components/layout/Layout'
 import LandingPage from '@/components/auth/LandingPage'
@@ -84,12 +86,57 @@ function AuthenticatedFinanceApp() {
     setProfileReady(false)
     setProfileError('')
 
-    supabase.from('profiles')
-      .upsert({ id: user.id }, { onConflict: 'id' })
-      .then(({ error }) => {
-        if (!alive) return
-        if (error) setProfileError('No se pudo inicializar tu perfil: ' + error.message)
-        else setProfileReady(true)
+    async function initializeProfile() {
+      const { error: profileError } = await supabase.from('profiles')
+        .upsert({ id: user.id }, { onConflict: 'id' })
+      if (profileError) throw profileError
+
+      // Notification captures need real category IDs, not only the labels that
+      // the expense form can display as defaults. Seed the expense catalog
+      // once per user so first-time captures can be reviewed and posted.
+      const { data: existingCategories, error: categoriesError } = await supabase
+        .from('categories')
+        .select('id, name, direction')
+        .eq('user_id', user.id)
+      if (categoriesError) throw categoriesError
+
+      const byName = new Map((existingCategories || []).map((category) => [
+        normalizeCategoryName(category.name),
+        category,
+      ]))
+      const missing = DEFAULT_EXPENSE_CATEGORIES
+        .filter((name) => !byName.has(normalizeCategoryName(name)))
+        .map((name) => ({
+          user_id: user.id,
+          name,
+          direction: normalizeCategoryName(name) === normalizeCategoryName('Otros') ? 'both' : 'expense',
+        }))
+
+      if (missing.length) {
+        const { error: seedError } = await supabase.from('categories').insert(missing)
+        // A second signed-in device may have seeded the same defaults first.
+        if (seedError && seedError.code !== '23505') throw seedError
+      }
+
+      const sharedIds = DEFAULT_EXPENSE_CATEGORIES
+        .map((name) => byName.get(normalizeCategoryName(name)))
+        .filter((category) => category?.id && category.direction === 'income')
+        .map((category) => category.id)
+      if (sharedIds.length) {
+        const { error: directionError } = await supabase.from('categories')
+          .update({ direction: 'both' })
+          .eq('user_id', user.id)
+          .in('id', sharedIds)
+        if (directionError) throw directionError
+      }
+    }
+
+    initializeProfile()
+      .then(() => {
+        if (alive) setProfileReady(true)
+      })
+      .catch((error) => {
+        if (alive) setProfileError('No se pudo preparar tu perfil y las categorías: ' + error.message)
       })
 
     return () => { alive = false }
