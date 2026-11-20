@@ -22,9 +22,19 @@ Aplicación web de finanzas personales construida con React 18, Vite 5, Tailwind
 
 ## Desarrollo
 
-Ejecuta npm install, npm run dev, npm test y npm run build.
+Ejecuta `npm install` y crea `.env.local` a partir de `.env.example` con las credenciales públicas del proyecto Supabase de Preview. No subas `.env.local` al repositorio.
 
-Crea un archivo .env.local a partir de .env.example para desarrollo local. No subas .env.local al repositorio.
+Arranque local:
+1. En la carpeta raíz del proyecto ejecuta `npm run dev`.
+2. Mantén abierta esa terminal mientras pruebas la web.
+3. Abre `http://localhost:5173/` en el mismo ordenador.
+4. Para detener el servidor, pulsa `Ctrl+C` en esa terminal.
+
+Vite queda fijado al puerto 5173 (`strictPort`): si el puerto está ocupado, el comando muestra el error en vez de arrancar silenciosamente en otro puerto. Para abrir la web desde un móvil conectado a la misma Wi-Fi, utiliza la IP LAN del ordenador y el puerto 5173; `localhost` en el móvil apunta al propio móvil, no al ordenador.
+
+Si Google OAuth termina en `localhost:5173` y el servidor local no está activo, aparecerá `ERR_CONNECTION_REFUSED`. En ese caso inicia el servidor o vuelve a abrir la dirección Preview. Para permitir OAuth local, añade `http://localhost:5173/**` a la lista de Redirect URLs del proyecto Supabase de Preview. No cambies el callback OAuth autorizado en Google: debe seguir siendo el callback HTTPS de Supabase.
+
+Después valida con `npm test` y `npm run build`.
 
 ## Variables de entorno
 
