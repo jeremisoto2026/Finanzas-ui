@@ -14,7 +14,7 @@ El servicio Android comprueba el paquete de origen antes de leer el aviso:
 - BBVA: `com.bbva.bbvacontigo`
 - Google Wallet: `com.google.android.apps.walletnfcrel`
 
-Otras aplicaciones Android que no pertenezcan al sistema también pueden detectarse como fuentes candidatas. El parser comprueba señales de pago y descarta avisos que no parecen compras. Google Wallet es una fuente complementaria; las apps bancarias determinan la cuenta de destino.
+Otras aplicaciones Android que no pertenezcan al sistema también pueden detectarse como fuentes candidatas. El parser comprueba señales de pago y descarta avisos que no parecen compras. Antes de capturar el importe, también excluye operaciones rechazadas, denegadas, fallidas, canceladas o con fondos/saldo insuficientes; esos avisos nunca se convierten en gastos. Google Wallet es una fuente complementaria; las apps bancarias determinan la cuenta de destino.
 
 ## Emparejamiento y registro
 

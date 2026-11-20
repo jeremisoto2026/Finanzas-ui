@@ -132,6 +132,31 @@ class NotificationParserTest {
     }
 
     @Test
+    fun rejectsDeclinedFailedCancelledAndInsufficientFundsPayments() {
+        val failedNotifications = listOf(
+            "Pago rechazado de 14,25 EUR en FARMACIA CENTRAL",
+            "Compra denegada de 14,25 EUR en FARMACIA CENTRAL",
+            "No se pudo completar el pago de 14,25 EUR en FARMACIA CENTRAL",
+            "Pago no autorizado de 14,25 EUR en FARMACIA CENTRAL",
+            "Fondos insuficientes para el pago de 14,25 EUR en FARMACIA CENTRAL",
+            "Payment declined: EUR 14.25 at CENTRAL STORE",
+            "Card payment failed: EUR 14.25 at CENTRAL STORE",
+            "Transaction was cancelled: EUR 14.25 at CENTRAL STORE",
+            "Payment could not be processed: EUR 14.25 at CENTRAL STORE"
+        )
+
+        failedNotifications.forEachIndexed { index, notification ->
+            val result = NotificationParser.parse(
+                source = NotificationSource.BBVA,
+                title = "BBVA",
+                text = notification,
+                occurredAtMillis = 1794958920000L
+            )
+            assertNull("A rejected or failed payment must not be captured (#$index)", result)
+        }
+    }
+
+    @Test
     fun rejectsOtpAndSecurityCodeNotificationsEvenWhenTheyMentionAnAmount() {
         val source = NotificationSource.fromPackage(
             "com.example.bank",

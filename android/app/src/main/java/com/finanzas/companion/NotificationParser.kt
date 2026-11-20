@@ -138,6 +138,22 @@ object NotificationParser {
         RegexOption.IGNORE_CASE
     )
 
+    private val failedPaymentSignal = Regex(
+        """(?x)\\b(
+            rechazad[oa]s?|denegad[oa]s?|declinad[oa]s?|fallid[oa]s?|cancelad[oa]s?|
+            declined|rejected|failed|failure|unsuccessful|cancelled|canceled|
+            no\\s+aceptad[oa]|not\\s+accepted|
+            no\\s+(?:ha\\s+sido\\s+)?(?:autorizad[oa]|aprobad[oa]|aceptad[oa]|completad[oa]|procesad[oa])|
+            not\\s+(?:authorized|authorised|approved|completed|processed|successful)|
+            (?:fondos|saldo)\\s+insuficient(?:e|es)|insufficient\\s+(?:funds|balance)|not\\s+enough\\s+(?:funds|balance|money)|
+            falta\\s+de\\s+fondos|
+            no\\s+se\\s+(?:(?:ha\\s+)?podido|pudo)\\s+(?:realizar|procesar|completar|efectuar|autorizar)|
+            no\\s+fue\\s+posible\\s+(?:realizar|procesar|completar|efectuar|autorizar)|
+            could\\s+not\\s+(?:be\\s+)?(?:processed|completed|authorized|authorised)|unable\\s+to\\s+(?:process|complete|authorize|authorise)
+        )\\b""",
+        RegexOption.IGNORE_CASE
+    )
+
     private val marketingSignal = Regex(
         """\b(publicidad|anuncio|newsletter|oferta exclusiva|promo(?:ci[oó]n)?|sorteo|descubre nuestras|new features)\b""",
         RegexOption.IGNORE_CASE
@@ -172,6 +188,9 @@ object NotificationParser {
         // Never retain or interpret OTPs, login/security notices or obvious advertising.
         val combined = "$heading\n$body".take(4_000)
         if (excludedInformational.containsMatchIn(combined)) return null
+        // A declined, rejected, failed, cancelled or unfunded operation is not an expense.
+        // Filter it before extracting the amount or merchant so it never reaches local capture.
+        if (failedPaymentSignal.containsMatchIn(combined)) return null
 
         val amountMatch = amountPattern.findAll(combined)
             .filter { match ->
