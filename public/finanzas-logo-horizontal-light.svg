@@ -1,23 +1,13 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="620" height="128" viewBox="0 0 620 128" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="220" height="62" viewBox="0 0 220 62" role="img" aria-labelledby="title">
   <title id="title">Finanzas</title>
-  <desc id="desc">Emblema verde Finanzas y nombre de marca</desc>
-  <svg x="0" y="0" width="128" height="128" viewBox="0 0 512 512"><defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#102b32"/><stop offset=".52" stop-color="#031018"/><stop offset="1" stop-color="#02070d"/></linearGradient>
-    <linearGradient id="edge" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#a7f3d0"/><stop offset=".45" stop-color="#10e6a0"/><stop offset="1" stop-color="#047857"/></linearGradient>
-    <linearGradient id="mint" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#a7f3d0"/><stop offset=".45" stop-color="#34e8a1"/><stop offset="1" stop-color="#00a978"/></linearGradient>
-    <linearGradient id="green" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#4df0b0"/><stop offset="1" stop-color="#009b70"/></linearGradient>
-    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="8" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+  <defs>
+    <clipPath id="wordmark"><rect x="75" y="0" width="145" height="62"/></clipPath>
+    <filter id="dark-wordmark" color-interpolation-filters="sRGB">
+      <feColorMatrix type="matrix" values="0 0 0 0 0.06 0 0 0 0 0.09 0 0 0 0 0.16 0 0 0 1 0"/>
+    </filter>
   </defs>
-  <rect x="24" y="24" width="464" height="464" rx="104" fill="url(#bg)"/>
-  <rect x="25" y="25" width="462" height="462" rx="103" fill="none" stroke="url(#edge)" stroke-width="5" filter="url(#glow)"/>
-  <path d="M125 154c0-40 29-69 72-69h206c-30 29-61 54-99 69H206v48h141c-21 20-45 35-72 47H206v30c0 45-28 83-81 113V154Z" fill="url(#mint)"/>
-  <path d="M125 294c27-42 56-63 98-63h132c-22 22-48 39-77 49h-55c-34 0-58 15-98 62v-48Z" fill="#16d99a" opacity=".92"/>
-  <g fill="url(#green)"><rect x="274" y="358" width="37" height="73" rx="10"/><rect x="326" y="329" width="37" height="102" rx="10"/><rect x="378" y="294" width="37" height="137" rx="10"/></g>
-  <path d="M277 366c38-7 71-28 105-54l43-34" fill="none" stroke="#031a17" stroke-width="18" stroke-linecap="round"/>
-  <path d="m404 267 40-5-7 41" fill="none" stroke="#031a17" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M277 356c38-7 71-28 105-54l43-34" fill="none" stroke="#20e6a0" stroke-width="10" stroke-linecap="round"/>
-  <path d="m404 267 40-5-7 41" fill="none" stroke="#20e6a0" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
-</svg>
-  <text x="151" y="79" fill="#0f172a" font-family="Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="61" font-weight="760" letter-spacing="-2.8">Finanzas</text>
-  <text x="155" y="106" fill="#64748b" font-family="Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="12" font-weight="650" letter-spacing="3.1">CONTROL PERSONAL Y FAMILIAR</text>
+  <image width="220" height="62" href="/finanzas-logo-horizontal-dark.webp" xlink:href="/finanzas-logo-horizontal-dark.webp"/>
+  <g clip-path="url(#wordmark)">
+    <image width="220" height="62" filter="url(#dark-wordmark)" href="/finanzas-logo-horizontal-dark.webp" xlink:href="/finanzas-logo-horizontal-dark.webp"/>
+  </g>
 </svg>
