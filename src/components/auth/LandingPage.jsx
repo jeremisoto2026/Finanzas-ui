@@ -115,8 +115,8 @@ export default function LandingPage({ signIn, signUp }) {
   }
 
   return (
-    <main className="min-h-screen overflow-hidden bg-[#080F1C] text-slate-100">
-      <header className="sticky top-0 z-40 border-b border-slate-800/80 bg-[#080F1C]/90 backdrop-blur-xl">
+    <main className="landing-page relative bg-[#080F1C] text-slate-100">
+      <header className="landing-header sticky top-0 z-40 border-b border-slate-800/80 bg-[#080F1C]/90 backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3.5 sm:px-6 lg:px-8">
           <a href="#inicio" className="flex shrink-0 items-center gap-3" aria-label="Finanzas, inicio">
             <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-emerald-400/20 bg-emerald-400/10 text-emerald-300">
@@ -428,7 +428,7 @@ export default function LandingPage({ signIn, signUp }) {
         </div>
       </section>
 
-      <footer className="border-t border-slate-800/80 bg-slate-950/35">
+      <footer className="landing-footer border-t border-slate-800/80 bg-slate-950/35">
         <div className="mx-auto flex max-w-7xl flex-col gap-2 px-4 py-6 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
           <p className="font-semibold text-slate-300">Finanzas</p>
           <p>Control financiero personal y familiar.</p>
