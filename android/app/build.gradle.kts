@@ -24,12 +24,13 @@ android {
         applicationId = "com.finanzas.mobile"
         minSdk = 26
         targetSdk = 36
-        versionCode = 19
-        versionName = "1.0.18-preview"
+        versionCode = 20
+        versionName = "1.0.19-preview"
 
         // Public Supabase values only. RLS remains the security boundary.
         buildConfigField("String", "SUPABASE_URL", "\"https://xebgscmovaffrqckzpyz.supabase.co\"")
         buildConfigField("String", "SUPABASE_PUBLISHABLE_KEY", "\"sb_publishable_Mbxk3dAMZHoPKrh90zKHkw_yzzh22un\"")
+        buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"591403777520-vk1ee8jluu7u6gqncee92dt0vehetfqh.apps.googleusercontent.com\"")
     }
 
     signingConfigs {
@@ -81,5 +82,9 @@ dependencies {
     implementation("androidx.core:core-ktx:1.17.0")
     implementation("androidx.appcompat:appcompat:1.7.1")
     implementation("androidx.work:work-runtime-ktx:2.12.0")
+    implementation("androidx.credentials:credentials:1.5.0")
+    implementation("androidx.credentials:credentials-play-services-auth:1.5.0")
+    implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
     testImplementation("junit:junit:4.13.2")
 }
