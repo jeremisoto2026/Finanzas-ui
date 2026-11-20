@@ -55,7 +55,7 @@ test('Manual expense forms require an account and validate ownership through the
 
   assert.match(form, /cuentaId:\s*''/)
   assert.match(form, /¿De qué cuenta salió el dinero\?/)
-  assert.match(form, /<select required value=\{nuevoGasto\.cuentaId\}/)
+  assert.match(form, /<FinanceSelect required value=\{nuevoGasto\.cuentaId\}/)
   assert.match(form, /const cuentaSeleccionada = cuentasUsuario\.find/)
   assert.match(form, /!editingGastoId && cuentaSeleccionada\.isActive === false/)
   assert.match(api, /findOwnedAccountId\(supabase, user\.id, body\.cuentaId\)/)
@@ -67,7 +67,7 @@ test('Manual income forms require the account where the money was received', () 
 
   assert.match(form, /cuentaId:\s*''/)
   assert.match(form, /¿En qué cuenta recibiste el ingreso\?/)
-  assert.match(form, /<select required value=\{nuevoIngreso\.cuentaId\}/)
+  assert.match(form, /<FinanceSelect required value=\{nuevoIngreso\.cuentaId\}/)
   assert.match(form, /const cuentaSeleccionada = cuentasUsuario\.find/)
   assert.match(form, /!editingIngresoId && cuentaSeleccionada\.isActive === false/)
   assert.match(api, /findOwnedAccountId\(supabase, user\.id, body\.cuentaId\)/)
