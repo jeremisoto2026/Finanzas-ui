@@ -1,3 +1,4 @@
+import FinanceSelect from '@/components/ui/FinanceSelect'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   BellRing,
@@ -594,7 +595,7 @@ export default function CapturasAutomaticas() {
 
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           <label className="text-xs font-medium text-slate-300">Aplicación del banco
-            <select
+            <FinanceSelect
               value={mappingSource}
               onChange={(event) => {
                 autoSaveAttemptRef.current = ''
@@ -610,7 +611,7 @@ export default function CapturasAutomaticas() {
                   {getBankSourceLabel(sourceApp, sourceLabelMap)}
                 </option>
               ))}
-            </select>
+            </FinanceSelect>
           </label>
           <div>
             <span className="text-xs font-medium text-slate-300">Cuenta que recibe el cargo</span>
@@ -628,7 +629,7 @@ export default function CapturasAutomaticas() {
                 </p>
               </div>
             ) : (
-              <select
+              <FinanceSelect
                 value={mappingAccountId}
                 onChange={(event) => {
                   const accountId = event.target.value
@@ -654,7 +655,7 @@ export default function CapturasAutomaticas() {
                     {getAccountOptionLabel(account, mappingSourceLabel)}
                   </option>
                 ))}
-              </select>
+              </FinanceSelect>
             )}
             {mappingSuggestion.reason === 'matching' &&
               mappingAccountId === mappingSuggestion.accountId && (
@@ -781,24 +782,24 @@ export default function CapturasAutomaticas() {
                 </p>
                 <div className="mt-4 grid gap-3 sm:grid-cols-2">
                   <label className="text-xs font-medium text-slate-300">Cuenta del cargo
-                    <select
+                    <FinanceSelect
                       value={accountSelections[item.id] ?? item.accountId ?? ''}
                       onChange={(event) => setAccountSelections((current) => ({ ...current, [item.id]: event.target.value }))}
                       className="mt-1.5 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-white"
                     >
                       <option value="">Selecciona una cuenta</option>
                       {accounts.map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}
-                    </select>
+                    </FinanceSelect>
                   </label>
                   <label className="text-xs font-medium text-slate-300">Categoría del gasto
-                    <select
+                    <FinanceSelect
                       value={categorySelections[item.id] ?? categories.find((category) => item.categorySuggestion && category.name.trim().toLocaleLowerCase('es') === item.categorySuggestion.trim().toLocaleLowerCase('es'))?.id ?? ''}
                       onChange={(event) => setCategorySelections((current) => ({ ...current, [item.id]: event.target.value }))}
                       className="mt-1.5 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-white"
                     >
                       <option value="">Selecciona una categoría</option>
                       {categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
-                    </select>
+                    </FinanceSelect>
                   </label>
                 </div>
                 <div className="mt-4 flex flex-wrap justify-end gap-2">

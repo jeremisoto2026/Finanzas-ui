@@ -1,3 +1,4 @@
+import FinanceSelect from '@/components/ui/FinanceSelect'
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { localDateInputValue, monthKeyFromDate, parseDateOnlyLocal, sumMoney, sumMoneyBy } from '@/lib/finance-core';
 import { useConfirmationDialog } from '@/components/ui/ConfirmationDialog';
@@ -801,16 +802,16 @@ export default function TablaIngresos() {
                 <input required type="date" value={nuevoIngreso.fecha} onChange={(e) => setNuevoIngreso({ ...nuevoIngreso, fecha: e.target.value })} className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-3 text-white outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20" />
               </label>
               <label className="text-sm font-medium text-slate-300">Categoría
-                <select value={nuevoIngreso.categoria} onChange={(e) => setNuevoIngreso({ ...nuevoIngreso, categoria: e.target.value })} className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-3 text-white outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20">
+                <FinanceSelect value={nuevoIngreso.categoria} onChange={(e) => setNuevoIngreso({ ...nuevoIngreso, categoria: e.target.value })} className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-3 text-white outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20">
                   <optgroup label="Ingresos habituales"><option>Nómina</option><option>Trabajo / reparto</option><option>Horas extra</option><option>Extras</option><option>Alquiler recibido</option><option>Prestaciones y ayudas</option></optgroup>
                   <optgroup label="Ingresos puntuales"><option>Propinas</option><option>Ventas</option><option>Cobros de préstamos</option><option>Préstamo recibido</option><option>Reembolsos</option><option>Intereses</option><option>Otros</option></optgroup>
-                </select>
+                </FinanceSelect>
               </label>
               <label className="text-sm font-medium text-slate-300">¿En qué cuenta recibiste el ingreso?
-                <select required value={nuevoIngreso.cuentaId} onChange={(e) => setNuevoIngreso({ ...nuevoIngreso, cuentaId: e.target.value })} disabled={cuentasLoading || (!editingIngresoId && !cuentasUsuario.some((account) => account.isActive !== false)) || (Boolean(editingIngresoId) && cuentasUsuario.length === 0)} className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-3 text-white outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 disabled:opacity-60">
+                <FinanceSelect required value={nuevoIngreso.cuentaId} onChange={(e) => setNuevoIngreso({ ...nuevoIngreso, cuentaId: e.target.value })} disabled={cuentasLoading || (!editingIngresoId && !cuentasUsuario.some((account) => account.isActive !== false)) || (Boolean(editingIngresoId) && cuentasUsuario.length === 0)} className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-3 text-white outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 disabled:opacity-60">
                   <option value="">{cuentasLoading ? 'Cargando cuentas…' : cuentasUsuario.length ? 'Selecciona una cuenta' : 'No hay cuentas disponibles'}</option>
                   {cuentasUsuario.filter((account) => account.isActive !== false || account.id === nuevoIngreso.cuentaId).map((account) => <option key={account.id} value={account.id} disabled={account.isActive === false}>{account.name}{account.isActive === false ? ' · Desactivada' : ''} · {account.currencyCode || 'EUR'}</option>)}
-                </select>
+                </FinanceSelect>
                 <span className="mt-1 block text-xs font-normal text-slate-500">El importe se sumará al saldo de esta cuenta.</span>
                 {cuentasError && (
                   <span role="alert" className="mt-2 flex flex-wrap items-center gap-2 text-xs font-normal text-rose-300">
@@ -820,7 +821,7 @@ export default function TablaIngresos() {
                 )}
               </label>
               <label className="text-sm font-medium text-slate-300">Método de recepción
-                <select value={nuevoIngreso.metodo} onChange={(e) => setNuevoIngreso({ ...nuevoIngreso, metodo: e.target.value })} className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-3 text-white outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"><option>Transferencia</option><option>Bizum</option><option>Efectivo</option><option>Tarjeta</option></select>
+                <FinanceSelect value={nuevoIngreso.metodo} onChange={(e) => setNuevoIngreso({ ...nuevoIngreso, metodo: e.target.value })} className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-3 text-white outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"><option>Transferencia</option><option>Bizum</option><option>Efectivo</option><option>Tarjeta</option></FinanceSelect>
               </label>
             </div>
             {formError && <p role="alert" className="mt-4 rounded-xl border border-rose-800/50 bg-rose-950/30 px-3 py-2.5 text-sm text-rose-200">{formError}</p>}
@@ -851,7 +852,7 @@ export default function TablaIngresos() {
                   Mes
                 </label>
                 <div className="relative">
-                  <select 
+                  <FinanceSelect 
                     value={filtroMes}
                     onChange={(e) => setFiltroMes(e.target.value)}
                     className="w-full px-4 py-2.5 pl-10 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition appearance-none"
@@ -862,7 +863,7 @@ export default function TablaIngresos() {
                         {formatearMesTexto(mes)}
                       </option>
                     ))}
-                  </select>
+                  </FinanceSelect>
                   <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-500 pointer-events-none" />
                 </div>
               </div>
@@ -874,7 +875,7 @@ export default function TablaIngresos() {
                   Método de recepción
                 </label>
                 <div className="relative">
-                  <select 
+                  <FinanceSelect 
                     value={filtroMetodo}
                     onChange={(e) => setFiltroMetodo(e.target.value)}
                     className="w-full px-4 py-2.5 pl-10 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition appearance-none"
@@ -883,7 +884,7 @@ export default function TablaIngresos() {
                     {metodosRecepcionDisponibles.map(metodo => (
                       <option key={metodo} value={metodo}>{metodo}</option>
                     ))}
-                  </select>
+                  </FinanceSelect>
                   <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-500 pointer-events-none" />
                 </div>
               </div>
@@ -895,7 +896,7 @@ export default function TablaIngresos() {
                   Cuenta
                 </label>
                 <div className="relative">
-                  <select 
+                  <FinanceSelect 
                     value={filtroCuenta}
                     onChange={(e) => setFiltroCuenta(e.target.value)}
                     className="w-full px-4 py-2.5 pl-10 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition appearance-none"
@@ -904,7 +905,7 @@ export default function TablaIngresos() {
                     {cuentasDisponibles.map(cuenta => (
                       <option key={cuenta} value={cuenta}>{cuenta}</option>
                     ))}
-                  </select>
+                  </FinanceSelect>
                   <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-500 pointer-events-none" />
                 </div>
               </div>
@@ -916,7 +917,7 @@ export default function TablaIngresos() {
                   Categoría
                 </label>
                 <div className="relative">
-                  <select 
+                  <FinanceSelect 
                     value={filtroCategoria}
                     onChange={(e) => setFiltroCategoria(e.target.value)}
                     className="w-full px-4 py-2.5 pl-10 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition appearance-none"
@@ -925,7 +926,7 @@ export default function TablaIngresos() {
                     {categoriasDisponibles.map(categoria => (
                       <option key={categoria} value={categoria}>{categoria}</option>
                     ))}
-                  </select>
+                  </FinanceSelect>
                   <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-500 pointer-events-none" />
                 </div>
               </div>

@@ -1,3 +1,4 @@
+import FinanceSelect from '@/components/ui/FinanceSelect'
 import { useState, useEffect } from 'react'
 import { useScrollToForm } from '@/lib/useScrollToForm'
 import { X, Save, Calendar, Euro, Bell, AlertCircle } from 'lucide-react'
@@ -138,7 +139,7 @@ export default function FormularioPagoFijo({
             <label className="block text-sm font-medium text-slate-300 mb-2">
               Categoría *
             </label>
-            <select
+            <FinanceSelect
               name="categoria"
               value={formData.categoria}
               onChange={handleChange}
@@ -151,7 +152,7 @@ export default function FormularioPagoFijo({
                   {cat.label}
                 </option>
               ))}
-            </select>
+            </FinanceSelect>
           </div>
 
           {/* Frecuencia */}
@@ -159,7 +160,7 @@ export default function FormularioPagoFijo({
             <label className="block text-sm font-medium text-slate-300 mb-2">
               Frecuencia *
             </label>
-            <select
+            <FinanceSelect
               name="frecuencia"
               value={formData.frecuencia}
               onChange={handleChange}
@@ -171,7 +172,7 @@ export default function FormularioPagoFijo({
                   {freq.label}
                 </option>
               ))}
-            </select>
+            </FinanceSelect>
           </div>
 
           {/* Fecha de inicio */}
@@ -195,7 +196,7 @@ export default function FormularioPagoFijo({
             <label className="block text-sm font-medium text-slate-300 mb-2">
               Método de pago *
             </label>
-            <select
+            <FinanceSelect
               name="metodoPago"
               value={formData.metodoPago}
               onChange={handleChange}
@@ -208,7 +209,7 @@ export default function FormularioPagoFijo({
                   {metodo.label}
                 </option>
               ))}
-            </select>
+            </FinanceSelect>
           </div>
 
           {/* Cuenta */}

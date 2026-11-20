@@ -1,3 +1,4 @@
+import FinanceSelect from '@/components/ui/FinanceSelect'
 import { useEffect, useMemo, useState } from 'react'
 import { ArrowPathIcon, BanknotesIcon, CheckCircleIcon, PlusIcon, PencilSquareIcon, TrashIcon, XMarkIcon } from '@heroicons/react/24/outline'
 import { sumMoney } from '@/lib/finance-core'
@@ -215,10 +216,10 @@ export default function Compromisos() {
               <button type="button" onClick={() => setSettlement(null)} className="rounded-lg p-2 text-slate-400 hover:bg-slate-800" aria-label="Cerrar"><XMarkIcon className="h-5 w-5" /></button>
             </div>
             <label className="block text-sm text-slate-300">Cuenta donde recibiste el dinero
-              <select required value={settlement.accountId} onChange={(event) => setSettlement((current) => ({ ...current, accountId: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2.5 text-white">
+              <FinanceSelect required value={settlement.accountId} onChange={(event) => setSettlement((current) => ({ ...current, accountId: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2.5 text-white">
                 <option value="">Seleccionar cuenta</option>
                 {accounts.map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}
-              </select>
+              </FinanceSelect>
             </label>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <label className="block text-sm text-slate-300">Importe recibido (€)

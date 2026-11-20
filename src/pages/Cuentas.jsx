@@ -1,3 +1,4 @@
+import FinanceSelect from '@/components/ui/FinanceSelect'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   Banknote,
@@ -277,9 +278,9 @@ export default function Cuentas() {
               <input maxLength={100} value={form.institution} onChange={(event) => setForm({ ...form, institution: event.target.value })} className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-3 text-white outline-none focus:border-emerald-500" placeholder="Ej. Banco, emisor o entidad" />
             </label>
             <label className="text-sm text-slate-300">Tipo de cuenta
-              <select value={form.accountType} onChange={(event) => setForm({ ...form, accountType: event.target.value })} className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-3 text-white outline-none focus:border-emerald-500">
+              <FinanceSelect value={form.accountType} onChange={(event) => setForm({ ...form, accountType: event.target.value })} className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-3 text-white outline-none focus:border-emerald-500">
                 {ACCOUNT_TYPES.map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}
-              </select>
+              </FinanceSelect>
             </label>
             <label className="text-sm text-slate-300">Moneda
               <input required maxLength={3} minLength={3} value={form.currencyCode} onChange={(event) => setForm({ ...form, currencyCode: event.target.value.toUpperCase() })} className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-3 text-white uppercase outline-none focus:border-emerald-500" placeholder="EUR" />

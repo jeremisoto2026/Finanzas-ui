@@ -1,3 +1,4 @@
+import FinanceSelect from '@/components/ui/FinanceSelect'
 import { useCallback, useEffect, useState } from 'react'
 import { Capacitor } from '@capacitor/core'
 import NativeReminderSettings from '@/components/NativeReminderSettings'
@@ -295,27 +296,27 @@ function WebPushNotificationSettings() {
           <label className="rounded-xl bg-slate-800/50 p-3">
             <span className="block text-sm font-medium text-slate-100">Avisar con antelación</span>
             <span className="mt-1 block text-xs text-slate-400">Días antes del vencimiento</span>
-            <select
+            <FinanceSelect
               value={preferences.reminder_days_before}
               disabled={loading || Boolean(saving)}
               onChange={(event) => savePreferences({ reminder_days_before: Number(event.target.value) }, 'days')}
               className="mt-3 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white"
             >
               {[1, 2, 3, 5, 7].map((days) => <option key={days} value={days}>{days} {days === 1 ? 'día' : 'días'} antes</option>)}
-            </select>
+            </FinanceSelect>
           </label>
 
           <label className="rounded-xl bg-slate-800/50 p-3">
             <span className="block text-sm font-medium text-slate-100">Hora del recordatorio</span>
             <span className="mt-1 block text-xs text-slate-400">Zona horaria: Europe/Madrid</span>
-            <select
+            <FinanceSelect
               value={preferences.reminder_hour}
               disabled={loading || Boolean(saving)}
               onChange={(event) => savePreferences({ reminder_hour: Number(event.target.value) }, 'hour')}
               className="mt-3 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white"
             >
               {[7, 8, 9, 10, 11, 12, 18, 19, 20].map((hour) => <option key={hour} value={hour}>{String(hour).padStart(2, '0')}:00</option>)}
-            </select>
+            </FinanceSelect>
           </label>
         </div>
 

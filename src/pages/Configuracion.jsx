@@ -1,3 +1,4 @@
+import FinanceSelect from '@/components/ui/FinanceSelect'
 import { useState, useEffect, useRef } from 'react'
 import { addInstallmentDate, distributeInstallmentAmounts, localDateInputValue, sumMoney, sumMonthlyEquivalent } from '@/lib/finance-core'
 import { uniqueCategoryNames } from '@/lib/category-utils'
@@ -749,18 +750,18 @@ export default function Configuracion() {
               </div>
             )}
             <label className="block text-sm text-slate-300">Cómo quieres contabilizarla
-              <select value={pagoCuotaDialog.modo} onChange={(event) => setPagoCuotaDialog((current) => ({ ...current, modo: event.target.value, existingTransactionId: '' }))} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2.5 text-white">
+              <FinanceSelect value={pagoCuotaDialog.modo} onChange={(event) => setPagoCuotaDialog((current) => ({ ...current, modo: event.target.value, existingTransactionId: '' }))} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2.5 text-white">
                 <option value="nuevo">Crear automáticamente un gasto nuevo</option>
                 <option value="existente">Vincular un gasto que ya registré</option>
-              </select>
+              </FinanceSelect>
             </label>
             {pagoCuotaDialog.modo === 'nuevo' ? (
               <>
                 <label className="block text-sm text-slate-300">Cuenta desde la que se pagó
-                  <select required value={pagoCuotaDialog.accountId} onChange={(event) => setPagoCuotaDialog((current) => ({ ...current, accountId: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2.5 text-white">
+                  <FinanceSelect required value={pagoCuotaDialog.accountId} onChange={(event) => setPagoCuotaDialog((current) => ({ ...current, accountId: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2.5 text-white">
                     <option value="">Seleccionar cuenta</option>
                     {cuentasDisponibles.map((cuenta) => <option key={cuenta.id} value={cuenta.id}>{cuenta.name}</option>)}
-                  </select>
+                  </FinanceSelect>
                 </label>
                 <label className="block text-sm text-slate-300">Fecha del cargo
                   <input required type="date" value={pagoCuotaDialog.paidOn} onChange={(event) => setPagoCuotaDialog((current) => ({ ...current, paidOn: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2.5 text-white" />
@@ -769,13 +770,13 @@ export default function Configuracion() {
               </>
             ) : (
               <label className="block text-sm text-slate-300">Gastos existentes por el mismo importe
-                <select required value={pagoCuotaDialog.existingTransactionId} onChange={(event) => setPagoCuotaDialog((current) => ({ ...current, existingTransactionId: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2.5 text-white">
+                <FinanceSelect required value={pagoCuotaDialog.existingTransactionId} onChange={(event) => setPagoCuotaDialog((current) => ({ ...current, existingTransactionId: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2.5 text-white">
                   <option value="">Seleccionar gasto existente</option>
                   {gastosRegistrados
                     .filter((gasto) => Number(gasto.monto) === Number(pagoCuotaDialog.cuota.monto))
                     .filter((gasto) => !comprasCuotas.some((plan) => plan.historialCuotas?.some((cuota) => cuota.transactionId === gasto.id)))
                     .map((gasto) => <option key={gasto.id} value={gasto.id}>{gasto.fecha} · {gasto.concepto} · {gasto.cuenta} · €{Number(gasto.monto).toFixed(2)}</option>)}
-                </select>
+                </FinanceSelect>
               </label>
             )}
             <div className="flex justify-end gap-2 border-t border-slate-800 pt-4">
@@ -917,20 +918,20 @@ export default function Configuracion() {
                 <label className="block text-sm font-medium text-slate-300 mb-2">
                   Categoría
                 </label>
-                <select
+                <FinanceSelect
                   value={pagoFijo.categoria}
                   onChange={(e) => setPagoFijo({...pagoFijo, categoria: e.target.value})}
                   className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition"
                 >
                   {categoriasConfiguracion.map((category) => <option key={category} value={category}>{category}</option>)}
-                </select>
+                </FinanceSelect>
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">
                   Método de pago
                 </label>
-                <select
+                <FinanceSelect
                   value={pagoFijo.metodo}
                   onChange={(e) => setPagoFijo({...pagoFijo, metodo: e.target.value})}
                   className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition"
@@ -940,14 +941,14 @@ export default function Configuracion() {
                   <option value="Bizum">Bizum</option>
                   <option value="Efectivo">Efectivo</option>
                   <option value="PayPal">PayPal</option>
-                </select>
+                </FinanceSelect>
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">
                   Frecuencia
                 </label>
-                <select
+                <FinanceSelect
                   value={pagoFijo.frecuencia}
                   onChange={(e) => setPagoFijo({...pagoFijo, frecuencia: e.target.value})}
                   className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition"
@@ -957,7 +958,7 @@ export default function Configuracion() {
                   <option value="mensual">Mensual</option>
                   <option value="trimestral">Trimestral</option>
                   <option value="anual">Anual</option>
-                </select>
+                </FinanceSelect>
               </div>
 
               <div>
@@ -1080,7 +1081,7 @@ export default function Configuracion() {
                   <Calculator className="h-4 w-4" />
                   Total de cuotas *
                 </label>
-                <select
+                <FinanceSelect
                   value={compraCuotas.cuotasTotales}
                   onChange={(e) => setCompraCuotas({...compraCuotas, cuotasTotales: e.target.value})}
                   className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition"
@@ -1088,7 +1089,7 @@ export default function Configuracion() {
                   {[1,2,3,4,5,6,7,8,9,10,11,12,18,24,36].map(num => (
                     <option key={num} value={num}>{num} cuota{num !== 1 ? 's' : ''}</option>
                   ))}
-                </select>
+                </FinanceSelect>
               </div>
 
               <div>
@@ -1151,20 +1152,20 @@ export default function Configuracion() {
                 <label className="block text-sm font-medium text-slate-300 mb-2">
                   Categoría
                 </label>
-                <select
+                <FinanceSelect
                   value={compraCuotas.categoria}
                   onChange={(e) => setCompraCuotas({...compraCuotas, categoria: e.target.value})}
                   className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition"
                 >
                   {categoriasConfiguracion.map((category) => <option key={category} value={category}>{category}</option>)}
-                </select>
+                </FinanceSelect>
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">
                   Método de pago
                 </label>
-                <select
+                <FinanceSelect
                   value={compraCuotas.metodo}
                   onChange={(e) => setCompraCuotas({...compraCuotas, metodo: e.target.value})}
                   className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition"
@@ -1174,7 +1175,7 @@ export default function Configuracion() {
                   <option value="Bizum">Bizum</option>
                   <option value="Efectivo">Efectivo</option>
                   <option value="PayPal">PayPal</option>
-                </select>
+                </FinanceSelect>
               </div>
 
               <div>
@@ -1194,7 +1195,7 @@ export default function Configuracion() {
                 <label className="block text-sm font-medium text-slate-300 mb-2">
                   Frecuencia de pago
                 </label>
-                <select
+                <FinanceSelect
                   value={compraCuotas.frecuenciaPago}
                   onChange={(e) => setCompraCuotas({...compraCuotas, frecuenciaPago: e.target.value})}
                   className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition"
@@ -1203,7 +1204,7 @@ export default function Configuracion() {
                   <option value="quincenal">Quincenal</option>
                   <option value="semanal">Semanal</option>
                   <option value="trimestral">Trimestral</option>
-                </select>
+                </FinanceSelect>
               </div>
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-slate-300 mb-2">Notas (opcional)</label>
@@ -1363,7 +1364,7 @@ export default function Configuracion() {
           <div className="flex items-center justify-between"><h3 className="font-semibold text-white">{editingPresupuestoId ? 'Editar presupuesto' : 'Nuevo presupuesto'}</h3><button type="button" onClick={() => { setMostrarFormPresupuesto(false); setEditingPresupuestoId(null); }} className="text-sm text-slate-400 hover:text-white">Cerrar</button></div>
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <label className="text-sm text-slate-300">Mes<input type="month" required value={presupuestoForm.month} onChange={(e) => setPresupuestoForm({ ...presupuestoForm, month: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-white" /></label>
-            <label className="text-sm text-slate-300">Categoría<select required value={presupuestoForm.category} onChange={(e) => setPresupuestoForm({ ...presupuestoForm, category: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-white"><option value="" disabled>Selecciona una categoría</option>{categoriasConfiguracion.map((category) => <option key={category} value={category}>{category}</option>)}</select></label>
+            <label className="text-sm text-slate-300">Categoría<FinanceSelect required value={presupuestoForm.category} onChange={(e) => setPresupuestoForm({ ...presupuestoForm, category: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-white"><option value="" disabled>Selecciona una categoría</option>{categoriasConfiguracion.map((category) => <option key={category} value={category}>{category}</option>)}</FinanceSelect></label>
             <label className="text-sm text-slate-300">Importe planificado (€)<input type="number" min="0" step="0.01" required value={presupuestoForm.amount} onChange={(e) => setPresupuestoForm({ ...presupuestoForm, amount: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-white" /></label>
             <label className="text-sm text-slate-300">Notas<input value={presupuestoForm.notes} onChange={(e) => setPresupuestoForm({ ...presupuestoForm, notes: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-white" /></label>
           </div>
