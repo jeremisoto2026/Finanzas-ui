@@ -124,6 +124,29 @@
     color: #6ee7b7;
   }
 
+  /*
+   * Public landing page runs edge-to-edge in the Android WebView. Keep the
+   * sticky header's content below the status bar and the footer above
+   * the gesture-navigation area without changing the Finanzas visual style.
+   */
+  .landing-page {
+    box-sizing: border-box;
+    min-height: 100vh;
+    min-height: 100dvh;
+    overflow-x: clip;
+    scroll-padding-top: calc(4rem + var(--finance-safe-area-top));
+    scroll-padding-bottom: var(--finance-safe-area-bottom);
+  }
+
+  .landing-header {
+    box-sizing: border-box;
+    padding-top: var(--finance-safe-area-top);
+  }
+
+  .landing-footer {
+    padding-bottom: var(--finance-safe-area-bottom);
+  }
+
   .finance-panel {
     @apply rounded-2xl border border-slate-800/90 bg-slate-900/70 shadow-lg shadow-black/10;
   }
