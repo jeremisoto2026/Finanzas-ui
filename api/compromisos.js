@@ -156,38 +156,34 @@ async function handleReservations(req, res, supabase, user) {
       return res.status(409).json({ error: 'No puedes reservar dinero en una cuenta desactivada.' })
     }
 
-    if (status === 'active') {
-      const available = await getReservationAvailability(supabase, user.id, account, current?.id || null)
-      if (Math.round(amount * 100) > Math.round(available * 100)) {
-        return res.status(409).json({
-          error: `Solo tienes ${available.toFixed(2)} ${String(account.currency_code || 'EUR').trim()} libres en ${account.name}, después de las reservas activas.`,
-        })
+
+
+    const { data: savedRow, error: saveError } = await supabase.rpc('save_reservation', {
+      p_reservation_id: isUpdate ? current.id : null,
+      p_account_id: account.id,
+      p_name: name,
+      p_amount: reservationMoney(amount),
+      p_status: status,
+      p_reserved_on: reservedOn,
+      p_notes: notes,
+    })
+    if (saveError) {
+      if (saveError.message?.startsWith('Saldo insuficiente:')) {
+        return res.status(409).json({ error: saveError.message })
       }
+      if (saveError.message?.includes('No se encontró esa reserva.')) {
+        return res.status(404).json({ error: 'No se encontró esa reserva.' })
+      }
+      if (saveError.message?.includes('cuenta desactivada')) {
+        return res.status(409).json({ error: saveError.message })
+      }
+      throw saveError
     }
 
-    const values = {
-      user_id: user.id,
-      account_id: account.id,
-      name,
-      amount: reservationMoney(amount),
-      status,
-      reserved_on: reservedOn,
-      notes,
-      updated_at: new Date().toISOString(),
-    }
-    const query = isUpdate
-      ? supabase.from('reservations').update(values).eq('user_id', user.id).eq('id', current.id)
-      : supabase.from('reservations').insert(values)
-    const { data, error } = await query
-      .select('id, account_id, name, amount, status, reserved_on, notes')
-      .single()
-    if (error) throw error
-
-    const { data: accounts, error: accountsError } = await supabase.from('accounts')
-      .select('id, name, currency_code, is_active').eq('user_id', user.id)
-    if (accountsError) throw accountsError
-    const accountMap = new Map((accounts || []).map((item) => [item.id, item]))
-    return res.status(isUpdate ? 200 : 201).json(mapReservationRow(data, accountMap))
+    const saved = Array.isArray(savedRow) ? savedRow[0] : savedRow
+    if (!saved) throw new Error('La base de datos no devolvió la reserva guardada.')
+    const accountMap = new Map([[account.id, account]])
+    return res.status(isUpdate ? 200 : 201).json(mapReservationRow(saved, accountMap)))
   }
 
   const { id } = req.body || {}
