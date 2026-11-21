@@ -725,7 +725,84 @@ async function handleAndroidReservations(method, init, sourceRequest) {
   }
 }
 
+async function handleAndroidTransfers(method, init, sourceRequest) {
+  try {
+    const body = method === 'GET' ? {} : await readAndroidJsonBody(init, sourceRequest)
+    const { data: authData, error: authError } = await supabase.auth.getUser()
+    if (authError || !authData?.user) return jsonResponse({ error: 'Tu sesión ha caducado. Inicia sesión de nuevo.' }, 401)
+    const userId = authData.user.id
+
+    if (method === 'GET') {
+      const [{ data: transfers, error }, { data: accounts, error: accountsError }, { data: entries, error: entriesError }] = await Promise.all([
+        supabase.from('transfers').select('id, from_account_id, to_account_id, amount, occurred_on, description, created_at')
+          .eq('user_id', userId).order('occurred_on', { ascending: false }).order('created_at', { ascending: false }),
+        supabase.from('accounts').select('id, name, currency_code').eq('user_id', userId),
+        supabase.from('transactions').select('transfer_id, status').eq('user_id', userId).not('transfer_id', 'is', null),
+      ])
+      if (error) throw error
+      if (accountsError) throw accountsError
+      if (entriesError) throw entriesError
+      const accountMap = new Map((accounts || []).map((account) => [account.id, account]))
+      const statusMap = new Map()
+      for (const row of entries || []) {
+        const list = statusMap.get(row.transfer_id) || []
+        list.push(row.status)
+        statusMap.set(row.transfer_id, list)
+      }
+      return jsonResponse((transfers || []).map((row) => ({
+        id: row.id, fromAccountId: row.from_account_id, toAccountId: row.to_account_id,
+        fromAccount: accountMap.get(row.from_account_id)?.name || 'Cuenta no disponible',
+        toAccount: accountMap.get(row.to_account_id)?.name || 'Cuenta no disponible',
+        currencyCode: String(accountMap.get(row.from_account_id)?.currency_code || 'EUR').trim(),
+        amount: Number(row.amount), date: row.occurred_on, description: row.description || '',
+        status: (statusMap.get(row.id) || []).length === 2 && (statusMap.get(row.id) || []).every((value) => value === 'void') ? 'cancelled' : 'posted',
+      })))
+    }
+
+    if (method === 'POST') {
+      const fromAccountId = String(body.fromAccountId || '')
+      const toAccountId = String(body.toAccountId || '')
+      const amount = Number(body.amount)
+      const date = String(body.date || '').slice(0, 10)
+      const dateValue = /^\\d{4}-\\d{2}-\\d{2}$/.test(date) ? new Date(date + 'T00:00:00.000Z') : null
+      if (!fromAccountId || !toAccountId || fromAccountId === toAccountId || !Number.isFinite(amount) || amount <= 0 ||
+        !dateValue || !Number.isFinite(dateValue.getTime()) || dateValue.toISOString().slice(0, 10) !== date) {
+        return jsonResponse({ error: 'Indica dos cuentas distintas, un importe positivo y una fecha válida.' }, 400)
+      }
+      const { data, error } = await supabase.rpc('create_account_transfer', {
+        p_from_account_id: fromAccountId, p_to_account_id: toAccountId,
+        p_amount: Math.round((amount + Number.EPSILON) * 100) / 100,
+        p_occurred_on: date, p_description: String(body.description || '').trim() || null,
+        p_idempotency_key: String(body.idempotencyKey || ''),
+      })
+      if (error) throw error
+      dashboardSnapshotPromise = null
+      dashboardSnapshotExpiresAt = 0
+      return jsonResponse(data, 201)
+    }
+
+    if (method === 'DELETE') {
+      if (!body.id) return jsonResponse({ error: 'Falta el identificador de la transferencia.' }, 400)
+      const { data, error } = await supabase.rpc('cancel_account_transfer', { p_transfer_id: body.id })
+      if (error) throw error
+      dashboardSnapshotPromise = null
+      dashboardSnapshotExpiresAt = 0
+      return jsonResponse({ success: true, transfer: data })
+    }
+    return jsonResponse({ error: 'Método no permitido.' }, 405)
+  } catch (error) {
+    console.error('No se pudo gestionar la transferencia en Android:', error)
+    return jsonResponse({ error: error?.message || 'No se pudo completar la transferencia.' }, 400)
+  }
+}
+
 async function fetchAndroidApi(parsedUrl, method, input, init, sourceRequest) {
+  if (parsedUrl.pathname === '/api/transferencias') {
+    if (method === 'GET' || ['POST', 'DELETE'].includes(method)) return handleAndroidTransfers(method, init, sourceRequest)
+    return jsonResponse({ error: 'Método no permitido.' }, 405)
+  }
+
+
   if (ANDROID_MANAGEMENT_WRITE_PATHS.has(parsedUrl.pathname) && ['POST', 'PATCH', 'DELETE'].includes(method)) {
     return forwardAndroidManagementWrite(parsedUrl, method, init, sourceRequest)
   }
