@@ -23,7 +23,7 @@ object IncomeNotificationClassifier {
     )
 
     private val inboundSignal = Regex(
-        """\b(ingreso\s+recibido|abono\s+(?:recibido|en\s+cuenta|confirmado)|has\s+recibido|hemos\s+recibido|dinero\s+recibido|money\s+received|received\s+(?:a\s+)?payment|payment\s+received|transferencia\s+recibida|transferencia\s+entrante|incoming\s+transfer|deposit\s+(?:received|completed)|n[oó]mina\s+(?:recibida|ingresada|abonada)|salary\s+(?:received|credited)|cashback\s+(?:recibido|received)|reembolso\s+(?:recibido|abonado)|devoluci[oó]n\s+(?:recibida|abonada))\b""",
+        """\b(ingreso\s+recibido|abono\s+(?:recibido|en\s+cuenta|confirmado)|has\s+recibido|hemos\s+recibido|te\s+ha\s+enviado|te\s+han\s+enviado|dinero\s+recibido|money\s+received|received\s+(?:a\s+)?payment|payment\s+received|transferencia\s+recibida|transferencia\s+entrante|incoming\s+transfer|deposit\s+(?:received|completed)|n[oó]mina\s+(?:recibida|ingresada|abonada)|salary\s+(?:received|credited)|cashback\s+(?:recibido|received)|reembolso\s+(?:recibido|abonado)|devoluci[oó]n\s+(?:recibida|abonada))\b""",
         RegexOption.IGNORE_CASE
     )
 
@@ -33,7 +33,7 @@ object IncomeNotificationClassifier {
     )
 
     private val ambiguousTransferSignal = Regex(
-        """\b(transferencia\s+recibida|transferencia\s+entrante|incoming\s+transfer|has\s+recibido\s+(?:una?\s+)?transferencia|hemos\s+recibido\s+(?:una?\s+)?transferencia)\b""",
+        """\b(transferencia\s+recibida|transferencia\s+entrante|incoming\s+transfer|has\s+recibido\s+(?:una?\s+)?transferencia|hemos\s+recibido\s+(?:una?\s+)?transferencia|te\s+ha\s+enviado|te\s+han\s+enviado)\b""",
         RegexOption.IGNORE_CASE
     )
 
