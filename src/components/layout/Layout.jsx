@@ -14,6 +14,7 @@ const Compromisos = lazy(() => import('@/pages/Compromisos'))
 const Recordatorios = lazy(() => import('@/pages/Recordatorios'))
 const Ajustes = lazy(() => import('@/pages/Ajustes'))
 const Cuentas = lazy(() => import('@/pages/Cuentas'))
+const Transferencias = lazy(() => import('@/pages/Transferencias'))
 
 const primaryItems = [
   { name: 'Dashboard', label: 'Inicio', icon: Home },
@@ -32,6 +33,7 @@ function PageContent({ activePage, onNavigate }) {
   if (activePage === 'Compras pendientes') return <CapturasAutomaticas />
   if (activePage === 'Gestión financiera') return <Configuracion />
   if (activePage === 'Cuentas') return <Cuentas />
+  if (activePage === 'Transferencias') return <Transferencias />
   if (activePage === 'Deudas') return <Deudas />
   if (activePage === 'Compromisos') return <Compromisos />
   return <Dashboard />
@@ -100,6 +102,7 @@ export default function Layout({ onSignOut }) {
             'Compras pendientes',
             'Gestión financiera',
             'Cuentas',
+            'Transferencias',
             'Deudas',
             'Compromisos',
           ].includes(activePage))
