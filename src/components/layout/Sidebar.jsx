@@ -51,7 +51,7 @@ export default function Sidebar({ activePage, setActivePage }) {
     <aside className="app-sidebar hidden w-[16.5rem] shrink-0 flex-col border-r border-slate-800/80 bg-[#080F1C] shadow-2xl shadow-black/10 lg:sticky lg:top-0 lg:flex lg:h-screen lg:overflow-y-auto">
       <div className="flex items-center border-b border-slate-800/70 px-5 py-6">
         <img
-          src="/finanzas-logo-horizontal-dark.webp"
+          src="/finanzas-logo-horizontal-dark.svg"
           alt="Finanzas"
           className="h-10 w-auto max-w-full self-start object-contain"
           draggable="false"

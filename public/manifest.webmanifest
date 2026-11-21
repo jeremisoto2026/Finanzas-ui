@@ -10,6 +10,11 @@
   "background_color": "#080F1C",
   "theme_color": "#080F1C",
   "icons": [
-    { "src": "/pwa-icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" }
+    {
+      "src": "/finanzas-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
   ]
 }
