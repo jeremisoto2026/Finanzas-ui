@@ -59,7 +59,15 @@ class NotificationParserTest {
     }
 
     @Test
-    fun recognizesUnknownBankPackagesWithoutHardcodedProviderList() {
+    fun ignoresUnknownAndPersonalAppsBeforeNotificationParsing() {
+        assertNull(NotificationSource.fromPackage("com.example.game", "Juego"))
+        assertNull(NotificationSource.fromPackage("org.telegram.messenger", "Telegram"))
+        assertNull(NotificationSource.fromPackage("com.whatsapp", "WhatsApp"))
+        assertNotNull(NotificationSource.fromPackage("es.example.mobile", "Banco Ejemplo"))
+    }
+
+    @Test
+    fun recognizesBankPackagesByFinancialAppLabel() {
         val source = NotificationSource.fromPackage(
             "es.caixabank.mobile.android",
             "CaixaBank"
