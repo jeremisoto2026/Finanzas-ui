@@ -16,6 +16,7 @@ self.addEventListener('push', (event) => {
 
   event.waitUntil(self.registration.showNotification(payload.title || 'Recordatorio de Finanzas', {
     body: payload.body || 'Tienes un pago próximo a vencer.',
+    icon: '/finanzas-icon.svg',
     tag: payload.tag || 'finanzas-recordatorio',
     renotify: false,
     data: { url: payload.url || '/', notificationId: payload.notificationId || null },

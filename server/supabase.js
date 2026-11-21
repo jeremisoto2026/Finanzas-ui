@@ -59,15 +59,27 @@ export async function findOrCreateCategory(supabase, userId, label, direction = 
   const findExisting = async () => {
     const { data, error } = await supabase
       .from('categories')
-      .select('id, name')
+      .select('id, name, direction')
       .eq('user_id', userId)
       .order('created_at', { ascending: true })
     if (error) throw error
     return (data || []).find((row) => normalizeCategoryName(row.name) === normalizedName) || null
   }
 
+  const ensureDirection = async (category) => {
+    if (!category) return null
+    if (category.direction !== direction && category.direction !== 'both') {
+      const { error } = await supabase.from('categories')
+        .update({ direction: 'both' })
+        .eq('id', category.id)
+        .eq('user_id', userId)
+      if (error) throw error
+    }
+    return category.id
+  }
+
   const found = await findExisting()
-  if (found) return found.id
+  if (found) return ensureDirection(found)
 
   const { data: created, error: createError } = await supabase
     .from('categories')
@@ -77,7 +89,7 @@ export async function findOrCreateCategory(supabase, userId, label, direction = 
   if (createError) {
     if (createError.code === '23505') {
       const retry = await findExisting()
-      if (retry) return retry.id
+      if (retry) return ensureDirection(retry)
     }
     throw createError
   }

@@ -1,3 +1,4 @@
+import FinanceSelect from '@/components/ui/FinanceSelect'
 import { useEffect, useMemo, useState } from 'react'
 import {
   PieChart,
@@ -164,7 +165,7 @@ export default function GraficoIngresos({ modo = 'mesActual' }) {
             <p className="mt-0.5 text-xs text-slate-400">Distribución por categoría · {periodoTexto}</p>
           </div>
           {modo === 'filtrados' && (
-            <select
+            <FinanceSelect
               value={filtroMes}
               onChange={(event) => setFiltroMes(event.target.value)}
               className="max-w-40 rounded-lg border border-slate-700 bg-slate-950 px-2 py-2 text-xs text-slate-200 outline-none focus:border-emerald-500"
@@ -172,7 +173,7 @@ export default function GraficoIngresos({ modo = 'mesActual' }) {
             >
               <option value="">Todos</option>
               {mesesDisponibles.map((month) => <option key={month} value={month}>{monthLabel(month)}</option>)}
-            </select>
+            </FinanceSelect>
           )}
         </div>
         <div className="flex items-end justify-between border-t border-slate-800 pt-3">

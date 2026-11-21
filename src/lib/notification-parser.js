@@ -66,7 +66,6 @@ export function parsePaymentNotification({ sourceApp, title = '', text = '', occ
 
   let amount = null
   let merchant = ''
-  let cardLast4 = null
   let accountLabel = null
 
   if (app === 'revolut') {
@@ -93,10 +92,6 @@ export function parsePaymentNotification({ sourceApp, title = '', text = '', occ
     const match = combined.match(/([\d.,]+)\s*(?:€|EUR)\s+(?:con\s+.+|en\s+.+)/i)
     if (match) amount = parseLocalizedAmount(match[1])
 
-    const cardMatch = combined.match(/(?:visa|mastercard|maestro|amex)\s*[•·*\s]*([0-9]{4})/i) ||
-      combined.match(/[•·*]{2,}\s*([0-9]{4})/)
-    if (cardMatch) cardLast4 = cardMatch[1]
-
     const issuer = combined.match(/\bcon\s+(Revolut|BBVA)\b/i)
     accountLabel = issuer ? (issuer[1].toLowerCase() === 'bbva' ? 'BBVA' : 'Revolut') : null
     const walletMerchant = combined.match(/\b(?:en|at)\s+(.+?)(?=\r?\n|$)/i)?.[1]
@@ -113,7 +108,6 @@ export function parsePaymentNotification({ sourceApp, title = '', text = '', occ
       reason: 'No se pudo extraer un importe y un comercio de forma segura.',
       amount,
       merchant,
-      cardLast4,
     }
   }
 
@@ -126,7 +120,6 @@ export function parsePaymentNotification({ sourceApp, title = '', text = '', occ
     merchantKey,
     accountLabel,
     paymentChannel: app,
-    cardLast4: app === 'google_wallet' ? cardLast4 : null,
     occurredAt,
     categorySuggestion: categorySuggestion?.category || null,
     categoryConfidence: categorySuggestion?.confidence || null,

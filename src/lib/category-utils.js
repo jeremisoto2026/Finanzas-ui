@@ -3,7 +3,7 @@ export function normalizeCategoryName(value) {
     .normalize('NFKC')
     .trim()
     .replace(/\s+/g, ' ')
-    .toLowerCase()
+    .toLocaleLowerCase('es-ES')
 }
 
 export function uniqueCategoryNames(values = []) {

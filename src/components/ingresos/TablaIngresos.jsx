@@ -1,5 +1,9 @@
+import FinanceSelect from '@/components/ui/FinanceSelect'
+import { DEFAULT_INCOME_CATEGORIES } from '@/lib/category-catalog'
+import { uniqueCategoryNames } from '@/lib/category-utils'
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { localDateInputValue, monthKeyFromDate, parseDateOnlyLocal, sumMoney, sumMoneyBy } from '@/lib/finance-core';
+import { useConfirmationDialog } from '@/components/ui/ConfirmationDialog';
 
 // ICONOS LUCIDE REACT para ingresos (paleta verde unificada)
 import { 
@@ -39,8 +43,10 @@ const normalizeIncomeCategory = (value) => String(value || '').trim().normalize(
 const FIXED_INCOME_CATEGORIES = new Set(['sueldo', 'pension', 'alquiler recibido', 'subsidio', 'nomina'])
 
 export default function TablaIngresos() {
+  const confirm = useConfirmationDialog();
   // Estados para los ingresos registrados en Supabase
   const [ingresosMensuales, setIngresosMensuales] = useState([]);
+  const [categoriasCatalogo, setCategoriasCatalogo] = useState(DEFAULT_INCOME_CATEGORIES);
   const [cuentasUsuario, setCuentasUsuario] = useState([]);
   const [cuentasLoading, setCuentasLoading] = useState(true);
   const [cuentasError, setCuentasError] = useState('');
@@ -48,7 +54,6 @@ export default function TablaIngresos() {
   const [error, setError] = useState(null);
   const [formOpen, setFormOpen] = useState(false);
   const [editingIngresoId, setEditingIngresoId] = useState(null);
-  const [deleteTarget, setDeleteTarget] = useState(null);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState('');
   const [nuevoIngreso, setNuevoIngreso] = useState({
@@ -88,6 +93,20 @@ export default function TablaIngresos() {
     fetchIngresos();
   }, []);
 
+  useEffect(() => {
+    let active = true
+    fetch('/api/ingresos?resource=categories', { cache: 'no-store' })
+      .then((response) => {
+        if (!response.ok) throw new Error('No se pudieron cargar las categorías de ingresos.')
+        return response.json()
+      })
+      .then((data) => {
+        if (active && Array.isArray(data)) setCategoriasCatalogo(uniqueCategoryNames([...DEFAULT_INCOME_CATEGORIES, ...data]))
+      })
+      .catch((loadError) => console.error('No se pudieron cargar las categorías de ingresos:', loadError))
+    return () => { active = false }
+  }, [])
+
   const cargarCuentasUsuario = useCallback(async () => {
     setCuentasLoading(true)
     setCuentasError('')
@@ -121,6 +140,12 @@ export default function TablaIngresos() {
     setFormOpen(true)
   }
 
+  useEffect(() => {
+    const handleQuickCreate = () => abrirNuevoIngreso()
+    window.addEventListener('finanzas:open-new-income', handleQuickCreate)
+    return () => window.removeEventListener('finanzas:open-new-income', handleQuickCreate)
+  }, [])
+
   const editarIngreso = (ingreso) => {
     setEditingIngresoId(ingreso.id)
     setNuevoIngreso({
@@ -142,8 +167,9 @@ export default function TablaIngresos() {
       setFormError('Completa el concepto, un importe positivo y la fecha.')
       return
     }
-    if (!nuevoIngreso.cuentaId || !cuentasUsuario.some((account) => account.id === nuevoIngreso.cuentaId)) {
-      setFormError('Selecciona una cuenta válida donde recibiste el dinero.')
+    const cuentaSeleccionada = cuentasUsuario.find((account) => account.id === nuevoIngreso.cuentaId)
+    if (!cuentaSeleccionada || (!editingIngresoId && cuentaSeleccionada.isActive === false)) {
+      setFormError('Selecciona una cuenta activa donde recibiste el dinero.')
       return
     }
 
@@ -180,22 +206,26 @@ export default function TablaIngresos() {
     }
   }
 
-  const eliminarIngreso = (ingreso) => setDeleteTarget(ingreso)
+  const eliminarIngreso = async (ingreso) => {
+    const amountLabel = new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(ingreso.monto)
+    const approved = await confirm({
+      title: '¿Anular este ingreso?',
+      description: `«${ingreso.concepto}» · ${amountLabel}. Se retirará del saldo y de los totales, pero permanecerá en el historial con estado anulado.`,
+      confirmLabel: 'Anular ingreso',
+    })
+    if (!approved) return
 
-  const confirmarEliminarIngreso = async () => {
-    if (!deleteTarget) return
     try {
       setSaving(true)
+      setFormError('')
       const response = await fetch('/api/ingresos', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: deleteTarget.id }),
+        body: JSON.stringify({ id: ingreso.id }),
       })
       const result = await response.json()
       if (!response.ok) throw new Error(result.error || 'No se pudo anular el ingreso.')
-      setIngresosMensuales((current) => current.filter((item) => item.id !== deleteTarget.id))
-      setDeleteTarget(null)
-      setFormError('')
+      setIngresosMensuales((current) => current.filter((item) => item.id !== ingreso.id))
     } catch (err) {
       setFormError(err.message || 'No se pudo anular el ingreso.')
     } finally {
@@ -243,14 +273,11 @@ export default function TablaIngresos() {
     return Array.from(cuentasSet).sort();
   }, [ingresosMensuales]);
 
-  // 4. Obtener categorías únicas
-  const categoriasDisponibles = useMemo(() => {
-    const categoriasSet = new Set();
-    ingresosMensuales.forEach(ingreso => {
-      if (ingreso.categoria) categoriasSet.add(ingreso.categoria);
-    });
-    return Array.from(categoriasSet).sort();
-  }, [ingresosMensuales]);
+  // El formulario y el filtro comparten el catálogo del usuario y conservan categorías históricas.
+  const categoriasDisponibles = useMemo(() => uniqueCategoryNames([
+    ...categoriasCatalogo,
+    ...ingresosMensuales.map((ingreso) => ingreso.categoria),
+  ]), [categoriasCatalogo, ingresosMensuales]);
 
   // 5. Función para formatear mes a texto
   const formatearMesTexto = (mesFormato) => {
@@ -694,6 +721,9 @@ export default function TablaIngresos() {
 
   return (
     <div className="mx-auto w-full max-w-7xl space-y-6 pb-8">
+      {formError && !formOpen && (
+        <p role="alert" className="rounded-xl border border-rose-800/50 bg-rose-950/30 px-4 py-3 text-sm text-rose-200">{formError}</p>
+      )}
       {/* HEADER MEJORADO (igual que TablaGastos) */}
       <div className="mb-8">
         <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
@@ -792,16 +822,15 @@ export default function TablaIngresos() {
                 <input required type="date" value={nuevoIngreso.fecha} onChange={(e) => setNuevoIngreso({ ...nuevoIngreso, fecha: e.target.value })} className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-3 text-white outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20" />
               </label>
               <label className="text-sm font-medium text-slate-300">Categoría
-                <select value={nuevoIngreso.categoria} onChange={(e) => setNuevoIngreso({ ...nuevoIngreso, categoria: e.target.value })} className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-3 text-white outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20">
-                  <optgroup label="Ingresos habituales"><option>Nómina</option><option>Trabajo / reparto</option><option>Horas extra</option><option>Extras</option><option>Alquiler recibido</option><option>Prestaciones y ayudas</option></optgroup>
-                  <optgroup label="Ingresos puntuales"><option>Propinas</option><option>Ventas</option><option>Cobros de préstamos</option><option>Préstamo recibido</option><option>Reembolsos</option><option>Intereses</option><option>Otros</option></optgroup>
-                </select>
+                <FinanceSelect value={nuevoIngreso.categoria} onChange={(e) => setNuevoIngreso({ ...nuevoIngreso, categoria: e.target.value })} className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-3 text-white outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20">
+                  {categoriasDisponibles.map((categoria) => <option key={categoria} value={categoria}>{categoria}</option>)}
+                </FinanceSelect>
               </label>
               <label className="text-sm font-medium text-slate-300">¿En qué cuenta recibiste el ingreso?
-                <select required value={nuevoIngreso.cuentaId} onChange={(e) => setNuevoIngreso({ ...nuevoIngreso, cuentaId: e.target.value })} disabled={cuentasLoading || cuentasUsuario.length === 0} className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-3 text-white outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 disabled:opacity-60">
+                <FinanceSelect required value={nuevoIngreso.cuentaId} onChange={(e) => setNuevoIngreso({ ...nuevoIngreso, cuentaId: e.target.value })} disabled={cuentasLoading || (!editingIngresoId && !cuentasUsuario.some((account) => account.isActive !== false)) || (Boolean(editingIngresoId) && cuentasUsuario.length === 0)} className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-3 text-white outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 disabled:opacity-60">
                   <option value="">{cuentasLoading ? 'Cargando cuentas…' : cuentasUsuario.length ? 'Selecciona una cuenta' : 'No hay cuentas disponibles'}</option>
-                  {cuentasUsuario.map((account) => <option key={account.id} value={account.id}>{account.name} · {account.currencyCode || 'EUR'}</option>)}
-                </select>
+                  {cuentasUsuario.filter((account) => account.isActive !== false || account.id === nuevoIngreso.cuentaId).map((account) => <option key={account.id} value={account.id} disabled={account.isActive === false}>{account.name}{account.isActive === false ? ' · Desactivada' : ''} · {account.currencyCode || 'EUR'}</option>)}
+                </FinanceSelect>
                 <span className="mt-1 block text-xs font-normal text-slate-500">El importe se sumará al saldo de esta cuenta.</span>
                 {cuentasError && (
                   <span role="alert" className="mt-2 flex flex-wrap items-center gap-2 text-xs font-normal text-rose-300">
@@ -811,7 +840,7 @@ export default function TablaIngresos() {
                 )}
               </label>
               <label className="text-sm font-medium text-slate-300">Método de recepción
-                <select value={nuevoIngreso.metodo} onChange={(e) => setNuevoIngreso({ ...nuevoIngreso, metodo: e.target.value })} className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-3 text-white outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"><option>Transferencia</option><option>Bizum</option><option>Efectivo</option><option>Tarjeta</option></select>
+                <FinanceSelect value={nuevoIngreso.metodo} onChange={(e) => setNuevoIngreso({ ...nuevoIngreso, metodo: e.target.value })} className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-3 text-white outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"><option>Transferencia</option><option>Bizum</option><option>Efectivo</option><option>Tarjeta</option></FinanceSelect>
               </label>
             </div>
             {formError && <p role="alert" className="mt-4 rounded-xl border border-rose-800/50 bg-rose-950/30 px-3 py-2.5 text-sm text-rose-200">{formError}</p>}
@@ -820,26 +849,6 @@ export default function TablaIngresos() {
               <button type="submit" disabled={saving} className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"><Save className="h-4 w-4" />{saving ? 'Guardando…' : editingIngresoId ? 'Guardar cambios' : 'Registrar ingreso'}</button>
             </div>
           </form>
-        </div>
-      )}
-
-      {deleteTarget && (
-        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm">
-          <section role="dialog" aria-modal="true" aria-labelledby="delete-income-title" className="w-full max-w-md rounded-2xl border border-slate-700 bg-slate-900 p-5 shadow-2xl">
-            <div className="flex items-start gap-3">
-              <span className="rounded-xl bg-rose-500/10 p-2.5 text-rose-300"><Trash2 className="h-5 w-5" /></span>
-              <div><h2 id="delete-income-title" className="font-semibold text-white">Anular este ingreso</h2><p className="mt-1 text-sm leading-6 text-slate-400">Se retirará del saldo y de los totales, pero quedará conservado en el registro para mantener la trazabilidad.</p></div>
-            </div>
-            <div className="mt-4 rounded-xl border border-slate-800 bg-slate-950/70 p-3">
-              <p className="truncate text-sm font-medium text-slate-200">{deleteTarget.concepto}</p>
-              <p className="mt-1 text-lg font-semibold tabular-nums text-emerald-300">{new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(deleteTarget.monto)}</p>
-            </div>
-            {formError && <p role="alert" className="mt-3 rounded-lg border border-rose-800/50 bg-rose-950/30 p-3 text-sm text-rose-200">{formError}</p>}
-            <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-              <button type="button" disabled={saving} onClick={() => setDeleteTarget(null)} className="rounded-xl border border-slate-700 px-4 py-2.5 text-sm text-slate-300 hover:bg-slate-800 disabled:opacity-50">Conservar ingreso</button>
-              <button type="button" disabled={saving} onClick={confirmarEliminarIngreso} className="rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-rose-500 disabled:opacity-50">{saving ? 'Anulando…' : 'Sí, anular ingreso'}</button>
-            </div>
-          </section>
         </div>
       )}
 
@@ -862,7 +871,7 @@ export default function TablaIngresos() {
                   Mes
                 </label>
                 <div className="relative">
-                  <select 
+                  <FinanceSelect 
                     value={filtroMes}
                     onChange={(e) => setFiltroMes(e.target.value)}
                     className="w-full px-4 py-2.5 pl-10 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition appearance-none"
@@ -873,7 +882,7 @@ export default function TablaIngresos() {
                         {formatearMesTexto(mes)}
                       </option>
                     ))}
-                  </select>
+                  </FinanceSelect>
                   <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-500 pointer-events-none" />
                 </div>
               </div>
@@ -885,7 +894,7 @@ export default function TablaIngresos() {
                   Método de recepción
                 </label>
                 <div className="relative">
-                  <select 
+                  <FinanceSelect 
                     value={filtroMetodo}
                     onChange={(e) => setFiltroMetodo(e.target.value)}
                     className="w-full px-4 py-2.5 pl-10 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition appearance-none"
@@ -894,7 +903,7 @@ export default function TablaIngresos() {
                     {metodosRecepcionDisponibles.map(metodo => (
                       <option key={metodo} value={metodo}>{metodo}</option>
                     ))}
-                  </select>
+                  </FinanceSelect>
                   <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-500 pointer-events-none" />
                 </div>
               </div>
@@ -906,7 +915,7 @@ export default function TablaIngresos() {
                   Cuenta
                 </label>
                 <div className="relative">
-                  <select 
+                  <FinanceSelect 
                     value={filtroCuenta}
                     onChange={(e) => setFiltroCuenta(e.target.value)}
                     className="w-full px-4 py-2.5 pl-10 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition appearance-none"
@@ -915,7 +924,7 @@ export default function TablaIngresos() {
                     {cuentasDisponibles.map(cuenta => (
                       <option key={cuenta} value={cuenta}>{cuenta}</option>
                     ))}
-                  </select>
+                  </FinanceSelect>
                   <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-500 pointer-events-none" />
                 </div>
               </div>
@@ -927,7 +936,7 @@ export default function TablaIngresos() {
                   Categoría
                 </label>
                 <div className="relative">
-                  <select 
+                  <FinanceSelect 
                     value={filtroCategoria}
                     onChange={(e) => setFiltroCategoria(e.target.value)}
                     className="w-full px-4 py-2.5 pl-10 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition appearance-none"
@@ -936,7 +945,7 @@ export default function TablaIngresos() {
                     {categoriasDisponibles.map(categoria => (
                       <option key={categoria} value={categoria}>{categoria}</option>
                     ))}
-                  </select>
+                  </FinanceSelect>
                   <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-500 pointer-events-none" />
                 </div>
               </div>
@@ -1095,7 +1104,7 @@ export default function TablaIngresos() {
                     {filtroMes && ` en ${formatearMesTexto(filtroMes)}`}
                   </p>
                 </div>
-                <div className="flex items-center gap-2 text-xs text-slate-500 bg-slate-900 px-3 py-1.5 rounded-lg">
+                <div className="flex items-center gap-2 text-xs text-slate-500 bg-slate-900 px-3 py-1.5 rounded-lg sm:hidden">
                   <span>Desliza</span>
                   <span className="text-slate-400">→</span>
                   <span>para ver más columnas</span>
@@ -1104,8 +1113,13 @@ export default function TablaIngresos() {
             </div>
 
             {/* TABLA MEJORADA CON TIPO DE INGRESO */}
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[800px]">
+            <div
+              role="region"
+              aria-label="Historial de ingresos, desplazamiento horizontal"
+              tabIndex={0}
+              className="overflow-x-auto overscroll-x-contain"
+            >
+              <table className="w-full min-w-[1040px]">
                 <thead className="bg-slate-900">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">
@@ -1124,7 +1138,7 @@ export default function TablaIngresos() {
                       Tipo
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">
-                      Cuenta
+                      Cuenta de entrada
                     </th>
                     <th className="px-6 py-3 text-right text-xs font-medium text-slate-400 uppercase tracking-wider">
                       Monto
@@ -1140,6 +1154,7 @@ export default function TablaIngresos() {
                     const tipo = estadisticasCategorias[ingreso.categoria]?.tipo || 'variable';
                     const colorTipo = tipo === 'fijo' ? 'text-emerald-400' : 'text-amber-400';
                     const bgTipo = tipo === 'fijo' ? 'bg-emerald-900/30' : 'bg-amber-900/30';
+                    const cuentaNombre = String(ingreso.cuenta || '').trim();
                     
                     return (
                       <tr key={ingreso.id} className="hover:bg-slate-800/50 transition-colors">
@@ -1172,10 +1187,15 @@ export default function TablaIngresos() {
                             </span>
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-300">
+                        <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center gap-2">
-                            <Database className="h-4 w-4 text-slate-500" />
-                            {ingreso.cuenta}
+                            <Database className="h-4 w-4 shrink-0 text-emerald-400" />
+                            <span
+                              className={`inline-flex max-w-[220px] items-center truncate rounded-lg border px-2.5 py-1 text-xs font-medium ${cuentaNombre ? 'border-emerald-700/30 bg-emerald-900/20 text-emerald-300' : 'border-amber-700/30 bg-amber-900/20 text-amber-300'}`}
+                              title={cuentaNombre ? `Entra en ${cuentaNombre}` : 'Este movimiento no tiene una cuenta asociada'}
+                            >
+                              {cuentaNombre || 'Sin cuenta registrada'}
+                            </span>
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right">

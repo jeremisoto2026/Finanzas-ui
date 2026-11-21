@@ -3,7 +3,6 @@ import { createAuthenticatedClient, findOrCreateCategory, sendApiError } from '.
 
 const allowed = {
   replenishment: ['open', 'partially_settled', 'settled'],
-  reserve: ['reserved', 'released', 'settled'],
   planned_extra: ['open', 'settled', 'released'],
   historical_expense: ['recorded'],
 }
@@ -31,11 +30,159 @@ function validateAmounts(amountValue, outstandingValue = 0) {
   return { amount, outstanding }
 }
 
+function reservationTodayKey() {
+  return new Intl.DateTimeFormat('sv-SE', {
+    timeZone: 'Europe/Madrid', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(new Date())
+}
+
+function reservationMoney(value) {
+  return Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100
+}
+
+function validReservationDate(value) {
+  const text = String(value || '').slice(0, 10)
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) return false
+  const date = new Date(text + 'T00:00:00.000Z')
+  return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === text
+}
+
+async function getReservationAccount(supabase, userId, accountId) {
+  if (!accountId) return null
+  const { data, error } = await supabase.from('accounts')
+    .select('id, name, currency_code, opening_balance, opening_balance_date, is_active')
+    .eq('user_id', userId).eq('id', accountId).maybeSingle()
+  if (error) throw error
+  return data
+}
+
+function mapReservationRow(row, accounts) {
+  const account = accounts.get(row.account_id)
+  return {
+    id: row.id,
+    accountId: row.account_id,
+    accountName: account?.name || 'Cuenta no disponible',
+    currencyCode: String(account?.currency_code || 'EUR').trim(),
+    accountIsActive: account?.is_active !== false,
+    name: row.name,
+    amount: Number(row.amount || 0),
+    status: row.status,
+    reservedOn: row.reserved_on,
+    notes: row.notes || '',
+  }
+}
+
+async function handleReservations(req, res, supabase, user) {
+  if (!['GET', 'POST', 'PATCH', 'DELETE'].includes(req.method)) {
+    res.setHeader('Allow', 'GET, POST, PATCH, DELETE')
+    return res.status(405).json({ error: 'Método no permitido.' })
+  }
+
+  if (req.method === 'GET') {
+    const [{ data: rows, error }, { data: accounts, error: accountsError }] = await Promise.all([
+      supabase.from('reservations')
+        .select('id, account_id, name, amount, status, reserved_on, notes')
+        .eq('user_id', user.id)
+        .order('reserved_on', { ascending: false })
+        .order('created_at', { ascending: false }),
+      supabase.from('accounts')
+        .select('id, name, currency_code, is_active')
+        .eq('user_id', user.id),
+    ])
+    if (error) throw error
+    if (accountsError) throw accountsError
+    const accountMap = new Map((accounts || []).map((account) => [account.id, account]))
+    return res.status(200).json((rows || []).map((row) => mapReservationRow(row, accountMap)))
+  }
+
+  if (req.method === 'POST' || req.method === 'PATCH') {
+    const body = req.body || {}
+    const isUpdate = req.method === 'PATCH'
+    if (isUpdate && !body.id) return res.status(400).json({ error: 'Falta el identificador de la reserva.' })
+
+    let current = null
+    if (isUpdate) {
+      const { data, error } = await supabase.from('reservations')
+        .select('id, account_id, name, amount, status, reserved_on, notes')
+        .eq('user_id', user.id).eq('id', body.id).maybeSingle()
+      if (error) throw error
+      if (!data) return res.status(404).json({ error: 'No se encontró esa reserva.' })
+      current = data
+    }
+
+    const name = body.name !== undefined ? String(body.name || '').trim() : current?.name
+    const amount = body.amount !== undefined ? Number(body.amount) : Number(current?.amount || 0)
+    const accountId = body.accountId !== undefined ? String(body.accountId || '').trim() : current?.account_id
+    const reservedOn = body.reservedOn !== undefined ? String(body.reservedOn || '').slice(0, 10) : (current?.reserved_on || reservationTodayKey())
+    const notes = body.notes !== undefined ? String(body.notes || '').trim() || null : (current?.notes || null)
+    const status = body.status !== undefined ? body.status : (current?.status || 'active')
+
+    if (!name) return res.status(400).json({ error: 'Escribe el concepto de la reserva.' })
+    if (!Number.isFinite(amount) || amount <= 0 || amount > 999999999999) {
+      return res.status(400).json({ error: 'El importe debe ser mayor que cero y válido.' })
+    }
+    if (!validReservationDate(reservedOn)) return res.status(400).json({ error: 'La fecha de la reserva no es válida.' })
+    if (!['active', 'released'].includes(status)) return res.status(400).json({ error: 'El estado de la reserva no es válido.' })
+
+    const account = await getReservationAccount(supabase, user.id, accountId)
+    if (!account) return res.status(400).json({ error: 'Selecciona una cuenta válida de tu espacio financiero.' })
+    if (status === 'active' && account.is_active === false) {
+      return res.status(409).json({ error: 'No puedes reservar dinero en una cuenta desactivada.' })
+    }
+
+
+
+    const { data: savedRow, error: saveError } = await supabase.rpc('save_reservation', {
+      p_reservation_id: isUpdate ? current.id : null,
+      p_account_id: account.id,
+      p_name: name,
+      p_amount: reservationMoney(amount),
+      p_status: status,
+      p_reserved_on: reservedOn,
+      p_notes: notes,
+    })
+    if (saveError) {
+      if (saveError.message?.startsWith('Saldo insuficiente:')) {
+        return res.status(409).json({ error: saveError.message })
+      }
+      if (saveError.message?.includes('No se encontró esa reserva.')) {
+        return res.status(404).json({ error: 'No se encontró esa reserva.' })
+      }
+      if (saveError.message?.includes('cuenta desactivada')) {
+        return res.status(409).json({ error: saveError.message })
+      }
+      throw saveError
+    }
+
+    const saved = Array.isArray(savedRow) ? savedRow[0] : savedRow
+    if (!saved) throw new Error('La base de datos no devolvió la reserva guardada.')
+    const accountMap = new Map([[account.id, account]])
+    return res.status(isUpdate ? 200 : 201).json(mapReservationRow(saved, accountMap))
+  }
+
+  const { id } = req.body || {}
+  if (!id) return res.status(400).json({ error: 'Falta el identificador de la reserva.' })
+  const { data, error } = await supabase.from('reservations').delete()
+    .eq('user_id', user.id).eq('id', id).neq('status', 'consumed').select('id').maybeSingle()
+  if (error) throw error
+  if (!data) {
+    const { data: existing, error: lookupError } = await supabase.from('reservations')
+      .select('id, status').eq('user_id', user.id).eq('id', id).maybeSingle()
+    if (lookupError) throw lookupError
+    if (existing?.status === 'consumed') {
+      return res.status(409).json({ error: 'Esta reserva figura como utilizada y se conserva en el historial. No se puede eliminar.' })
+    }
+    return res.status(404).json({ error: 'No se encontró esa reserva.' })
+  }
+  return res.status(200).json({ success: true, id })
+}
+
 export default async function handler(req, res) {
   if (handleCors(req, res)) return;
   res.setHeader('Cache-Control', 'no-store')
   try {
     const { supabase, user } = await createAuthenticatedClient(req)
+    if (req.query?.resource === 'reservations') return await handleReservations(req, res, supabase, user)
 
     if (req.method === 'GET') {
       const { data, error } = await supabase.from('financial_items')
@@ -128,7 +275,6 @@ export default async function handler(req, res) {
       if (body.status !== undefined || req.method === 'POST') {
         const defaultStatus = {
           replenishment: 'open',
-          reserve: 'reserved',
           planned_extra: 'open',
           historical_expense: 'recorded',
         }[kind]

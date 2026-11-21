@@ -14,7 +14,7 @@ class AppErrorBoundary extends React.Component {
 
   componentDidCatch(error, info) {
     this.setState({ componentStack: info?.componentStack || '' })
-    console.error('Error al mostrar Finanzas-ui:', error, info)
+    console.error('Error al mostrar Finanzas:', error, info)
   }
 
   render() {
@@ -25,14 +25,14 @@ class AppErrorBoundary extends React.Component {
       return (
         <main className="min-h-screen bg-slate-950 px-5 py-12 text-slate-100">
           <section className="mx-auto mt-12 max-w-xl rounded-2xl border border-rose-900/60 bg-slate-900 p-6 shadow-xl">
-            <h1 className="text-xl font-bold text-rose-300">No se pudo mostrar Finanzas-ui</h1>
+            <h1 className="text-xl font-bold text-rose-300">No se pudo mostrar Finanzas</h1>
             <p className="mt-3 text-sm leading-relaxed text-slate-300">
               La aplicación encontró un error al cargar una pantalla. Tus datos financieros no se han borrado.
             </p>
             {domConflict && (
               <p className="mt-3 rounded-lg border border-amber-800/60 bg-amber-950/30 p-3 text-sm leading-relaxed text-amber-200">
                 Este error puede producirse cuando el navegador o una extensión modifica el texto de la página
-                (por ejemplo, mediante traducción automática). Finanzas-ui está configurado en español y evita
+                (por ejemplo, mediante traducción automática). Finanzas está configurado en español y evita
                 esa traducción; comprueba también que no haya una extensión modificando la página.
               </p>
             )}
@@ -67,7 +67,7 @@ const root = ReactDOM.createRoot(rootElement)
 
 root.render(
   <main className="flex min-h-screen items-center justify-center bg-slate-950 px-4 text-slate-300">
-    Iniciando Finanzas-ui…
+    Iniciando Finanzas…
   </main>
 )
 
@@ -88,11 +88,11 @@ Promise.all([
     )
   })
   .catch((error) => {
-    console.error('No se pudo iniciar Finanzas-ui:', error)
+    console.error('No se pudo iniciar Finanzas:', error)
     root.render(
       <main className="min-h-screen bg-slate-950 px-5 py-12 text-slate-100">
         <section className="mx-auto mt-12 max-w-xl rounded-2xl border border-rose-900/60 bg-slate-900 p-6 shadow-xl">
-          <h1 className="text-xl font-bold text-rose-300">Finanzas-ui no pudo iniciarse</h1>
+          <h1 className="text-xl font-bold text-rose-300">Finanzas no pudo iniciarse</h1>
           <p className="mt-3 text-sm leading-relaxed text-slate-300">
             Se produjo un error al preparar la aplicación. Tus datos financieros siguen guardados en la base de datos.
           </p>

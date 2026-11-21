@@ -3,6 +3,15 @@ package com.finanzas.companion
 import android.content.ComponentName
 import android.content.Intent
 import android.provider.Settings
+import androidx.credentials.CredentialManager
+import androidx.credentials.CustomCredential
+import androidx.credentials.GetCredentialRequest
+import com.google.android.libraries.identity.googleid.GetGoogleIdOption
+import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import com.getcapacitor.JSArray
 import com.getcapacitor.JSObject
 import com.getcapacitor.Plugin
@@ -51,8 +60,17 @@ class LocalCapturesPlugin : Plugin() {
             val rows = JSArray()
             captureStore.readAll().forEach { capture ->
                 val sources = JSArray()
-                capture.sources.sortedBy { it.ordinal }.forEach { source ->
+                val sourceApps = JSArray()
+                val sourceDetails = JSArray()
+                capture.sources.sortedBy { it.sourceApp }.forEach { source ->
                     sources.put(source.label)
+                    sourceApps.put(source.sourceApp)
+                    sourceDetails.put(JSObject().apply {
+                        put("sourceApp", source.sourceApp)
+                        put("packageName", source.packageName)
+                        put("label", source.label)
+                        put("isWallet", source.isWallet)
+                    })
                 }
 
                 val row = JSObject().apply {
@@ -62,9 +80,10 @@ class LocalCapturesPlugin : Plugin() {
                     put("currencyCode", capture.currencyCode)
                     put("occurredAtMillis", capture.occurredAtMillis)
                     put("accountName", capture.accountName ?: JSONObject.NULL)
-                    put("cardLast4", capture.cardLast4 ?: JSONObject.NULL)
                     put("categorySuggestion", capture.categorySuggestion ?: JSONObject.NULL)
                     put("sources", sources)
+                    put("sourceApps", sourceApps)
+                    put("sourceDetails", sourceDetails)
                     put("isPaired", capture.isPaired)
                 }
                 rows.put(row)
@@ -79,6 +98,49 @@ class LocalCapturesPlugin : Plugin() {
             call.resolve(result)
         } catch (error: Exception) {
             call.reject("No se pudieron leer las capturas locales.", error)
+        }
+    }
+
+    @PluginMethod
+    fun signInWithGoogle(call: PluginCall) {
+        val activity = getActivity()
+        val googleOption = GetGoogleIdOption.Builder()
+            .setFilterByAuthorizedAccounts(false)
+            .setServerClientId(BuildConfig.GOOGLE_WEB_CLIENT_ID)
+            .build()
+        val request = GetCredentialRequest.Builder()
+            .addCredentialOption(googleOption)
+            .build()
+
+        CoroutineScope(SupervisorJob() + Dispatchers.Main).launch {
+            try {
+                val result = CredentialManager.create(activity).getCredential(
+                    context = activity,
+                    request = request
+                )
+                val credential = result.credential
+                if (credential !is CustomCredential ||
+                    credential.type != GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL
+                ) {
+                    call.reject("Google no devolvió una credencial de inicio de sesión válida.")
+                    return@launch
+                }
+
+                val googleCredential = GoogleIdTokenCredential.createFrom(credential.data)
+                val idToken = googleCredential.idToken
+                if (idToken.isBlank()) {
+                    call.reject("Google devolvió un token vacío.")
+                    return@launch
+                }
+                // The ID token is passed directly to Supabase Auth and is never logged or stored.
+                call.resolve(JSObject().apply { put("idToken", idToken) })
+            } catch (error: Exception) {
+                call.reject(
+                    error.message?.takeIf { it.isNotBlank() }
+                        ?: "No se pudo iniciar sesión con Google en este dispositivo.",
+                    error
+                )
+            }
         }
     }
 
@@ -133,6 +195,24 @@ class LocalCapturesPlugin : Plugin() {
             call.resolve()
         } catch (error: Exception) {
             call.reject("No se pudieron abrir los ajustes de notificaciones de Finanzas.", error)
+        }
+    }
+
+    @PluginMethod
+    fun showRegisteredExpenses(call: PluginCall) {
+        try {
+            val expenses = call.getArray("expenses")
+            var processed = 0
+            if (expenses != null) {
+                for (index in 0 until expenses.length()) {
+                    val expense = expenses.optJSONObject(index) ?: continue
+                    ExpenseRegisteredNotifier.show(getContext().applicationContext, expense)
+                    processed += 1
+                }
+            }
+            call.resolve(JSObject().apply { put("processed", processed) })
+        } catch (error: Exception) {
+            call.reject("No se pudieron mostrar las confirmaciones de gastos.", error)
         }
     }
 

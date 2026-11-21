@@ -25,22 +25,20 @@ class NotificationParserTest {
         assertEquals(250L, result?.amountCents)
         assertEquals("Alimentación", result?.categorySuggestion)
         assertEquals("Revolut", result?.accountName)
-        assertNull(result?.cardLast4)
     }
 
     @Test
-    fun parsesWalletCardEnding() {
+    fun parsesWalletWithoutReadingCardDetails() {
         val result = NotificationParser.parse(
             source = NotificationSource.GOOGLE_WALLET,
             title = "SUPERMERCADO ALTET",
-            text = "2,50 € con Revolut Visa ••0733",
+            text = "2,50 € con Aqua debito",
             occurredAtMillis = 1794958925000L
         )
 
         assertNotNull(result)
         assertEquals("SUPERMERCADO ALTET", result?.merchant)
         assertEquals(250L, result?.amountCents)
-        assertEquals("0733", result?.cardLast4)
         assertEquals("Alimentación", result?.categorySuggestion)
     }
 
@@ -48,16 +46,167 @@ class NotificationParserTest {
     fun doesNotParsePocketBalanceAloneAsPurchase() {
         val result = NotificationParser.parse(
             source = NotificationSource.REVOLUT,
-            title = "Supermercado Altet",
-            text = "⚠️ Saldo del Pocket EUR: 0,34 €",
+            title = "Revolut",
+            text = "Saldo del Pocket EUR: 0,34 €",
             occurredAtMillis = 1794958920000L
         )
         assertNull(result)
     }
 
     @Test
-    fun rejectsUnknownNotificationPackage() {
-        assertNull(NotificationSource.fromPackage("com.whatsapp"))
+    fun rejectsUnknownMessagingNotificationPackage() {
+        assertNull(NotificationSource.fromPackage("com.whatsapp", "WhatsApp"))
+    }
+
+    @Test
+    fun recognizesUnknownBankPackagesWithoutHardcodedProviderList() {
+        val source = NotificationSource.fromPackage(
+            "es.caixabank.mobile.android",
+            "CaixaBank"
+        )
+        assertNotNull(source)
+        assertEquals("android:es.caixabank.mobile.android", source?.sourceApp)
+        assertEquals("CaixaBank", source?.label)
+        assertTrue(source?.isBank == true)
+    }
+
+    @Test
+    fun parsesFlexibleCaixaBankPurchaseAndSuggestsCategory() {
+        val source = NotificationSource.fromPackage(
+            "es.caixabank.mobile.android",
+            "CaixaBank"
+        )!!
+        val result = NotificationParser.parse(
+            source = source,
+            title = "Pago con tarjeta",
+            text = "Compra realizada de 14,25 EUR en FARMACIA CENTRAL con tu tarjeta",
+            occurredAtMillis = 1794958920000L
+        )
+
+        assertNotNull(result)
+        assertEquals("FARMACIA CENTRAL", result?.merchant)
+        assertEquals(1425L, result?.amountCents)
+        assertEquals("Salud e higiene", result?.categorySuggestion)
+        assertEquals("CaixaBank", result?.accountName)
+    }
+
+    @Test
+    fun parsesNegativeMovementWithCurrencyEvenWithoutExactPhrase() {
+        val source = NotificationSource.fromPackage(
+            "es.bancosantander.app",
+            "Santander"
+        )!!
+        val result = NotificationParser.parse(
+            source = source,
+            title = "Santander",
+            text = "−12,50 € en PANADERIA CENTRAL",
+            occurredAtMillis = 1794958920000L
+        )
+
+        assertNotNull(result)
+        assertEquals("PANADERIA CENTRAL", result?.merchant)
+        assertEquals(1250L, result?.amountCents)
+    }
+
+    @Test
+    fun parsesEuropeanAndInternationalThousandsSeparators() {
+        val source = NotificationSource.fromPackage(
+            "com.example.bank",
+            "My Bank"
+        )!!
+        val european = NotificationParser.parse(
+            source,
+            "Pago aceptado",
+            "Pago de 1.234,56 EUR en COMERCIO UNO",
+            1794958920000L
+        )
+        val international = NotificationParser.parse(
+            source,
+            "Card payment",
+            "Card payment of EUR 1,234.56 at MERCHANT TWO",
+            1794958920000L
+        )
+
+        assertEquals(123456L, european?.amountCents)
+        assertEquals(123456L, international?.amountCents)
+    }
+
+    @Test
+    fun rejectsDeclinedFailedCancelledAndInsufficientFundsPayments() {
+        val failedNotifications = listOf(
+            "Pago rechazado de 14,25 EUR en FARMACIA CENTRAL",
+            "Compra denegada de 14,25 EUR en FARMACIA CENTRAL",
+            "No se pudo completar el pago de 14,25 EUR en FARMACIA CENTRAL",
+            "Pago no autorizado de 14,25 EUR en FARMACIA CENTRAL",
+            "Fondos insuficientes para el pago de 14,25 EUR en FARMACIA CENTRAL",
+            "Payment declined: EUR 14.25 at CENTRAL STORE",
+            "Card payment failed: EUR 14.25 at CENTRAL STORE",
+            "Transaction was cancelled: EUR 14.25 at CENTRAL STORE",
+            "Payment could not be processed: EUR 14.25 at CENTRAL STORE"
+        )
+
+        failedNotifications.forEachIndexed { index, notification ->
+            val result = NotificationParser.parse(
+                source = NotificationSource.BBVA,
+                title = "BBVA",
+                text = notification,
+                occurredAtMillis = 1794958920000L
+            )
+            assertNull("A rejected or failed payment must not be captured (#$index)", result)
+        }
+    }
+
+    @Test
+    fun rejectsOtpAndSecurityCodeNotificationsEvenWhenTheyMentionAnAmount() {
+        val source = NotificationSource.fromPackage(
+            "com.example.bank",
+            "Example Bank"
+        )!!
+        val result = NotificationParser.parse(
+            source,
+            "Código de seguridad",
+            "Código de verificación para autorizar el pago de 2,50 EUR en TIENDA",
+            1794958920000L
+        )
+        assertNull(result)
+    }
+
+    @Test
+    fun rejectsAdvertisingWithoutARealMovementSignal() {
+        val source = NotificationSource.fromPackage(
+            "com.example.bank",
+            "Example Bank"
+        )!!
+        val result = NotificationParser.parse(
+            source,
+            "Oferta exclusiva",
+            "Descubre esta promoción especial de 2,50 EUR en TIENDA",
+            1794958920000L
+        )
+        assertNull(result)
+    }
+
+    @Test
+    fun rejectsPositiveAmountWithoutTransactionSignalOrMerchant() {
+        val source = NotificationSource.fromPackage(
+            "com.example.bank",
+            "Example Bank"
+        )!!
+        val result = NotificationParser.parse(
+            source,
+            "Example Bank",
+            "Tu saldo disponible es 2,50 EUR",
+            1794958920000L
+        )
+        assertNull(result)
+    }
+
+    @Test
+    fun normalizesHyphenatedMerchantSoWalletAndBankCanMatch() {
+        assertEquals(
+            NotificationParser.normalizeMerchantKey("SUPERMER-CADO ALTET"),
+            NotificationParser.normalizeMerchantKey("SUPERMERCADO ALTET")
+        )
     }
 
     @Test
@@ -78,7 +227,6 @@ class NotificationParserTest {
             currencyCode = "EUR",
             occurredAtMillis = 1795033320000L,
             accountName = "BBVA",
-            cardLast4 = "1234",
             categorySuggestion = "Alimentación",
             sources = setOf(NotificationSource.BBVA),
             notificationKeys = setOf("old-notification-key"),
@@ -89,9 +237,8 @@ class NotificationParserTest {
             merchant = "Mercadona",
             merchantKey = "MERCADONA",
             amountCents = 2580L,
-            occurredAtMillis = 1795033325000L,
+            occurredAtMillis = 1795033321500L,
             accountName = "BBVA",
-            cardLast4 = "1234",
             categorySuggestion = "Alimentación",
             notificationKey = "new-notification-key"
         )
@@ -109,7 +256,6 @@ class NotificationParserTest {
             currencyCode = "EUR",
             occurredAtMillis = 1795033320000L,
             accountName = "BBVA",
-            cardLast4 = "1234",
             categorySuggestion = "Alimentación",
             sources = setOf(NotificationSource.BBVA),
             notificationKeys = setOf("old-notification-key"),
@@ -129,7 +275,7 @@ class NotificationParserTest {
     }
 
     @Test
-    fun parsesBbvaPurchaseAndIdentifiesBbvaAccount() {
+    fun parsesLegacyBbvaPurchase() {
         val result = NotificationParser.parse(
             source = NotificationSource.BBVA,
             title = "BBVA",
@@ -143,27 +289,70 @@ class NotificationParserTest {
     }
 
     @Test
-    fun walletWithoutIssuerDoesNotGuessBank() {
+    fun parsesBbvaAcceptedPaymentFormatFromPreviousTestPurchase() {
         val result = NotificationParser.parse(
-            source = NotificationSource.GOOGLE_WALLET,
-            title = "Mercadona",
-            text = "25,80 € con Visa ••1234",
+            source = NotificationSource.BBVA,
+            title = "Pago aceptado",
+            text = "Pago aceptado de 2,50 EUR en SUPERMER-CADO ALTET con tu tarjeta terminada en 3684",
             occurredAtMillis = 1795033320000L
         )
+
         assertNotNull(result)
-        assertNull(result?.accountName)
-        assertEquals("1234", result?.cardLast4)
+        assertEquals("SUPERMER-CADO ALTET", result?.merchant)
+        assertEquals(250L, result?.amountCents)
+        assertEquals("BBVA", result?.accountName)
+        assertEquals("Alimentación", result?.categorySuggestion)
     }
 
     @Test
-    fun walletCanIdentifyAnExplicitBbvaIssuer() {
+    fun parsesMerchantWrappedAcrossNotificationLineBreak() {
+        val source = NotificationSource.BBVA
         val result = NotificationParser.parse(
-            source = NotificationSource.GOOGLE_WALLET,
-            title = "Mercadona",
-            text = "25,80 € con BBVA Visa ••1234",
+            source = source,
+            title = "Pago aceptado",
+            text = "Pago aceptado de 2,50 EUR en SUPERMER-\nCADO ALTET con tu tarjeta",
             occurredAtMillis = 1795033320000L
         )
+
         assertNotNull(result)
-        assertEquals("BBVA", result?.accountName)
+        assertEquals("SUPERMERCADO ALTET", result?.merchant)
+        assertEquals(250L, result?.amountCents)
+        assertEquals("Alimentación", result?.categorySuggestion)
+    }
+
+    @Test
+    fun walletAndAnyBankSourceShareMerchantKeyForMatchingPayment() {
+        val source = NotificationSource.fromPackage(
+            "es.caixabank.mobile.android",
+            "CaixaBank"
+        )!!
+        val bank = NotificationParser.parse(
+            source = source,
+            title = "Pago aceptado",
+            text = "Pago aceptado de 2,50 EUR en SUPERMER-CADO ALTET con tu tarjeta",
+            occurredAtMillis = 1795033320000L
+        )
+        val wallet = NotificationParser.parse(
+            source = NotificationSource.GOOGLE_WALLET,
+            title = "SUPERMERCADO ALTET",
+            text = "2,50 € con Aqua debito",
+            occurredAtMillis = 1795033321000L
+        )
+
+        assertNotNull(bank)
+        assertNotNull(wallet)
+        assertEquals(bank?.merchantKey, wallet?.merchantKey)
+    }
+
+    @Test
+    fun readsLegacySourceNamesFromStoredCaptures() {
+        assertEquals(
+            NotificationSource.REVOLUT,
+            NotificationSource.fromPersisted("REVOLUT", null, null)
+        )
+        assertEquals(
+            NotificationSource.GOOGLE_WALLET,
+            NotificationSource.fromPersisted("GOOGLE_WALLET", null, null)
+        )
     }
 }

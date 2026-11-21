@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import FinanceSelect from '@/components/ui/FinanceSelect'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   BellRing,
   CheckCircle2,
@@ -8,6 +9,9 @@ import {
   ShieldCheck,
   Smartphone,
   Upload,
+  Link2,
+  Plus,
+  Trash2,
 } from 'lucide-react'
 import {
   getLocalCaptureState,
@@ -17,6 +21,7 @@ import {
   syncLocalCaptures,
 } from '@/lib/native-captures'
 import { supabase } from '@/lib/supabase'
+import { getAccountMappingSuggestion, getAccountOptionLabel, getBankSourceLabel, isExactAccountNameMatch } from '@/lib/account-notification-mapping'
 
 const SOURCE_LABELS = {
   revolut: 'Revolut',
@@ -55,6 +60,7 @@ function groupRemoteEvents(events) {
       const sources = [...new Set(items.map((item) => item.source_app))]
       return {
         id: first.pair_key || first.id,
+        accountId: items.find((item) => item.account_id)?.account_id || null,
         merchant: first.parsed_merchant || first.notification_title || 'Comercio no identificado',
         amount: Number(first.parsed_amount || 0),
         currencyCode: String(first.currency_code || 'EUR').trim(),
@@ -64,7 +70,6 @@ function groupRemoteEvents(events) {
         eventIds: items.map((item) => item.id),
         accountLabel: items.find((item) => item.account_label)?.account_label || null,
         paymentChannel: first.payment_channel || null,
-        cardLast4: items.find((item) => item.card_last4)?.card_last4 || null,
         isPaired: sources.length > 1 || items.some((item) => item.status === 'paired'),
       }
     })
@@ -77,7 +82,14 @@ export default function CapturasAutomaticas() {
   const [localCaptures, setLocalCaptures] = useState([])
   const [remoteEvents, setRemoteEvents] = useState([])
   const [accounts, setAccounts] = useState([])
+  const [accountMappings, setAccountMappings] = useState([])
   const [categories, setCategories] = useState([])
+  const [mappingSource, setMappingSource] = useState('revolut')
+  const [mappingAccountId, setMappingAccountId] = useState('')
+  const [mappingSelectionTouched, setMappingSelectionTouched] = useState(false)
+  const [mappingFeedback, setMappingFeedback] = useState('')
+  const [savingMapping, setSavingMapping] = useState(false)
+  const autoSaveAttemptRef = useRef('')
   const [accountSelections, setAccountSelections] = useState({})
   const [categorySelections, setCategorySelections] = useState({})
   const [savingReviewId, setSavingReviewId] = useState(null)
@@ -86,7 +98,56 @@ export default function CapturasAutomaticas() {
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
 
+  const sourceLabelMap = useMemo(() => {
+    const labels = { ...SOURCE_LABELS }
+    for (const mapping of accountMappings) {
+      if (mapping.source_app && mapping.source_label) {
+        labels[mapping.source_app] = mapping.source_label
+      }
+    }
+    for (const event of remoteEvents) {
+      if (event.source_app && event.source_label) {
+        labels[event.source_app] = event.source_label
+      }
+    }
+    return labels
+  }, [accountMappings, remoteEvents])
+
+  const mappingSourceLabel = sourceLabelMap[mappingSource] ||
+    getBankSourceLabel(mappingSource, sourceLabelMap)
+  const availableBankSources = useMemo(() => {
+    const sources = new Set(['revolut', 'bbva'])
+    for (const mapping of accountMappings) {
+      if (mapping.source_app && mapping.source_app !== 'google_wallet') sources.add(mapping.source_app)
+    }
+    for (const event of remoteEvents) {
+      if (event.source_app && event.source_app !== 'google_wallet') sources.add(event.source_app)
+    }
+    return [...sources].sort((a, b) =>
+      getBankSourceLabel(a, sourceLabelMap).localeCompare(getBankSourceLabel(b, sourceLabelMap), 'es')
+    )
+  }, [accountMappings, remoteEvents, sourceLabelMap])
+
   const reviewItems = useMemo(() => groupRemoteEvents(remoteEvents), [remoteEvents])
+
+  const mappingSuggestion = useMemo(
+    () => getAccountMappingSuggestion(
+      accounts,
+      accountMappings,
+      mappingSource,
+      mappingSourceLabel,
+    ),
+    [accounts, accountMappings, mappingSource, mappingSourceLabel],
+  )
+  const currentSourceMapping = accountMappings.find((mapping) => mapping.source_app === mappingSource)
+  const mappingAlreadySaved = Boolean(
+    currentSourceMapping && currentSourceMapping.account_id === mappingAccountId,
+  )
+
+  useEffect(() => {
+    if (mappingSelectionTouched) return
+    setMappingAccountId(mappingSuggestion.accountId || '')
+  }, [mappingSuggestion, mappingSelectionTouched])
 
   const loadCaptures = useCallback(async (showSpinner = true) => {
     if (showSpinner) setLoading(true)
@@ -106,17 +167,18 @@ export default function CapturasAutomaticas() {
       if (authError) throw authError
       if (!authData?.user) throw new Error('Inicia sesión para consultar las compras pendientes.')
 
-      const [eventsResult, accountsResult, categoriesResult] = await Promise.all([
+      const [eventsResult, accountsResult, categoriesResult, mappingsResult] = await Promise.all([
         supabase
           .from('notification_capture_events')
-          .select('id, source_app, pair_key, notification_title, parsed_merchant, parsed_amount, currency_code, category_id, category_suggestion, account_label, payment_channel, card_last4, occurred_at, status')
+          .select('id, source_app, source_label, pair_key, notification_title, parsed_merchant, parsed_amount, currency_code, category_id, category_suggestion, account_label, account_id, payment_channel, occurred_at, status')
           .in('status', ['paired', 'needs_review'])
           .order('occurred_at', { ascending: false })
           .limit(200),
         supabase
           .from('accounts')
-          .select('id, name, currency_code')
+          .select('id, name, institution, currency_code, is_active')
           .eq('user_id', authData.user.id)
+          .eq('is_active', true)
           .order('name', { ascending: true }),
         supabase
           .from('categories')
@@ -125,12 +187,20 @@ export default function CapturasAutomaticas() {
           .eq('is_active', true)
           .in('direction', ['expense', 'both'])
           .order('name', { ascending: true }),
+        supabase
+          .from('account_notification_sources')
+          .select('id, source_app, source_label, account_id, is_active')
+          .eq('user_id', authData.user.id)
+          .eq('is_active', true)
+          .order('source_app', { ascending: true }),
       ])
       if (eventsResult.error) throw eventsResult.error
       if (accountsResult.error) throw accountsResult.error
       if (categoriesResult.error) throw categoriesResult.error
+      if (mappingsResult.error) throw mappingsResult.error
       setRemoteEvents(Array.isArray(eventsResult.data) ? eventsResult.data : [])
-      setAccounts((accountsResult.data || []).filter((account) => String(account.currency_code || 'EUR').toUpperCase() === 'EUR'))
+      setAccounts((accountsResult.data || []).filter((account) => String(account.currency_code || 'EUR').trim().toUpperCase() === 'EUR'))
+      setAccountMappings(mappingsResult.data || [])
       setCategories(categoriesResult.data || [])
     } catch (loadError) {
       setError(loadError?.message || 'No se pudieron consultar las capturas.')
@@ -169,6 +239,127 @@ export default function CapturasAutomaticas() {
       document.removeEventListener('visibilitychange', onVisibilityChange)
     }
   }, [isNative, loadCaptures])
+
+  const persistAccountMapping = useCallback(async ({
+    sourceApp = mappingSource,
+    accountId = mappingAccountId,
+    automatic = false,
+    selectionChange = false,
+  } = {}) => {
+    const account = accounts.find((item) => item.id === accountId)
+    if (!account) {
+      setError('Selecciona una cuenta activa para vincular con la aplicación bancaria.')
+      setMappingFeedback('')
+      return false
+    }
+
+    const existingMapping = accountMappings.find((item) =>
+      item.source_app === sourceApp &&
+      item.account_id === accountId &&
+      item.is_active !== false
+    )
+    if (existingMapping) {
+      setError('')
+      setMappingFeedback(`Vinculada con tu cuenta ${account.name}.`)
+      return true
+    }
+
+    setSavingMapping(true)
+    setError('')
+    setMappingFeedback('Guardando la vinculación…')
+    try {
+      const { data: authData, error: authError } = await supabase.auth.getUser()
+      if (authError || !authData?.user) throw new Error('Tu sesión ha caducado. Inicia sesión de nuevo.')
+
+      const { data: savedMapping, error: saveError } = await supabase
+        .from('account_notification_sources')
+        .upsert({
+          user_id: authData.user.id,
+          source_app: sourceApp,
+          source_label: sourceLabelMap[sourceApp] || getBankSourceLabel(sourceApp, SOURCE_LABELS),
+          account_id: accountId,
+          is_active: true,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'user_id,source_app' })
+        .select('id, source_app, source_label, account_id, is_active')
+        .single()
+      if (saveError) throw saveError
+
+      setAccountMappings((current) => [
+        ...current.filter((item) => item.source_app !== sourceApp),
+        savedMapping,
+      ])
+      setMappingFeedback(automatic
+        ? `Vinculada automáticamente con tu cuenta ${account.name}.`
+        : selectionChange
+          ? `Cambio guardado automáticamente: ${account.name}.`
+          : `Vinculación guardada: ${account.name}.`)
+      setNotice('')
+      return true
+    } catch (mappingError) {
+      setMappingFeedback('No se pudo guardar automáticamente. Puedes reintentarlo con el botón.')
+      setError(mappingError?.message || 'No se pudo guardar la vinculación bancaria.')
+      return false
+    } finally {
+      setSavingMapping(false)
+    }
+  }, [accounts, accountMappings, mappingAccountId, mappingSource, sourceLabelMap])
+
+  const saveAccountMapping = () => persistAccountMapping({
+    sourceApp: mappingSource,
+    accountId: mappingAccountId,
+    automatic: false,
+  })
+
+  useEffect(() => {
+    if (mappingSelectionTouched || mappingSuggestion.reason !== 'matching' || !mappingSuggestion.accountId) return
+
+    const suggestedAccount = accounts.find((account) => account.id === mappingSuggestion.accountId)
+    const sourceLabel = mappingSourceLabel
+    if (!isExactAccountNameMatch(suggestedAccount, sourceLabel)) return
+    if (mappingAccountId !== mappingSuggestion.accountId || mappingAlreadySaved) return
+
+    const attemptKey = `${mappingSource}:${mappingSuggestion.accountId}`
+    if (autoSaveAttemptRef.current === attemptKey) return
+    autoSaveAttemptRef.current = attemptKey
+
+    void persistAccountMapping({
+      sourceApp: mappingSource,
+      accountId: mappingSuggestion.accountId,
+      automatic: true,
+    })
+  }, [
+    accounts,
+    mappingAccountId,
+    mappingAlreadySaved,
+    mappingSelectionTouched,
+    mappingSource,
+    mappingSourceLabel,
+    mappingSuggestion,
+    persistAccountMapping,
+  ])
+
+  const deactivateAccountMapping = async (mappingId) => {
+    setSavingMapping(true)
+    setError('')
+    setNotice('')
+    try {
+      const { data: authData, error: authError } = await supabase.auth.getUser()
+      if (authError || !authData?.user) throw new Error('Tu sesión ha caducado. Inicia sesión de nuevo.')
+      const { error: updateError } = await supabase
+        .from('account_notification_sources')
+        .update({ is_active: false, updated_at: new Date().toISOString() })
+        .eq('id', mappingId)
+        .eq('user_id', authData.user.id)
+      if (updateError) throw updateError
+      setNotice('Vinculación desactivada. No se borró el historial de compras.')
+      await loadCaptures(false)
+    } catch (mappingError) {
+      setError(mappingError?.message || 'No se pudo desactivar la vinculación.')
+    } finally {
+      setSavingMapping(false)
+    }
+  }
 
   const openSettings = async () => {
     setError('')
@@ -209,9 +400,7 @@ export default function CapturasAutomaticas() {
   }
 
   const registerPendingPurchase = async (item) => {
-    const accountId = accountSelections[item.id] || accounts.find((account) =>
-      item.accountLabel && account.name.trim().toLocaleLowerCase('es') === item.accountLabel.trim().toLocaleLowerCase('es')
-    )?.id || ''
+    const accountId = accountSelections[item.id] || item.accountId || ''
     const categoryId = categorySelections[item.id] || categories.find((category) =>
       item.categorySuggestion && category.name.trim().toLocaleLowerCase('es') === item.categorySuggestion.trim().toLocaleLowerCase('es')
     )?.id || ''
@@ -232,7 +421,9 @@ export default function CapturasAutomaticas() {
       const { data: authData, error: authError } = await supabase.auth.getUser()
       if (authError || !authData?.user) throw new Error('Tu sesión ha caducado. Inicia sesión de nuevo.')
       const userId = authData.user.id
-      const idempotencyKey = item.eventIds?.[0]
+      // The review group id is the same pair_key used by the sync function.
+      // This avoids a second transaction if the bank alert arrives after manual review.
+      const idempotencyKey = item.id || item.eventIds?.[0]
       if (!idempotencyKey) throw new Error('No se encontró el identificador de esta compra.')
 
       let transaction
@@ -278,6 +469,7 @@ export default function CapturasAutomaticas() {
           status: 'posted',
           matched_transaction_id: transaction.id,
           account_label: accounts.find((account) => account.id === accountId)?.name || null,
+          account_id: accountId,
           category_id: categoryId,
         })
         .eq('user_id', userId)
@@ -390,6 +582,155 @@ export default function CapturasAutomaticas() {
       )}
 
       <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
+        <div className="flex items-start gap-3">
+          <Link2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-300" />
+          <div>
+            <h2 className="text-lg font-semibold text-white">Vincular bancos con tus cuentas</h2>
+            <p className="mt-1 text-xs leading-relaxed text-slate-400">
+              Elige la aplicación bancaria y la cuenta de Finanzas donde deben registrarse sus movimientos.
+              Android identifica automáticamente la app que envía cada aviso. No solicitamos ni guardamos datos de tarjetas bancarias. Cada aplicación bancaria reconocida puede vincularse con estas mismas reglas automáticas.
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <label className="text-xs font-medium text-slate-300">Aplicación del banco
+            <FinanceSelect
+              value={mappingSource}
+              onChange={(event) => {
+                autoSaveAttemptRef.current = ''
+                setMappingSelectionTouched(false)
+                setMappingFeedback('')
+                setMappingSource(event.target.value)
+              }}
+              disabled={savingMapping}
+              className="mt-1.5 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-white"
+            >
+              {availableBankSources.map((sourceApp) => (
+                <option key={sourceApp} value={sourceApp}>
+                  {getBankSourceLabel(sourceApp, sourceLabelMap)}
+                </option>
+              ))}
+            </FinanceSelect>
+          </label>
+          <div>
+            <span className="text-xs font-medium text-slate-300">Cuenta que recibe el cargo</span>
+            {accounts.length === 0 ? (
+              <div className="mt-1.5 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-400">
+                Crea primero una cuenta activa en Finanzas.
+              </div>
+            ) : accounts.length === 1 ? (
+              <div className="mt-1.5 rounded-lg border border-emerald-700/50 bg-emerald-950/20 px-3 py-2.5" aria-live="polite">
+                <p className="text-sm font-medium text-white">
+                  {getAccountOptionLabel(accounts[0], mappingSourceLabel)}
+                </p>
+                <p className="mt-0.5 text-[11px] text-emerald-300">
+                  Única cuenta activa: se selecciona automáticamente.
+                </p>
+              </div>
+            ) : (
+              <FinanceSelect
+                value={mappingAccountId}
+                onChange={(event) => {
+                  const accountId = event.target.value
+                  autoSaveAttemptRef.current = ''
+                  setMappingSelectionTouched(true)
+                  setMappingAccountId(accountId)
+                  setMappingFeedback('')
+                  if (accountId) {
+                    void persistAccountMapping({
+                      sourceApp: mappingSource,
+                      accountId,
+                      automatic: false,
+                      selectionChange: true,
+                    })
+                  }
+                }}
+                disabled={savingMapping}
+                className="mt-1.5 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-white"
+              >
+                <option value="">Selecciona una cuenta</option>
+                {accounts.map((account) => (
+                  <option key={account.id} value={account.id}>
+                    {getAccountOptionLabel(account, mappingSourceLabel)}
+                  </option>
+                ))}
+              </FinanceSelect>
+            )}
+            {mappingSuggestion.reason === 'matching' &&
+              mappingAccountId === mappingSuggestion.accountId && (
+                <p className="mt-1.5 text-[11px] leading-relaxed text-emerald-300">
+                  Hemos preseleccionado esta cuenta porque su nombre o banco coincide con {mappingSourceLabel}. Puedes cambiarla.
+                </p>
+              )}
+            {mappingSuggestion.reason === 'existing' && !mappingFeedback && (
+              <p className="mt-1.5 text-[11px] leading-relaxed text-slate-400">
+                Esta aplicación ya está vinculada a la cuenta seleccionada.
+              </p>
+            )}
+            {mappingFeedback && (
+              <p
+                role="status"
+                aria-live="polite"
+                className={`mt-1.5 text-[11px] leading-relaxed ${mappingFeedback.startsWith('No se pudo') ? 'text-amber-300' : 'text-emerald-300'}`}
+              >
+                {savingMapping && <Loader2 className="mr-1 inline h-3 w-3 animate-spin" />}
+                {mappingFeedback}
+              </p>
+            )}
+          </div>
+        </div>
+        <p className="mt-2 text-xs leading-relaxed text-slate-400">
+          Si el nombre de la cuenta coincide con la aplicación (sin distinguir mayúsculas ni espacios repetidos), la vinculación se guarda automáticamente. Si eliges otra cuenta manualmente, el cambio también se guarda al instante. El botón queda como respaldo.
+          Los avisos del banco se registran directamente en esta cuenta. Si también llega Google Wallet,
+          unimos ambos avisos por importe exacto, comercio y hora (hasta 3 minutos) para evitar duplicados.
+          Si solo llega Wallet y tienes una única app bancaria vinculada, usaremos esa cuenta; si hay varias,
+          dejaremos la compra para revisión para no asignarla incorrectamente.
+        </p>
+        <div className="mt-3 flex justify-end">
+          <button
+            type="button"
+            onClick={saveAccountMapping}
+            disabled={savingMapping || accounts.length === 0 || !mappingAccountId || mappingAlreadySaved}
+            className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
+          >
+            {savingMapping ? <Loader2 className="h-4 w-4 animate-spin" /> : mappingAlreadySaved ? <CheckCircle2 className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+            {mappingAlreadySaved ? 'Vinculación guardada' : currentSourceMapping ? 'Actualizar vinculación' : 'Guardar vinculación'}
+          </button>
+        </div>
+
+        <div className="mt-4 space-y-2">
+          {accountMappings.length === 0 ? (
+            <p className="rounded-lg border border-dashed border-slate-700 p-3 text-xs text-slate-400">
+              Todavía no has vinculado ninguna aplicación bancaria. Sin esta configuración, las compras quedarán para revisión manual.
+            </p>
+          ) : accountMappings.map((mapping) => {
+            const account = accounts.find((item) => item.id === mapping.account_id)
+            return (
+              <div key={mapping.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-800 bg-slate-950/60 p-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-white">
+                    {getBankSourceLabel(mapping.source_app, sourceLabelMap)}
+                     · Cuenta automática
+                  </p>
+                  <p className="text-xs text-slate-400">{account?.name || 'Cuenta no disponible'}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => deactivateAccountMapping(mapping.id)}
+                  disabled={savingMapping}
+                  className="inline-flex items-center gap-1 rounded-lg border border-slate-700 px-2.5 py-1.5 text-xs text-slate-300 hover:bg-slate-800 disabled:opacity-50"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Desvincular
+                </button>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-lg font-semibold text-white">Bandeja de revisión</h2>
@@ -427,7 +768,7 @@ export default function CapturasAutomaticas() {
                 <div className="mt-2 flex flex-wrap gap-2">
                   {item.sources.map((source) => (
                     <span key={source} className="rounded-md bg-slate-800 px-2 py-1 text-[11px] text-slate-300">
-                      {SOURCE_LABELS[source] || source}
+                      {sourceLabelMap[source] || getBankSourceLabel(source, sourceLabelMap)}
                     </span>
                   ))}
                   {item.categorySuggestion && (
@@ -437,28 +778,28 @@ export default function CapturasAutomaticas() {
                   )}
                 </div>
                 <p className="mt-2 text-xs text-slate-500">
-                  {[item.accountLabel, item.cardLast4 ? 'Tarjeta ··' + item.cardLast4 : null].filter(Boolean).join(' · ')}
+                  {item.accountLabel || 'Origen detectado automáticamente'}
                 </p>
                 <div className="mt-4 grid gap-3 sm:grid-cols-2">
                   <label className="text-xs font-medium text-slate-300">Cuenta del cargo
-                    <select
-                      value={accountSelections[item.id] ?? accounts.find((account) => item.accountLabel && account.name.trim().toLocaleLowerCase('es') === item.accountLabel.trim().toLocaleLowerCase('es'))?.id ?? ''}
+                    <FinanceSelect
+                      value={accountSelections[item.id] ?? item.accountId ?? ''}
                       onChange={(event) => setAccountSelections((current) => ({ ...current, [item.id]: event.target.value }))}
                       className="mt-1.5 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-white"
                     >
                       <option value="">Selecciona una cuenta</option>
                       {accounts.map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}
-                    </select>
+                    </FinanceSelect>
                   </label>
                   <label className="text-xs font-medium text-slate-300">Categoría del gasto
-                    <select
+                    <FinanceSelect
                       value={categorySelections[item.id] ?? categories.find((category) => item.categorySuggestion && category.name.trim().toLocaleLowerCase('es') === item.categorySuggestion.trim().toLocaleLowerCase('es'))?.id ?? ''}
                       onChange={(event) => setCategorySelections((current) => ({ ...current, [item.id]: event.target.value }))}
                       className="mt-1.5 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-white"
                     >
                       <option value="">Selecciona una categoría</option>
                       {categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
-                    </select>
+                    </FinanceSelect>
                   </label>
                 </div>
                 <div className="mt-4 flex flex-wrap justify-end gap-2">
@@ -477,10 +818,10 @@ export default function CapturasAutomaticas() {
           <div>
             <h2 className="text-sm font-semibold text-white">Privacidad y seguridad</h2>
             <p className="mt-1 text-xs leading-relaxed text-slate-400">
-              Solo se sincronizan el comercio, importe, fecha, banco identificado, últimos cuatro dígitos de la
-              tarjeta y categoría sugerida. No se envía el texto completo de la notificación. Cuando banco y categoría
-              coinciden con datos fiables, Finanzas registra automáticamente un único gasto; los casos ambiguos
-              permanecen pendientes para que elijas la cuenta y categoría. Todo se guarda bajo tu sesión y RLS.
+              Solo se sincronizan el nombre de la aplicación emisora, comercio, importe, fecha y categoría sugerida.
+              No se envía el texto completo del aviso ni se solicitan o almacenan datos de tarjetas bancarias.
+              Finanzas usa tu vinculación de app a cuenta y empareja Wallet por importe, comercio y hora para evitar duplicados.
+              Los casos ambiguos quedan pendientes de revisión. Todo se guarda bajo tu sesión y RLS.
             </p>
           </div>
         </div>

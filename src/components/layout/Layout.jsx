@@ -13,6 +13,8 @@ const Deudas = lazy(() => import('@/pages/Deudas'))
 const Compromisos = lazy(() => import('@/pages/Compromisos'))
 const Recordatorios = lazy(() => import('@/pages/Recordatorios'))
 const Ajustes = lazy(() => import('@/pages/Ajustes'))
+const Cuentas = lazy(() => import('@/pages/Cuentas'))
+const Transferencias = lazy(() => import('@/pages/Transferencias'))
 
 const primaryItems = [
   { name: 'Dashboard', label: 'Inicio', icon: Home },
@@ -30,6 +32,8 @@ function PageContent({ activePage, onNavigate }) {
   if (activePage === 'Automatizaciones') return <Automatizaciones onNavigate={onNavigate} />
   if (activePage === 'Compras pendientes') return <CapturasAutomaticas />
   if (activePage === 'Gestión financiera') return <Configuracion />
+  if (activePage === 'Cuentas') return <Cuentas />
+  if (activePage === 'Transferencias') return <Transferencias />
   if (activePage === 'Deudas') return <Deudas />
   if (activePage === 'Compromisos') return <Compromisos />
   return <Dashboard />
@@ -58,29 +62,38 @@ export default function Layout({ onSignOut }) {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  const abrirNuevoGasto = async () => {
-    await import('@/pages/Gastos')
-    cambiarPagina('Gastos')
+  const abrirNuevoMovimiento = async (tipo = 'expense') => {
+    const esIngreso = tipo === 'income'
+    const pagina = esIngreso ? 'Ingresos' : 'Gastos'
+    const evento = esIngreso ? 'finanzas:open-new-income' : 'finanzas:open-new-expense'
+
+    if (esIngreso) {
+      await import('@/pages/Ingresos')
+    } else {
+      await import('@/pages/Gastos')
+    }
+
+    cambiarPagina(pagina)
     window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
-      window.dispatchEvent(new Event('finanzas:open-new-expense'))
+      window.dispatchEvent(new Event(evento))
     }))
   }
 
   return (
-    <div className="app-shell min-h-screen text-slate-100 md:flex">
+    <div className="app-shell min-h-screen text-slate-100 lg:flex">
       <Sidebar activePage={activePage} setActivePage={cambiarPagina} />
 
       <div className="min-w-0 flex-1">
-        <Navbar activePage={activePage} onAdd={abrirNuevoGasto} onSignOut={onSignOut} />
+        <Navbar activePage={activePage} onAdd={abrirNuevoMovimiento} onSignOut={onSignOut} />
 
-        <main className="app-main mx-auto min-w-0 w-full max-w-[1600px] px-3 pt-5 sm:px-5 md:px-7 md:pt-7 xl:px-9">
+        <main className="app-main mx-auto min-w-0 w-full max-w-[1760px] px-3 pb-28 pt-5 sm:px-5 md:px-7 md:pt-7 lg:px-8 lg:pb-10 2xl:px-10">
           <Suspense fallback={<LoadingView />}>
             <PageContent activePage={activePage} onNavigate={cambiarPagina} />
           </Suspense>
         </main>
       </div>
 
-      <nav aria-label="Navegación móvil" className="app-bottom-nav md:hidden">
+      <nav aria-label="Navegación móvil" className="app-bottom-nav lg:hidden">
         {primaryItems.map((item) => {
           const Icon = item.icon
           const active = activePage === item.name || (item.name === 'Ajustes' && [
@@ -88,6 +101,8 @@ export default function Layout({ onSignOut }) {
             'Automatizaciones',
             'Compras pendientes',
             'Gestión financiera',
+            'Cuentas',
+            'Transferencias',
             'Deudas',
             'Compromisos',
           ].includes(activePage))

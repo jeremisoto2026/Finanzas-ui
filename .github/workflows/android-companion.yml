@@ -5,6 +5,7 @@ on:
     branches:
       - feat/finance-core-hardening
       - feat/finanzas-apk-capacitor
+      - feat/finanzas-cuentas-dinamicas-edicion
     paths:
       - "android/**"
       - "src/**"
@@ -57,8 +58,9 @@ jobs:
         env:
           # These are the public Supabase project URL and publishable key.
           # Vite embeds VITE_* values into the APK at build time; they are not server secrets.
-          VITE_SUPABASE_URL: "https://xebgscmovaffrqckzpyz.supabase.co"
-          VITE_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_Mbxk3dAMZHoPKrh90zKHkw_yzzh22un"
+          VITE_SUPABASE_URL: "https://brkckgaicoqkqdcwwftm.supabase.co"
+          VITE_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_4aTVOdrHyro5iyDctv1mjg__yI6jqh-"
+          VITE_WEB_PUSH_PUBLIC_KEY: "BCCG0oqkafAUE2lXK9FsIWkT-qWSCQtwNk9PWCFYJa071-aZ9m7K1HsI-jc4JjTwMfX37dFPGlpIoXK58pUfBeQ"
 
       - name: Sync web assets and native Capacitor plugins into Android
         run: npx cap sync android
@@ -78,8 +80,35 @@ jobs:
       - name: Run Android parser tests
         run: gradle --no-daemon :app:testDebugUnitTest
 
+      - name: Prepare persistent Preview signing key
+        shell: bash
+        env:
+          FINANZAS_PREVIEW_KEYSTORE_BASE64: ${{ secrets.FINANZAS_PREVIEW_KEYSTORE_BASE64 }}
+          FINANZAS_PREVIEW_KEYSTORE_PASSWORD: ${{ secrets.FINANZAS_PREVIEW_KEYSTORE_PASSWORD }}
+          FINANZAS_PREVIEW_KEY_ALIAS: ${{ secrets.FINANZAS_PREVIEW_KEY_ALIAS }}
+          FINANZAS_PREVIEW_KEY_PASSWORD: ${{ secrets.FINANZAS_PREVIEW_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          for secret_name in FINANZAS_PREVIEW_KEYSTORE_BASE64 FINANZAS_PREVIEW_KEYSTORE_PASSWORD FINANZAS_PREVIEW_KEY_ALIAS FINANZAS_PREVIEW_KEY_PASSWORD; do
+            if [[ -z "${!secret_name:-}" ]]; then
+              echo "::error::Missing GitHub Actions secret: $secret_name"
+              exit 1
+            fi
+          done
+          keystore_path="$RUNNER_TEMP/finanzas-preview-signing.jks"
+          printf '%s' "$FINANZAS_PREVIEW_KEYSTORE_BASE64" | base64 --decode > "$keystore_path"
+          test -s "$keystore_path"
+          chmod 600 "$keystore_path"
+          echo "FINANZAS_PREVIEW_KEYSTORE_PATH=$keystore_path" >> "$GITHUB_ENV"
+
       - name: Assemble debug APK
         run: gradle --no-daemon :app:assembleDebug
+        env:
+          # Gradle reads these in android/app/build.gradle.kts to select the
+          # persistent Preview signing config instead of the ephemeral debug key.
+          FINANZAS_PREVIEW_KEYSTORE_PASSWORD: ${{ secrets.FINANZAS_PREVIEW_KEYSTORE_PASSWORD }}
+          FINANZAS_PREVIEW_KEY_ALIAS: ${{ secrets.FINANZAS_PREVIEW_KEY_ALIAS }}
+          FINANZAS_PREVIEW_KEY_PASSWORD: ${{ secrets.FINANZAS_PREVIEW_KEY_PASSWORD }}
 
       - name: Upload personal preview APK
         uses: actions/upload-artifact@v4

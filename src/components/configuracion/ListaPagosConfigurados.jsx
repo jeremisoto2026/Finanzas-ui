@@ -1,3 +1,4 @@
+import FinanceSelect from '@/components/ui/FinanceSelect'
 import { 
   Pencil, 
   Trash2, 
@@ -69,7 +70,7 @@ export default function ListaPagosConfigurados({
           {/* FILTROS */}
           <div className="flex flex-wrap gap-3">
             <div className="relative">
-              <select 
+              <FinanceSelect 
                 value={filtroTipo}
                 onChange={(e) => setFiltroTipo(e.target.value)}
                 className="px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition appearance-none pr-8"
@@ -77,12 +78,12 @@ export default function ListaPagosConfigurados({
                 <option value="todos">Todos los tipos</option>
                 <option value="fijo">Pagos fijos</option>
                 <option value="cuotas">En cuotas</option>
-              </select>
+              </FinanceSelect>
               <Filter className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
             </div>
 
             <div className="relative">
-              <select 
+              <FinanceSelect 
                 value={filtroActivo}
                 onChange={(e) => setFiltroActivo(e.target.value)}
                 className="px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition appearance-none pr-8"
@@ -90,7 +91,7 @@ export default function ListaPagosConfigurados({
                 <option value="todos">Todos los estados</option>
                 <option value="activo">Solo activos</option>
                 <option value="inactivo">Solo inactivos</option>
-              </select>
+              </FinanceSelect>
               <ToggleRight className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
             </div>
           </div>

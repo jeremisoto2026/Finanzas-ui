@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useConfirmationDialog } from '@/components/ui/ConfirmationDialog'
 import { 
   Settings, 
   Calendar, 
@@ -127,6 +128,7 @@ const frecuencias = [
 ]
 
 export default function ConfiguracionPagos() {
+  const confirm = useConfirmationDialog()
   const [pagosConfigurados, setPagosConfigurados] = useState(pagosConfiguradosIniciales)
   const [mostrarFormularioFijo, setMostrarFormularioFijo] = useState(false)
   const [mostrarFormularioCuotas, setMostrarFormularioCuotas] = useState(false)
@@ -161,10 +163,17 @@ export default function ConfiguracionPagos() {
     setPagoEditando(null)
   }
 
-  const eliminarPago = (id) => {
-    if (window.confirm('¿Estás seguro de que quieres eliminar este pago?')) {
-      setPagosConfigurados(pagosConfigurados.filter(p => p.id !== id))
-    }
+  const eliminarPago = async (id) => {
+    const pago = pagosConfigurados.find((item) => item.id === id)
+    const approved = await confirm({
+      title: '¿Eliminar este pago?',
+      description: pago
+        ? `Se eliminará «${pago.nombre}» de tus pagos configurados. Los movimientos bancarios ya registrados no se modificarán.`
+        : 'Se eliminará este elemento de tus pagos configurados. Los movimientos bancarios ya registrados no se modificarán.',
+      confirmLabel: 'Eliminar pago',
+    })
+    if (!approved) return
+    setPagosConfigurados((current) => current.filter((p) => p.id !== id))
   }
 
   const toggleActivo = (id) => {

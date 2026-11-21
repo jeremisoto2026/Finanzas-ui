@@ -1,6 +1,8 @@
+import FinanceSelect from '@/components/ui/FinanceSelect'
 import { useEffect, useMemo, useState } from 'react'
 import { BanknotesIcon, PlusIcon, CheckCircleIcon, ArrowPathIcon, PencilSquareIcon, TrashIcon, XMarkIcon } from '@heroicons/react/24/outline'
 import { sumMoney } from '@/lib/finance-core'
+import { useConfirmationDialog } from '@/components/ui/ConfirmationDialog'
 
 const euro = (value) => new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(Number(value || 0))
 const today = () => {
@@ -20,6 +22,7 @@ const emptyForm = {
 }
 
 export default function Deudas() {
+  const confirm = useConfirmationDialog()
   const [debts, setDebts] = useState([])
   const [accounts, setAccounts] = useState([])
   const [loading, setLoading] = useState(true)
@@ -180,7 +183,12 @@ export default function Deudas() {
   }
 
   const deleteDebt = async (debt) => {
-    if (!confirm('¿Eliminar el registro «' + debt.personName + '»? Esta acción no crea ni modifica movimientos bancarios.')) return
+    const approved = await confirm({
+      title: '¿Eliminar este registro de deuda?',
+      description: `Se eliminará el registro de «${debt.personName}». Esta acción no crea ni modifica movimientos bancarios.`,
+      confirmLabel: 'Eliminar registro',
+    })
+    if (!approved) return
     try {
       const response = await fetch('/api/deudas', {
         method: 'DELETE',
@@ -209,10 +217,10 @@ export default function Deudas() {
               <button type="button" onClick={() => setSettlement(null)} className="rounded-lg p-2 text-slate-400 hover:bg-slate-800" aria-label="Cerrar"><XMarkIcon className="h-5 w-5" /></button>
             </div>
             <label className="block text-sm text-slate-300">{settlement.debt.direction === 'receivable' ? 'Cuenta donde recibiste el dinero' : 'Cuenta desde la que realizaste el pago'}
-              <select required value={settlement.accountId} onChange={(event) => setSettlement((current) => ({ ...current, accountId: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2.5 text-white">
+              <FinanceSelect required value={settlement.accountId} onChange={(event) => setSettlement((current) => ({ ...current, accountId: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2.5 text-white">
                 <option value="">Seleccionar cuenta</option>
                 {accounts.map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}
-              </select>
+              </FinanceSelect>
             </label>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <label className="block text-sm text-slate-300">Importe de este movimiento (€)
@@ -276,10 +284,10 @@ export default function Deudas() {
               <input value={form.personName} onChange={(event) => setForm({ ...form, personName: event.target.value })} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-white" required />
             </label>
             <label className="text-sm text-slate-300">Tipo
-              <select value={form.direction} onChange={(event) => setForm({ ...form, direction: event.target.value })} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-white">
+              <FinanceSelect value={form.direction} onChange={(event) => setForm({ ...form, direction: event.target.value })} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-white">
                 <option value="receivable">Me deben</option>
                 <option value="payable">Yo debo</option>
-              </select>
+              </FinanceSelect>
             </label>
             <label className="text-sm text-slate-300">Importe original (€)
               <input type="number" min="0.01" step="0.01" value={form.amount} onChange={(event) => setForm({ ...form, amount: event.target.value, outstandingAmount: form.outstandingAmount === '' ? event.target.value : form.outstandingAmount })} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-white" required />

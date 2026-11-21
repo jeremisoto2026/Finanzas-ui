@@ -1,6 +1,9 @@
+import FinanceSelect from '@/components/ui/FinanceSelect'
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { monthKeyFromDate, sumMoney } from '@/lib/finance-core';
+import { useConfirmationDialog } from '@/components/ui/ConfirmationDialog';
 import { uniqueCategoryNames } from '@/lib/category-utils';
+import { DEFAULT_EXPENSE_CATEGORIES } from '@/lib/category-catalog';
 import { 
   Download, 
   Filter,
@@ -39,9 +42,10 @@ import {
 } from 'lucide-react';
 
 export default function TablaGastos() {
+  const confirm = useConfirmationDialog();
   // Movimientos de gasto contabilizados procedentes del libro mayor.
   const [gastosMensuales, setGastosMensuales] = useState([]);
-  const [categoriasDisponibles, setCategoriasDisponibles] = useState([]);
+  const [categoriasDisponibles, setCategoriasDisponibles] = useState(DEFAULT_EXPENSE_CATEGORIES);
   const [cuentasUsuario, setCuentasUsuario] = useState([]);
   const [cuentasLoading, setCuentasLoading] = useState(true);
   const [cuentasError, setCuentasError] = useState('');
@@ -49,7 +53,6 @@ export default function TablaGastos() {
   const [error, setError] = useState(null);
   const [formOpen, setFormOpen] = useState(false);
   const [editingGastoId, setEditingGastoId] = useState(null);
-  const [deleteTarget, setDeleteTarget] = useState(null);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState('');
   const [nuevoGasto, setNuevoGasto] = useState({
@@ -78,7 +81,13 @@ export default function TablaGastos() {
         if (!response.ok) throw new Error('No se pudieron cargar los gastos.')
         const data = await response.json()
         if (!Array.isArray(data)) throw new Error('La respuesta de gastos no tiene el formato esperado.')
-        if (!cancelled) setGastosMensuales(data)
+        if (!cancelled) {
+          setGastosMensuales(data)
+          setCategoriasDisponibles((current) => uniqueCategoryNames([
+            ...current,
+            ...data.map((gasto) => gasto.categoria),
+          ]))
+        }
       } catch (err) {
         if (!cancelled) {
           setError(err.message || 'Error al cargar los gastos.')
@@ -170,8 +179,9 @@ export default function TablaGastos() {
       setFormError('Completa el concepto, un importe positivo y la fecha.')
       return
     }
-    if (!nuevoGasto.cuentaId || !cuentasUsuario.some((account) => account.id === nuevoGasto.cuentaId)) {
-      setFormError('Selecciona una cuenta válida desde la que salió el dinero.')
+    const cuentaSeleccionada = cuentasUsuario.find((account) => account.id === nuevoGasto.cuentaId)
+    if (!cuentaSeleccionada || (!editingGastoId && cuentaSeleccionada.isActive === false)) {
+      setFormError('Selecciona una cuenta activa desde la que salió el dinero.')
       return
     }
 
@@ -193,6 +203,7 @@ export default function TablaGastos() {
       setGastosMensuales((current) => editingGastoId
         ? current.map((item) => item.id === editingGastoId ? result : item)
         : [result, ...current])
+      window.dispatchEvent(new Event('finanzas:transactions-updated'))
       setFiltroMes(result.fecha.slice(0, 7))
       setFormOpen(false)
       setEditingGastoId(null)
@@ -204,25 +215,27 @@ export default function TablaGastos() {
     }
   }
 
-  const eliminarGasto = (gasto) => {
-    setDeleteTarget(gasto)
-    setFormError('')
-  }
+  const eliminarGasto = async (gasto) => {
+    const amountLabel = new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(gasto.monto)
+    const approved = await confirm({
+      title: '¿Anular este gasto?',
+      description: `«${gasto.concepto}» · ${amountLabel}. Se retirará del saldo y de los totales, pero permanecerá en el historial con estado anulado.`,
+      confirmLabel: 'Anular gasto',
+    })
+    if (!approved) return
 
-  const confirmarEliminarGasto = async () => {
-    if (!deleteTarget) return
     try {
       setSaving(true)
       setFormError('')
       const response = await fetch('/api/gastos', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: deleteTarget.id }),
+        body: JSON.stringify({ id: gasto.id }),
       })
       const result = await response.json()
       if (!response.ok) throw new Error(result.error || 'No se pudo anular el gasto.')
-      setGastosMensuales((current) => current.filter((item) => item.id !== deleteTarget.id))
-      setDeleteTarget(null)
+      setGastosMensuales((current) => current.filter((item) => item.id !== gasto.id))
+      window.dispatchEvent(new Event('finanzas:transactions-updated'))
     } catch (err) {
       setFormError(err.message || 'No se pudo anular el gasto.')
     } finally {
@@ -364,6 +377,9 @@ export default function TablaGastos() {
   // ========== RENDER ==========
   return (
     <div className="mx-auto w-full max-w-7xl space-y-6 pb-8">
+      {formError && !formOpen && (
+        <p role="alert" className="rounded-xl border border-rose-800/50 bg-rose-950/30 px-4 py-3 text-sm text-rose-200">{formError}</p>
+      )}
       {/* HEADER */}
       <div className="mb-8">
         <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
@@ -440,15 +456,15 @@ export default function TablaGastos() {
                 <input required type="date" value={nuevoGasto.fecha} onChange={(e) => setNuevoGasto({ ...nuevoGasto, fecha: e.target.value })} className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-3 text-white outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20" />
               </label>
               <label className="text-sm font-medium text-slate-300">Categoría
-                <select value={nuevoGasto.categoria} onChange={(e) => setNuevoGasto({ ...nuevoGasto, categoria: e.target.value })} className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-3 text-white outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20">
+                <FinanceSelect value={nuevoGasto.categoria} onChange={(e) => setNuevoGasto({ ...nuevoGasto, categoria: e.target.value })} className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-3 text-white outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20">
                   {categorias.map((category) => <option key={category} value={category}>{category}</option>)}
-                </select>
+                </FinanceSelect>
               </label>
               <label className="text-sm font-medium text-slate-300">¿De qué cuenta salió el dinero?
-                <select required value={nuevoGasto.cuentaId} onChange={(e) => setNuevoGasto({ ...nuevoGasto, cuentaId: e.target.value })} disabled={cuentasLoading || cuentasUsuario.length === 0} className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-3 text-white outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 disabled:opacity-60">
+                <FinanceSelect required value={nuevoGasto.cuentaId} onChange={(e) => setNuevoGasto({ ...nuevoGasto, cuentaId: e.target.value })} disabled={cuentasLoading || (!editingGastoId && !cuentasUsuario.some((account) => account.isActive !== false)) || (Boolean(editingGastoId) && cuentasUsuario.length === 0)} className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-3 text-white outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 disabled:opacity-60">
                   <option value="">{cuentasLoading ? 'Cargando cuentas…' : cuentasUsuario.length ? 'Selecciona una cuenta' : 'No hay cuentas disponibles'}</option>
-                  {cuentasUsuario.map((account) => <option key={account.id} value={account.id}>{account.name} · {account.currencyCode || 'EUR'}</option>)}
-                </select>
+                  {cuentasUsuario.filter((account) => account.isActive !== false || account.id === nuevoGasto.cuentaId).map((account) => <option key={account.id} value={account.id} disabled={account.isActive === false}>{account.name}{account.isActive === false ? ' · Desactivada' : ''} · {account.currencyCode || 'EUR'}</option>)}
+                </FinanceSelect>
                 <span className="mt-1 block text-xs font-normal text-slate-500">El importe se descontará del saldo de esta cuenta.</span>
                 {cuentasError && (
                   <span role="alert" className="mt-2 flex flex-wrap items-center gap-2 text-xs font-normal text-rose-300">
@@ -458,7 +474,7 @@ export default function TablaGastos() {
                 )}
               </label>
               <label className="text-sm font-medium text-slate-300">Método de pago
-                <select value={nuevoGasto.metodo} onChange={(e) => setNuevoGasto({ ...nuevoGasto, metodo: e.target.value })} className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-3 text-white outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"><option>Tarjeta</option><option>Transferencia</option><option>Bizum</option><option>Efectivo</option></select>
+                <FinanceSelect value={nuevoGasto.metodo} onChange={(e) => setNuevoGasto({ ...nuevoGasto, metodo: e.target.value })} className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-3 text-white outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"><option>Tarjeta</option><option>Transferencia</option><option>Bizum</option><option>Efectivo</option></FinanceSelect>
               </label>
             </div>
             {formError && <p role="alert" className="mt-4 rounded-xl border border-rose-800/50 bg-rose-950/30 px-3 py-2.5 text-sm text-rose-200">{formError}</p>}
@@ -467,26 +483,6 @@ export default function TablaGastos() {
               <button type="submit" disabled={saving} className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"><Save className="h-4 w-4" />{saving ? 'Guardando…' : editingGastoId ? 'Guardar cambios' : 'Registrar gasto'}</button>
             </div>
           </form>
-        </div>
-      )}
-
-      {deleteTarget && (
-        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm">
-          <section role="dialog" aria-modal="true" aria-labelledby="delete-expense-title" className="w-full max-w-md rounded-2xl border border-slate-700 bg-slate-900 p-5 shadow-2xl">
-            <div className="flex items-start gap-3">
-              <span className="rounded-xl bg-rose-500/10 p-2.5 text-rose-300"><Trash2 className="h-5 w-5" /></span>
-              <div><h2 id="delete-expense-title" className="font-semibold text-white">Anular este gasto</h2><p className="mt-1 text-sm leading-6 text-slate-400">Se retirará del saldo y de los totales, pero permanecerá en el registro de forma anulada.</p></div>
-            </div>
-            <div className="mt-4 rounded-xl border border-slate-800 bg-slate-950/70 p-3">
-              <p className="truncate text-sm font-medium text-slate-200">{deleteTarget.concepto}</p>
-              <p className="mt-1 text-lg font-semibold tabular-nums text-rose-300">−{new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(deleteTarget.monto)}</p>
-            </div>
-            {formError && <p role="alert" className="mt-3 rounded-lg border border-rose-800/50 bg-rose-950/30 p-3 text-sm text-rose-200">{formError}</p>}
-            <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-              <button type="button" disabled={saving} onClick={() => { setDeleteTarget(null); setFormError('') }} className="rounded-xl border border-slate-700 px-4 py-2.5 text-sm text-slate-300 hover:bg-slate-800 disabled:opacity-50">Conservar gasto</button>
-              <button type="button" disabled={saving} onClick={confirmarEliminarGasto} className="rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-rose-500 disabled:opacity-50">{saving ? 'Anulando…' : 'Sí, anular gasto'}</button>
-            </div>
-          </section>
         </div>
       )}
 
@@ -513,7 +509,7 @@ export default function TablaGastos() {
                   Mes
                 </label>
                 <div className="relative">
-                  <select 
+                  <FinanceSelect 
                     value={filtroMes}
                     onChange={(e) => setFiltroMes(e.target.value)}
                     className="w-full px-4 py-2.5 pl-10 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 transition"
@@ -524,7 +520,7 @@ export default function TablaGastos() {
                         {formatearMesTexto(mes)}
                       </option>
                     ))}
-                  </select>
+                  </FinanceSelect>
                   <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-500" />
                 </div>
               </div>
@@ -536,7 +532,7 @@ export default function TablaGastos() {
                   Método de pago
                 </label>
                 <div className="relative">
-                  <select 
+                  <FinanceSelect 
                     value={filtroMetodo}
                     onChange={(e) => setFiltroMetodo(e.target.value)}
                     className="w-full px-4 py-2.5 pl-10 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 transition"
@@ -547,7 +543,7 @@ export default function TablaGastos() {
                     <option value="Bizum">Bizum</option>
                     <option value="App">App</option>
                     <option value="Efectivo">Efectivo</option>
-                  </select>
+                  </FinanceSelect>
                   <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-500" />
                 </div>
               </div>
@@ -559,14 +555,14 @@ export default function TablaGastos() {
                   Categoría
                 </label>
                 <div className="relative">
-                  <select 
+                  <FinanceSelect 
                     value={filtroCategoria}
                     onChange={(e) => setFiltroCategoria(e.target.value)}
                     className="w-full px-4 py-2.5 pl-10 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 transition"
                   >
                     <option value="">Todas las categorías</option>
                     {categorias.map((category) => <option key={category} value={category}>{category}</option>)}
-                  </select>
+                  </FinanceSelect>
                   <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-500" />
                 </div>
               </div>
@@ -617,8 +613,16 @@ export default function TablaGastos() {
             </div>
 
             {/* TABLA DETALLADA */}
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[800px]">
+            <div className="flex items-center justify-end px-4 py-2 text-xs text-slate-500 sm:hidden">
+              <span>Desliza horizontalmente para consultar todas las columnas</span>
+            </div>
+            <div
+              role="region"
+              aria-label="Historial de gastos, desplazamiento horizontal"
+              tabIndex={0}
+              className="overflow-x-auto overscroll-x-contain"
+            >
+              <table className="w-full min-w-[1040px]">
                 <thead className="bg-slate-900">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">
@@ -634,6 +638,9 @@ export default function TablaGastos() {
                       Categoría
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">
+                      Cuenta de salida
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">
                       Origen
                     </th>
                     <th className="px-6 py-3 text-right text-xs font-medium text-slate-400 uppercase tracking-wider">
@@ -646,7 +653,7 @@ export default function TablaGastos() {
                 <tbody className="divide-y divide-slate-800">
                   {gastosFiltrados.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="px-6 py-8 text-center">
+                      <td colSpan={8} className="px-6 py-8 text-center">
                         <div className="text-slate-500">
                           <Receipt className="h-12 w-12 mx-auto mb-3 opacity-50" />
                           <p>No hay gastos para mostrar</p>
@@ -658,6 +665,7 @@ export default function TablaGastos() {
                     </tr>
                   ) : (
                     gastosFiltrados.map((gasto) => {
+                      const cuentaNombre = String(gasto.cuenta || '').trim();
                       let origenColor, origenBg, origenIcon, origenTooltip = '';
                       
                       switch (gasto.origen) {
@@ -707,6 +715,17 @@ export default function TablaGastos() {
                             <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-blue-900/30 text-blue-300">
                               {gasto.categoria}
                             </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center gap-2">
+                              <Database className="h-4 w-4 shrink-0 text-emerald-400" />
+                              <span
+                                className={`inline-flex max-w-[220px] items-center truncate rounded-lg border px-2.5 py-1 text-xs font-medium ${cuentaNombre ? 'border-emerald-700/30 bg-emerald-900/20 text-emerald-300' : 'border-amber-700/30 bg-amber-900/20 text-amber-300'}`}
+                                title={cuentaNombre ? `Sale de ${cuentaNombre}` : 'Este movimiento no tiene una cuenta asociada'}
+                              >
+                                {cuentaNombre || 'Sin cuenta registrada'}
+                              </span>
+                            </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span 

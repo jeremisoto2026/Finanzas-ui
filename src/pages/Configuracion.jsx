@@ -1,6 +1,9 @@
+import FinanceSelect from '@/components/ui/FinanceSelect'
 import { useState, useEffect, useRef } from 'react'
 import { addInstallmentDate, distributeInstallmentAmounts, localDateInputValue, sumMoney, sumMonthlyEquivalent } from '@/lib/finance-core'
 import { uniqueCategoryNames } from '@/lib/category-utils'
+import { useScrollToForm } from '@/lib/useScrollToForm'
+import { useConfirmationDialog } from '@/components/ui/ConfirmationDialog'
 import { 
   Settings, 
   Pencil,
@@ -47,6 +50,7 @@ import {
 } from 'lucide-react'
 
 export default function Configuracion() {
+  const confirm = useConfirmationDialog()
   // Estados de pagos fijos y compras a cuotas
   const [pagosFijos, setPagosFijos] = useState([])
   const [comprasCuotas, setComprasCuotas] = useState([])
@@ -54,13 +58,15 @@ export default function Configuracion() {
   const [categoriasDisponibles, setCategoriasDisponibles] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [errorCargaConfiguracion, setErrorCargaConfiguracion] = useState(null)
   const [cuentasDisponibles, setCuentasDisponibles] = useState([])
   const [gastosRegistrados, setGastosRegistrados] = useState([])
   const [pagoCuotaDialog, setPagoCuotaDialog] = useState(null)
   const [guardandoPagoCuota, setGuardandoPagoCuota] = useState(false)
   const [guardandoCompraCuotas, setGuardandoCompraCuotas] = useState(false)
   const guardandoCompraCuotasRef = useRef(false)
-  const cuotasFormRef = useRef(null)
+  const [guardandoPresupuesto, setGuardandoPresupuesto] = useState(false)
+  const guardandoPresupuestoRef = useRef(false)
   const [mensajeCuotas, setMensajeCuotas] = useState(null)
 
   // Estados para acordeones
@@ -91,6 +97,10 @@ export default function Configuracion() {
     fechaInicio: localDateInputValue(),
     notificacion: true
   })
+
+  const pagoFijoFormRef = useScrollToForm(mostrarFormPagoFijo, editingPagoFijoId)
+  const cuotasFormRef = useScrollToForm(mostrarFormCuotas, editingCompraCuotasId)
+  const presupuestoFormRef = useScrollToForm(mostrarFormPresupuesto, editingPresupuestoId)
 
   const [compraCuotas, setCompraCuotas] = useState({
     concepto: '',
@@ -130,7 +140,7 @@ export default function Configuracion() {
         setPresupuestos(presupuestosData)
 
       } catch (err) {
-        setError(err.message);
+        setErrorCargaConfiguracion(err.message);
         console.error('Error cargando datos:', err);
         setPagosFijos([]);
         setComprasCuotas([]);
@@ -166,7 +176,7 @@ export default function Configuracion() {
         ])
         if (cuentasResponse.ok) {
           const rows = await cuentasResponse.json()
-          if (activo) setCuentasDisponibles(Array.isArray(rows) ? rows.filter((row) => row.currencyCode === 'EUR') : [])
+          if (activo) setCuentasDisponibles(Array.isArray(rows) ? rows.filter((row) => row.currencyCode === 'EUR' && row.isActive !== false) : [])
         }
         if (gastosResponse.ok) {
           const rows = await gastosResponse.json()
@@ -259,22 +269,26 @@ export default function Configuracion() {
   }
 
   const eliminarPagoFijo = async (id, nombre) => {
-    if (!confirm(`¿Eliminar "${nombre}"?`)) return
-    
+    const approved = await confirm({
+      title: '¿Eliminar este pago fijo?',
+      description: `Se cancelará "${nombre}" y dejará de aparecer entre tus pagos activos. Los movimientos anteriores no se modificarán.`,
+      confirmLabel: 'Eliminar pago fijo',
+    })
+    if (!approved) return
+
     try {
+      setError(null)
       const res = await fetch('/api/pagos-fijos', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id })
       })
-      
-      if (res.ok) {
-        setPagosFijos(pagosFijos.filter(p => p.id !== id))
-        alert('Pago fijo eliminado exitosamente')
-      }
+      const result = await res.json()
+      if (!res.ok) throw new Error(result.error || 'No se pudo eliminar el pago fijo.')
+      setPagosFijos((current) => current.filter((p) => p.id !== id))
     } catch (error) {
       console.error('Error eliminando pago fijo:', error)
-      alert('Error al eliminar el pago fijo')
+      setError(error.message || 'Error al eliminar el pago fijo.')
     }
   }
 
@@ -292,11 +306,19 @@ export default function Configuracion() {
 
   const guardarPresupuesto = async (event) => {
     event.preventDefault()
+
+    // Prevent double taps or repeated submit events from creating two POST requests.
+    // The ref is set synchronously, before the first await, so a second event is ignored.
+    if (guardandoPresupuestoRef.current) return
+
     const amount = Number(presupuestoForm.amount)
     if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(presupuestoForm.month) || !presupuestoForm.category.trim() || !Number.isFinite(amount) || amount < 0) {
       setError('Revisa el mes, la categoría y el importe del presupuesto.')
       return
     }
+
+    guardandoPresupuestoRef.current = true
+    setGuardandoPresupuesto(true)
     try {
       setError(null)
       const response = await fetch('/api/presupuestos', {
@@ -314,11 +336,19 @@ export default function Configuracion() {
       setPresupuestoForm({ month: localDateInputValue().slice(0, 7), category: 'Alimentación', amount: '', notes: '' })
     } catch (err) {
       setError(err.message || 'No se pudo guardar el presupuesto.')
+    } finally {
+      guardandoPresupuestoRef.current = false
+      setGuardandoPresupuesto(false)
     }
   }
 
   const eliminarPresupuesto = async (item) => {
-    if (!confirm(`¿Eliminar el presupuesto de ${item.category} para ${item.month}?`)) return
+    const approved = await confirm({
+      title: '¿Eliminar este presupuesto?',
+      description: `Se eliminará el presupuesto de ${item.category} para ${item.month}. Los gastos e ingresos reales ya registrados se conservarán.`,
+      confirmLabel: 'Eliminar presupuesto',
+    })
+    if (!approved) return
     try {
       const response = await fetch('/api/presupuestos', {
         method: 'DELETE',
@@ -354,13 +384,6 @@ export default function Configuracion() {
   }
 
 
-  useEffect(() => {
-    if (!mostrarFormCuotas || !editingCompraCuotasId || !cuotasFormRef.current) return
-    const frame = window.requestAnimationFrame(() => {
-      cuotasFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    })
-    return () => window.cancelAnimationFrame(frame)
-  }, [mostrarFormCuotas, editingCompraCuotasId])
 
   const guardarCompraCuotas = async () => {
     if (guardandoCompraCuotasRef.current) return
@@ -462,7 +485,7 @@ export default function Configuracion() {
   }
 
   const abrirDialogoPagoCuota = (compra, cuota) => {
-    const cuentaPredeterminada = cuentasDisponibles.find((cuenta) => cuenta.name === 'Revolut') || cuentasDisponibles[0]
+    const cuentaPredeterminada = cuentasDisponibles[0]
     setMensajeCuotas(null)
     setPagoCuotaDialog({
       compra, cuota, modo: 'nuevo',
@@ -540,22 +563,25 @@ export default function Configuracion() {
   }
 
   const eliminarCompraCuotas = async (id, concepto) => {
-    if (!confirm(`¿Eliminar "${concepto}"?`)) return
-    
+    const approved = await confirm({
+      title: '¿Eliminar esta compra a cuotas?',
+      description: `Se cancelará "${concepto}" y su calendario de cuotas. Los movimientos de cuotas que ya estén registrados se conservarán.`,
+      confirmLabel: 'Eliminar compra',
+    })
+    if (!approved) return
+
     try {
       const res = await fetch('/api/compras-cuotas', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id })
       })
-      
-      if (res.ok) {
-        setComprasCuotas(comprasCuotas.filter(c => c.id !== id))
-        alert('Compra a cuotas eliminada exitosamente')
-      }
+      const result = await res.json()
+      if (!res.ok) throw new Error(result.error || 'No se pudo eliminar la compra a cuotas.')
+      setComprasCuotas((current) => current.filter((c) => c.id !== id))
     } catch (error) {
       console.error('Error eliminando compra a cuotas:', error)
-      alert('Error al eliminar la compra a cuotas')
+      setError(error.message || 'Error al eliminar la compra a cuotas.')
     }
   }
 
@@ -673,7 +699,7 @@ export default function Configuracion() {
     )
   }
 
-  if (error) {
+  if (errorCargaConfiguracion) {
     return (
       <div className="min-h-screen bg-slate-950 p-6">
         <div className="max-w-2xl mx-auto mt-20">
@@ -682,7 +708,7 @@ export default function Configuracion() {
               <AlertCircle className="h-8 w-8 text-red-400" />
               <h2 className="text-xl font-bold text-white">Error al cargar configuración</h2>
             </div>
-            <p className="text-slate-300 mb-4">{error}</p>
+            <p className="text-slate-300 mb-4">{errorCargaConfiguracion}</p>
             <p className="text-slate-400 text-sm mb-6">
               No se muestran datos de demostración. Comprueba la conexión y vuelve a intentarlo.
             </p>
@@ -701,6 +727,12 @@ export default function Configuracion() {
   // ========== RENDER ==========
   return (
     <div className="mx-auto w-full max-w-7xl space-y-6 pb-8">
+      {error && (
+        <div role="alert" className="flex items-start justify-between gap-3 rounded-xl border border-rose-700/60 bg-rose-950/30 px-4 py-3 text-sm text-rose-200">
+          <span>{error}</span>
+          <button type="button" onClick={() => setError(null)} className="shrink-0 font-medium text-rose-100 underline underline-offset-2">Cerrar</button>
+        </div>
+      )}
       {pagoCuotaDialog && (
         <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 p-4" role="presentation">
           <form onSubmit={registrarPagoCuota} className="w-full max-w-lg space-y-4 rounded-2xl border border-slate-700 bg-slate-900 p-5 shadow-2xl">
@@ -718,18 +750,18 @@ export default function Configuracion() {
               </div>
             )}
             <label className="block text-sm text-slate-300">Cómo quieres contabilizarla
-              <select value={pagoCuotaDialog.modo} onChange={(event) => setPagoCuotaDialog((current) => ({ ...current, modo: event.target.value, existingTransactionId: '' }))} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2.5 text-white">
+              <FinanceSelect value={pagoCuotaDialog.modo} onChange={(event) => setPagoCuotaDialog((current) => ({ ...current, modo: event.target.value, existingTransactionId: '' }))} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2.5 text-white">
                 <option value="nuevo">Crear automáticamente un gasto nuevo</option>
                 <option value="existente">Vincular un gasto que ya registré</option>
-              </select>
+              </FinanceSelect>
             </label>
             {pagoCuotaDialog.modo === 'nuevo' ? (
               <>
                 <label className="block text-sm text-slate-300">Cuenta desde la que se pagó
-                  <select required value={pagoCuotaDialog.accountId} onChange={(event) => setPagoCuotaDialog((current) => ({ ...current, accountId: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2.5 text-white">
+                  <FinanceSelect required value={pagoCuotaDialog.accountId} onChange={(event) => setPagoCuotaDialog((current) => ({ ...current, accountId: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2.5 text-white">
                     <option value="">Seleccionar cuenta</option>
                     {cuentasDisponibles.map((cuenta) => <option key={cuenta.id} value={cuenta.id}>{cuenta.name}</option>)}
-                  </select>
+                  </FinanceSelect>
                 </label>
                 <label className="block text-sm text-slate-300">Fecha del cargo
                   <input required type="date" value={pagoCuotaDialog.paidOn} onChange={(event) => setPagoCuotaDialog((current) => ({ ...current, paidOn: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2.5 text-white" />
@@ -738,13 +770,13 @@ export default function Configuracion() {
               </>
             ) : (
               <label className="block text-sm text-slate-300">Gastos existentes por el mismo importe
-                <select required value={pagoCuotaDialog.existingTransactionId} onChange={(event) => setPagoCuotaDialog((current) => ({ ...current, existingTransactionId: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2.5 text-white">
+                <FinanceSelect required value={pagoCuotaDialog.existingTransactionId} onChange={(event) => setPagoCuotaDialog((current) => ({ ...current, existingTransactionId: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2.5 text-white">
                   <option value="">Seleccionar gasto existente</option>
                   {gastosRegistrados
                     .filter((gasto) => Number(gasto.monto) === Number(pagoCuotaDialog.cuota.monto))
                     .filter((gasto) => !comprasCuotas.some((plan) => plan.historialCuotas?.some((cuota) => cuota.transactionId === gasto.id)))
                     .map((gasto) => <option key={gasto.id} value={gasto.id}>{gasto.fecha} · {gasto.concepto} · {gasto.cuenta} · €{Number(gasto.monto).toFixed(2)}</option>)}
-                </select>
+                </FinanceSelect>
               </label>
             )}
             <div className="flex justify-end gap-2 border-t border-slate-800 pt-4">
@@ -835,7 +867,7 @@ export default function Configuracion() {
 
       {/* FORMULARIO PARA PAGO FIJO (igual, pero ahora usa guardarPagoFijo async) */}
       {mostrarFormPagoFijo && (
-        <div className="mb-6 bg-slate-900/80 border border-slate-800 rounded-xl p-6">
+        <div ref={pagoFijoFormRef} className="mb-6 scroll-mt-24 bg-slate-900/80 border border-slate-800 rounded-xl p-6">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl font-bold text-white">{editingPagoFijoId ? 'Editar pago fijo' : 'Nuevo pago fijo'}</h2>
             <button
@@ -886,20 +918,20 @@ export default function Configuracion() {
                 <label className="block text-sm font-medium text-slate-300 mb-2">
                   Categoría
                 </label>
-                <select
+                <FinanceSelect
                   value={pagoFijo.categoria}
                   onChange={(e) => setPagoFijo({...pagoFijo, categoria: e.target.value})}
                   className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition"
                 >
                   {categoriasConfiguracion.map((category) => <option key={category} value={category}>{category}</option>)}
-                </select>
+                </FinanceSelect>
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">
                   Método de pago
                 </label>
-                <select
+                <FinanceSelect
                   value={pagoFijo.metodo}
                   onChange={(e) => setPagoFijo({...pagoFijo, metodo: e.target.value})}
                   className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition"
@@ -909,14 +941,14 @@ export default function Configuracion() {
                   <option value="Bizum">Bizum</option>
                   <option value="Efectivo">Efectivo</option>
                   <option value="PayPal">PayPal</option>
-                </select>
+                </FinanceSelect>
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">
                   Frecuencia
                 </label>
-                <select
+                <FinanceSelect
                   value={pagoFijo.frecuencia}
                   onChange={(e) => setPagoFijo({...pagoFijo, frecuencia: e.target.value})}
                   className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition"
@@ -926,7 +958,7 @@ export default function Configuracion() {
                   <option value="mensual">Mensual</option>
                   <option value="trimestral">Trimestral</option>
                   <option value="anual">Anual</option>
-                </select>
+                </FinanceSelect>
               </div>
 
               <div>
@@ -1049,7 +1081,7 @@ export default function Configuracion() {
                   <Calculator className="h-4 w-4" />
                   Total de cuotas *
                 </label>
-                <select
+                <FinanceSelect
                   value={compraCuotas.cuotasTotales}
                   onChange={(e) => setCompraCuotas({...compraCuotas, cuotasTotales: e.target.value})}
                   className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition"
@@ -1057,7 +1089,7 @@ export default function Configuracion() {
                   {[1,2,3,4,5,6,7,8,9,10,11,12,18,24,36].map(num => (
                     <option key={num} value={num}>{num} cuota{num !== 1 ? 's' : ''}</option>
                   ))}
-                </select>
+                </FinanceSelect>
               </div>
 
               <div>
@@ -1120,20 +1152,20 @@ export default function Configuracion() {
                 <label className="block text-sm font-medium text-slate-300 mb-2">
                   Categoría
                 </label>
-                <select
+                <FinanceSelect
                   value={compraCuotas.categoria}
                   onChange={(e) => setCompraCuotas({...compraCuotas, categoria: e.target.value})}
                   className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition"
                 >
                   {categoriasConfiguracion.map((category) => <option key={category} value={category}>{category}</option>)}
-                </select>
+                </FinanceSelect>
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">
                   Método de pago
                 </label>
-                <select
+                <FinanceSelect
                   value={compraCuotas.metodo}
                   onChange={(e) => setCompraCuotas({...compraCuotas, metodo: e.target.value})}
                   className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition"
@@ -1143,7 +1175,7 @@ export default function Configuracion() {
                   <option value="Bizum">Bizum</option>
                   <option value="Efectivo">Efectivo</option>
                   <option value="PayPal">PayPal</option>
-                </select>
+                </FinanceSelect>
               </div>
 
               <div>
@@ -1163,7 +1195,7 @@ export default function Configuracion() {
                 <label className="block text-sm font-medium text-slate-300 mb-2">
                   Frecuencia de pago
                 </label>
-                <select
+                <FinanceSelect
                   value={compraCuotas.frecuenciaPago}
                   onChange={(e) => setCompraCuotas({...compraCuotas, frecuenciaPago: e.target.value})}
                   className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition"
@@ -1172,7 +1204,7 @@ export default function Configuracion() {
                   <option value="quincenal">Quincenal</option>
                   <option value="semanal">Semanal</option>
                   <option value="trimestral">Trimestral</option>
-                </select>
+                </FinanceSelect>
               </div>
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-slate-300 mb-2">Notas (opcional)</label>
@@ -1328,15 +1360,15 @@ export default function Configuracion() {
 
       {/* PRESUPUESTOS VARIABLES: SON PLANIFICACIÓN, NO PAGOS CONFIRMADOS */}
       {mostrarFormPresupuesto && (
-        <form onSubmit={guardarPresupuesto} className="mb-4 space-y-3 rounded-xl border border-sky-800/40 bg-slate-900/70 p-5">
+        <form ref={presupuestoFormRef} onSubmit={guardarPresupuesto} className="mb-4 scroll-mt-24 space-y-3 rounded-xl border border-sky-800/40 bg-slate-900/70 p-5">
           <div className="flex items-center justify-between"><h3 className="font-semibold text-white">{editingPresupuestoId ? 'Editar presupuesto' : 'Nuevo presupuesto'}</h3><button type="button" onClick={() => { setMostrarFormPresupuesto(false); setEditingPresupuestoId(null); }} className="text-sm text-slate-400 hover:text-white">Cerrar</button></div>
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <label className="text-sm text-slate-300">Mes<input type="month" required value={presupuestoForm.month} onChange={(e) => setPresupuestoForm({ ...presupuestoForm, month: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-white" /></label>
-            <label className="text-sm text-slate-300">Categoría<select required value={presupuestoForm.category} onChange={(e) => setPresupuestoForm({ ...presupuestoForm, category: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-white"><option value="" disabled>Selecciona una categoría</option>{categoriasConfiguracion.map((category) => <option key={category} value={category}>{category}</option>)}</select></label>
+            <label className="text-sm text-slate-300">Categoría<FinanceSelect required value={presupuestoForm.category} onChange={(e) => setPresupuestoForm({ ...presupuestoForm, category: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-white"><option value="" disabled>Selecciona una categoría</option>{categoriasConfiguracion.map((category) => <option key={category} value={category}>{category}</option>)}</FinanceSelect></label>
             <label className="text-sm text-slate-300">Importe planificado (€)<input type="number" min="0" step="0.01" required value={presupuestoForm.amount} onChange={(e) => setPresupuestoForm({ ...presupuestoForm, amount: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-white" /></label>
             <label className="text-sm text-slate-300">Notas<input value={presupuestoForm.notes} onChange={(e) => setPresupuestoForm({ ...presupuestoForm, notes: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-white" /></label>
           </div>
-          <div className="flex justify-end gap-2"><button type="button" onClick={() => { setMostrarFormPresupuesto(false); setEditingPresupuestoId(null); }} className="rounded-lg bg-slate-800 px-4 py-2 text-sm text-slate-300">Cancelar</button><button type="submit" className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-semibold text-white">{editingPresupuestoId ? 'Guardar cambios' : 'Guardar presupuesto'}</button></div>
+          <div className="flex justify-end gap-2"><button type="button" onClick={() => { setMostrarFormPresupuesto(false); setEditingPresupuestoId(null); }} className="rounded-lg bg-slate-800 px-4 py-2 text-sm text-slate-300">Cancelar</button><button type="submit" disabled={guardandoPresupuesto} className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60">{guardandoPresupuesto ? 'Guardando...' : editingPresupuestoId ? 'Guardar cambios' : 'Guardar presupuesto'}</button></div>
         </form>
       )}
 

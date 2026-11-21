@@ -61,7 +61,7 @@ async function getAndroidAccounts() {
   // that may omit accounts in a given Preview build.
   const [accountsResult, transactionsResult] = await Promise.all([
     supabase.from('accounts')
-      .select('id, name, currency_code, opening_balance, opening_balance_date')
+      .select('id, name, institution, account_type, currency_code, opening_balance, opening_balance_date, is_active')
       .eq('user_id', userId)
       .order('name', { ascending: true }),
     supabase.from('transactions')
@@ -98,10 +98,14 @@ async function getAndroidAccounts() {
     return {
       id: account.id,
       name: account.name,
+      institution: account.institution || '',
+      accountType: account.account_type || 'bank',
       currencyCode: String(account.currency_code || 'EUR').trim(),
       balance: Math.round((balance + Number.EPSILON) * 100) / 100,
+      openingBalance: Math.round((Number(account.opening_balance || 0) + Number.EPSILON) * 100) / 100,
       openingBalanceDate: account.opening_balance_date || null,
       lastMovementOn: ledger[0]?.occurred_on || null,
+      isActive: account.is_active !== false,
     }
   })
 }
@@ -198,12 +202,13 @@ async function createAndroidTransaction(parsedUrl, input, init, sourceRequest) {
     if (!category?.id) throw new Error('No se pudo preparar la categoría del movimiento.')
 
     const { data: account, error: accountReadError } = await supabase.from('accounts')
-      .select('id, name')
+      .select('id, name, is_active')
       .eq('user_id', userId)
       .eq('id', accountId)
       .maybeSingle()
     if (accountReadError) throw accountReadError
     if (!account?.id) return jsonResponse({ error: 'La cuenta seleccionada no existe o no pertenece a tu usuario.' }, 400)
+    if (account.is_active === false) return jsonResponse({ error: 'La cuenta está desactivada. Selecciona una cuenta activa.' }, 400)
 
     const { data: inserted, error: insertError } = await supabase.from('transactions').insert({
       user_id: userId,
@@ -248,67 +253,189 @@ async function readAndroidJsonBody(init, sourceRequest) {
   }
 }
 
-async function updateAndroidAccountBalance(init, sourceRequest) {
+const ANDROID_ACCOUNT_TYPES = new Set([
+  'bank', 'cash', 'debit_card', 'credit_card', 'digital_wallet', 'savings', 'other',
+])
+
+function androidTodayKey() {
+  return new Intl.DateTimeFormat('sv-SE', {
+    timeZone: 'Europe/Madrid', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(new Date())
+}
+
+function validDateOnly(value) {
+  const text = String(value || '').slice(0, 10)
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) return false
+  const date = new Date(text + 'T00:00:00.000Z')
+  return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === text
+}
+
+function androidMoney(value) {
+  return Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100
+}
+
+async function getAndroidOwnedAccount(userId, accountId) {
+  const { data, error } = await supabase.from('accounts')
+    .select('id, name, institution, account_type, currency_code, opening_balance, opening_balance_date, is_active')
+    .eq('user_id', userId)
+    .eq('id', accountId)
+    .maybeSingle()
+  if (error) throw error
+  return data
+}
+
+async function getAndroidAccountLedger(userId, accountId, openingDate, today) {
+  const { data, error } = await supabase.from('transactions')
+    .select('account_id, occurred_on, kind, amount')
+    .eq('user_id', userId)
+    .eq('account_id', accountId)
+    .eq('status', 'posted')
+    .gte('occurred_on', openingDate || '0001-01-01')
+    .lte('occurred_on', today)
+  if (error) throw error
+  return data || []
+}
+
+function mapAndroidAccount(account, ledger, today) {
+  const movements = (ledger || []).filter((item) => item.occurred_on <= today)
+  let balance = Number(account.opening_balance || 0)
+  for (const transaction of movements) {
+    const amount = Number(transaction.amount || 0)
+    if (transaction.kind === 'income' || transaction.kind === 'transfer_in') balance += amount
+    if (transaction.kind === 'expense' || transaction.kind === 'transfer_out') balance -= amount
+  }
+
+  return {
+    id: account.id,
+    name: account.name,
+    institution: account.institution || '',
+    accountType: account.account_type || 'bank',
+    currencyCode: String(account.currency_code || 'EUR').trim(),
+    balance: androidMoney(balance),
+    openingBalance: androidMoney(account.opening_balance),
+    openingBalanceDate: account.opening_balance_date || null,
+    lastMovementOn: movements.reduce((latest, item) =>
+      !latest || item.occurred_on > latest ? item.occurred_on : latest, null
+    ),
+    isActive: account.is_active !== false,
+  }
+}
+
+async function createAndroidAccount(init, sourceRequest) {
   try {
     const body = await readAndroidJsonBody(init, sourceRequest)
-    const accountId = String(body.accountId || '').trim()
-    const targetBalance = Number(body.balance)
-    if (!accountId || body.balance === undefined || !Number.isFinite(targetBalance) || Math.abs(targetBalance) > 999999999999) {
-      return jsonResponse({ error: 'Indica una cuenta válida y un saldo real numérico.' }, 400)
+    const name = String(body.name || '').trim()
+    const institution = String(body.institution || '').trim() || null
+    const accountType = String(body.accountType || 'bank')
+    const currencyCode = String(body.currencyCode || 'EUR').trim().toUpperCase()
+    const openingBalance = Number(body.openingBalance ?? 0)
+    const openingBalanceDate = String(body.openingBalanceDate || androidTodayKey()).slice(0, 10)
+
+    if (!name) return jsonResponse({ error: 'Escribe un nombre para la cuenta.' }, 400)
+    if (!ANDROID_ACCOUNT_TYPES.has(accountType)) return jsonResponse({ error: 'Selecciona un tipo de cuenta válido.' }, 400)
+    if (!/^[A-Z]{3}$/.test(currencyCode)) return jsonResponse({ error: 'La moneda debe ser un código de tres letras, por ejemplo EUR.' }, 400)
+    if (!Number.isFinite(openingBalance) || Math.abs(openingBalance) > 999999999999) {
+      return jsonResponse({ error: 'El saldo inicial no es válido.' }, 400)
     }
+    if (!validDateOnly(openingBalanceDate)) return jsonResponse({ error: 'La fecha del saldo inicial no es válida.' }, 400)
+
+    const { data: authData, error: authError } = await supabase.auth.getUser()
+    if (authError || !authData?.user) return jsonResponse({ error: 'Tu sesión ha caducado. Inicia sesión de nuevo.' }, 401)
+    const { data, error } = await supabase.from('accounts').insert({
+      user_id: authData.user.id,
+      name,
+      institution,
+      account_type: accountType,
+      currency_code: currencyCode,
+      opening_balance: androidMoney(openingBalance),
+      opening_balance_date: openingBalanceDate,
+      is_active: true,
+    }).select('id, name, institution, account_type, currency_code, opening_balance, opening_balance_date, is_active').single()
+
+    if (error?.code === '23505') return jsonResponse({ error: 'Ya tienes una cuenta con ese nombre. Usa otro nombre para distinguirla.' }, 409)
+    if (error) throw error
+    dashboardSnapshotPromise = null
+    dashboardSnapshotExpiresAt = 0
+    return jsonResponse(mapAndroidAccount(data, [], androidTodayKey()), 201)
+  } catch (error) {
+    console.error('No se pudo crear la cuenta en Android:', error)
+    return jsonResponse({ error: error?.message || 'No se pudo crear la cuenta.' }, 400)
+  }
+}
+
+async function updateAndroidAccount(init, sourceRequest) {
+  try {
+    const body = await readAndroidJsonBody(init, sourceRequest)
+    const accountId = String(body.accountId || body.id || '').trim()
+    if (!accountId) return jsonResponse({ error: 'Falta seleccionar la cuenta que quieres actualizar.' }, 400)
 
     const { data: authData, error: authError } = await supabase.auth.getUser()
     if (authError || !authData?.user) return jsonResponse({ error: 'Tu sesión ha caducado. Inicia sesión de nuevo.' }, 401)
     const userId = authData.user.id
-    const { data: account, error: accountError } = await supabase.from('accounts')
-      .select('id, name, currency_code, opening_balance_date')
-      .eq('user_id', userId)
-      .eq('id', accountId)
-      .maybeSingle()
-    if (accountError) throw accountError
-    if (!account) return jsonResponse({ error: 'No se encontró esa cuenta.' }, 404)
+    const account = await getAndroidOwnedAccount(userId, accountId)
+    if (!account) return jsonResponse({ error: 'No se encontró esa cuenta en tu espacio financiero.' }, 404)
 
-    const today = new Intl.DateTimeFormat('sv-SE', {
-      timeZone: 'Europe/Madrid', year: 'numeric', month: '2-digit', day: '2-digit',
-    }).format(new Date())
-    const openingDate = account.opening_balance_date || '0001-01-01'
-    const { data: ledger, error: ledgerError } = await supabase.from('transactions')
-      .select('occurred_on, kind, amount')
-      .eq('user_id', userId)
-      .eq('account_id', account.id)
-      .eq('status', 'posted')
-      .gte('occurred_on', openingDate)
-      .lte('occurred_on', today)
-    if (ledgerError) throw ledgerError
+    const patch = {}
+    if (body.name !== undefined) {
+      const name = String(body.name || '').trim()
+      if (!name) return jsonResponse({ error: 'El nombre de la cuenta no puede quedar vacío.' }, 400)
+      patch.name = name
+    }
+    if (body.institution !== undefined) patch.institution = String(body.institution || '').trim() || null
+    if (body.accountType !== undefined) {
+      const accountType = String(body.accountType)
+      if (!ANDROID_ACCOUNT_TYPES.has(accountType)) return jsonResponse({ error: 'Selecciona un tipo de cuenta válido.' }, 400)
+      patch.account_type = accountType
+    }
+    if (body.currencyCode !== undefined) {
+      const currencyCode = String(body.currencyCode || '').trim().toUpperCase()
+      if (!/^[A-Z]{3}$/.test(currencyCode)) return jsonResponse({ error: 'La moneda debe ser un código de tres letras, por ejemplo EUR.' }, 400)
+      if (currencyCode !== String(account.currency_code || 'EUR').trim().toUpperCase()) {
+        const { count, error: countError } = await supabase.from('transactions')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', userId)
+          .eq('account_id', account.id)
+        if (countError) throw countError
+        if ((count || 0) > 0) return jsonResponse({ error: 'No puedes cambiar la moneda de una cuenta con movimientos. Crea otra cuenta con la moneda correcta y conserva esta como histórica.' }, 409)
+        patch.currency_code = currencyCode
+      }
+    }
+    if (body.isActive !== undefined) patch.is_active = Boolean(body.isActive)
 
-    const ledgerNet = (ledger || []).reduce((total, transaction) => {
-      const amount = Number(transaction.amount || 0)
-      if (transaction.kind === 'income' || transaction.kind === 'transfer_in') return total + amount
-      if (transaction.kind === 'expense' || transaction.kind === 'transfer_out') return total - amount
-      return total
-    }, 0)
-    const nextOpeningBalance = Math.round((targetBalance - ledgerNet + Number.EPSILON) * 100) / 100
-    const { data: updatedAccount, error: updateError } = await supabase.from('accounts')
-      .update({ opening_balance: nextOpeningBalance })
+    const today = androidTodayKey()
+    let ledger = await getAndroidAccountLedger(userId, account.id, account.opening_balance_date, today)
+    if (body.balance !== undefined) {
+      const targetBalance = Number(body.balance)
+      if (!Number.isFinite(targetBalance) || Math.abs(targetBalance) > 999999999999) {
+        return jsonResponse({ error: 'Introduce un saldo real numérico válido.' }, 400)
+      }
+      const ledgerNet = ledger.reduce((total, transaction) => {
+        const amount = Number(transaction.amount || 0)
+        if (transaction.kind === 'income' || transaction.kind === 'transfer_in') return total + amount
+        if (transaction.kind === 'expense' || transaction.kind === 'transfer_out') return total - amount
+        return total
+      }, 0)
+      patch.opening_balance = androidMoney(targetBalance - ledgerNet)
+    }
+
+    if (!Object.keys(patch).length) return jsonResponse({ error: 'No se han indicado cambios para guardar.' }, 400)
+    patch.updated_at = new Date().toISOString()
+
+    const { data, error } = await supabase.from('accounts').update(patch)
       .eq('user_id', userId)
       .eq('id', account.id)
-      .select('id, name, currency_code, opening_balance_date')
+      .select('id, name, institution, account_type, currency_code, opening_balance, opening_balance_date, is_active')
       .single()
-    if (updateError) throw updateError
+    if (error?.code === '23505') return jsonResponse({ error: 'Ya existe una cuenta con ese nombre.' }, 409)
+    if (error) throw error
 
+    if (body.balance !== undefined) ledger = await getAndroidAccountLedger(userId, account.id, data.opening_balance_date, today)
     dashboardSnapshotPromise = null
     dashboardSnapshotExpiresAt = 0
-    return jsonResponse({
-      id: updatedAccount.id,
-      name: updatedAccount.name,
-      currencyCode: String(updatedAccount.currency_code || 'EUR').trim(),
-      balance: Math.round((targetBalance + Number.EPSILON) * 100) / 100,
-      openingBalanceDate: updatedAccount.opening_balance_date || null,
-      lastMovementOn: (ledger || []).reduce((latest, item) => !latest || item.occurred_on > latest ? item.occurred_on : latest, null),
-    })
+    return jsonResponse(mapAndroidAccount(data, ledger, today))
   } catch (error) {
-    console.error('No se pudo ajustar el saldo en Android:', error)
-    return jsonResponse({ error: error?.message || 'No se pudo ajustar el saldo de la cuenta.' }, 400)
+    console.error('No se pudo actualizar la cuenta en Android:', error)
+    return jsonResponse({ error: error?.message || 'No se pudo actualizar la cuenta.' }, 400)
   }
 }
 
@@ -453,8 +580,266 @@ async function updateAndroidTransaction(parsedUrl, method, init, sourceRequest) 
   }
 }
 
+const DEFAULT_ANDROID_EXPENSE_CATEGORIES = ['Alimentación', 'Vivienda', 'Transporte', 'Salud', 'Ocio', 'Suscripciones', 'Servicios', 'Ropa', 'Educación', 'Familia', 'Otros']
+
+const ANDROID_MANAGEMENT_WRITE_PATHS = new Set([
+  '/api/presupuestos',
+  '/api/pagos-fijos',
+  '/api/compras-cuotas',
+])
+
+async function forwardAndroidManagementWrite(parsedUrl, method, init, sourceRequest) {
+  let bodyValue = init?.body
+  if (bodyValue == null && sourceRequest) bodyValue = await sourceRequest.clone().text()
+  let body
+  try {
+    body = typeof bodyValue === 'string' ? JSON.parse(bodyValue || '{}') : (bodyValue || {})
+  } catch {
+    return jsonResponse({ error: 'No se pudo leer el formulario. Vuelve a intentarlo.' }, 400)
+  }
+
+  try {
+    const { data: authData, error: authError } = await supabase.auth.getSession()
+    const accessToken = authData?.session?.access_token
+    if (authError || !accessToken) return jsonResponse({ error: 'Tu sesión ha caducado. Inicia sesión de nuevo.' }, 401)
+    const response = await fetch(supabaseUrl + '/functions/v1/finance-management-write', {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer ' + accessToken,
+        apikey: supabasePublishableKey,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ path: parsedUrl.pathname, method, body }),
+    })
+    const responseBody = await response.text()
+    if (response.ok) {
+      dashboardSnapshotPromise = null
+      dashboardSnapshotExpiresAt = 0
+    }
+    return new Response(responseBody || '{}', {
+      status: response.status,
+      headers: { 'Content-Type': response.headers.get('Content-Type') || 'application/json; charset=utf-8', 'Cache-Control': 'no-store' },
+    })
+  } catch (error) {
+    console.error('No se pudo completar la operación financiera en Android:', error)
+    return jsonResponse({ error: error?.message || 'No se pudo conectar con el servicio financiero seguro.' }, 502)
+  }
+}
+
+async function handleAndroidReservations(method, init, sourceRequest) {
+  try {
+    const body = method === 'GET' ? {} : await readAndroidJsonBody(init, sourceRequest)
+    const { data: authData, error: authError } = await supabase.auth.getUser()
+    if (authError || !authData?.user) return jsonResponse({ error: 'Tu sesión ha caducado. Inicia sesión de nuevo.' }, 401)
+    const userId = authData.user.id
+
+    if (method === 'GET') {
+      const [{ data: rows, error }, { data: accounts, error: accountsError }] = await Promise.all([
+        supabase.from('reservations').select('id, account_id, name, amount, status, reserved_on, notes')
+          .eq('user_id', userId).order('reserved_on', { ascending: false }).order('created_at', { ascending: false }),
+        supabase.from('accounts').select('id, name, currency_code, is_active').eq('user_id', userId),
+      ])
+      if (error) throw error
+      if (accountsError) throw accountsError
+      const accountMap = new Map((accounts || []).map((account) => [account.id, account]))
+      return jsonResponse((rows || []).map((row) => {
+        const account = accountMap.get(row.account_id)
+        return {
+          id: row.id, accountId: row.account_id, accountName: account?.name || 'Cuenta no disponible',
+          currencyCode: String(account?.currency_code || 'EUR').trim(), accountIsActive: account?.is_active !== false,
+          name: row.name, amount: Number(row.amount || 0), status: row.status,
+          reservedOn: row.reserved_on, notes: row.notes || '',
+        }
+      }))
+    }
+
+    if (method === 'POST' || method === 'PATCH') {
+      const isUpdate = method === 'PATCH'
+      let current = null
+      if (isUpdate) {
+        if (!body.id) return jsonResponse({ error: 'Falta el identificador de la reserva.' }, 400)
+        const { data, error } = await supabase.from('reservations')
+          .select('id, account_id, name, amount, status, reserved_on, notes')
+          .eq('user_id', userId).eq('id', body.id).maybeSingle()
+        if (error) throw error
+        if (!data) return jsonResponse({ error: 'No se encontró esa reserva.' }, 404)
+        if (data.status === 'consumed') return jsonResponse({ error: 'Esta reserva está utilizada y protegida en el historial.' }, 409)
+        current = data
+      }
+      const name = body.name !== undefined ? String(body.name || '').trim() : current?.name
+      const amount = body.amount !== undefined ? Number(body.amount) : Number(current?.amount || 0)
+      const accountId = body.accountId !== undefined ? String(body.accountId || '').trim() : current?.account_id
+      const reservedOn = body.reservedOn !== undefined ? String(body.reservedOn || '').slice(0, 10) : (current?.reserved_on || androidTodayKey())
+      const notes = body.notes !== undefined ? String(body.notes || '').trim() || null : (current?.notes || null)
+      const status = body.status !== undefined ? body.status : (current?.status || 'active')
+      if (!name) return jsonResponse({ error: 'Escribe el concepto de la reserva.' }, 400)
+      if (!Number.isFinite(amount) || amount <= 0 || amount > 999999999999) return jsonResponse({ error: 'El importe debe ser mayor que cero y válido.' }, 400)
+      if (!validDateOnly(reservedOn)) return jsonResponse({ error: 'La fecha de la reserva no es válida.' }, 400)
+      if (!['active', 'released'].includes(status)) return jsonResponse({ error: 'El estado de la reserva no es válido.' }, 400)
+      const { data: account, error: accountError } = await supabase.from('accounts')
+        .select('id, name, currency_code, is_active').eq('user_id', userId).eq('id', accountId).maybeSingle()
+      if (accountError) throw accountError
+      if (!account) return jsonResponse({ error: 'Selecciona una cuenta válida de tu espacio financiero.' }, 400)
+      if (status === 'active' && account.is_active === false) return jsonResponse({ error: 'No puedes reservar dinero en una cuenta desactivada.' }, 409)
+      const { data: savedRow, error: saveError } = await supabase.rpc('save_reservation', {
+        p_reservation_id: isUpdate ? current.id : null, p_account_id: account.id, p_name: name,
+        p_amount: androidMoney(amount), p_status: status, p_reserved_on: reservedOn, p_notes: notes,
+      })
+      if (saveError) {
+        if (String(saveError.message || '').startsWith('Saldo insuficiente:')) return jsonResponse({ error: saveError.message }, 409)
+        if (String(saveError.message || '').includes('No se encontró esa reserva.')) return jsonResponse({ error: 'No se encontró esa reserva.' }, 404)
+        throw saveError
+      }
+      const saved = Array.isArray(savedRow) ? savedRow[0] : savedRow
+      if (!saved) throw new Error('La base de datos no devolvió la reserva guardada.')
+      dashboardSnapshotPromise = null
+      dashboardSnapshotExpiresAt = 0
+      return jsonResponse({
+        id: saved.id, accountId: saved.account_id, accountName: account.name,
+        currencyCode: String(account.currency_code || 'EUR').trim(), accountIsActive: account.is_active !== false,
+        name: saved.name, amount: Number(saved.amount || 0), status: saved.status,
+        reservedOn: saved.reserved_on, notes: saved.notes || '',
+      }, isUpdate ? 200 : 201)
+    }
+
+    if (method === 'DELETE') {
+      if (!body.id) return jsonResponse({ error: 'Falta el identificador de la reserva.' }, 400)
+      const { data, error } = await supabase.from('reservations').delete()
+        .eq('user_id', userId).eq('id', body.id).neq('status', 'consumed').select('id').maybeSingle()
+      if (error) throw error
+      if (!data) {
+        const { data: existing, error: lookupError } = await supabase.from('reservations')
+          .select('id, status').eq('user_id', userId).eq('id', body.id).maybeSingle()
+        if (lookupError) throw lookupError
+        if (existing?.status === 'consumed') return jsonResponse({ error: 'Esta reserva figura como utilizada y se conserva en el historial. No se puede eliminar.' }, 409)
+        return jsonResponse({ error: 'No se encontró esa reserva.' }, 404)
+      }
+      dashboardSnapshotPromise = null
+      dashboardSnapshotExpiresAt = 0
+      return jsonResponse({ success: true, id: body.id })
+    }
+    return jsonResponse({ error: 'Método no permitido.' }, 405)
+  } catch (error) {
+    console.error('No se pudo gestionar la reserva en Android:', error)
+    return jsonResponse({ error: error?.message || 'No se pudo completar la operación de reserva.' }, 400)
+  }
+}
+
+async function handleAndroidTransfers(method, init, sourceRequest) {
+  try {
+    const body = method === 'GET' ? {} : await readAndroidJsonBody(init, sourceRequest)
+    const { data: authData, error: authError } = await supabase.auth.getUser()
+    if (authError || !authData?.user) return jsonResponse({ error: 'Tu sesión ha caducado. Inicia sesión de nuevo.' }, 401)
+    const userId = authData.user.id
+
+    if (method === 'GET') {
+      const [{ data: transfers, error }, { data: accounts, error: accountsError }, { data: entries, error: entriesError }] = await Promise.all([
+        supabase.from('transfers').select('id, from_account_id, to_account_id, amount, occurred_on, description, created_at')
+          .eq('user_id', userId).order('occurred_on', { ascending: false }).order('created_at', { ascending: false }),
+        supabase.from('accounts').select('id, name, currency_code').eq('user_id', userId),
+        supabase.from('transactions').select('transfer_id, status').eq('user_id', userId).not('transfer_id', 'is', null),
+      ])
+      if (error) throw error
+      if (accountsError) throw accountsError
+      if (entriesError) throw entriesError
+      const accountMap = new Map((accounts || []).map((account) => [account.id, account]))
+      const statusMap = new Map()
+      for (const row of entries || []) {
+        const list = statusMap.get(row.transfer_id) || []
+        list.push(row.status)
+        statusMap.set(row.transfer_id, list)
+      }
+      return jsonResponse((transfers || []).map((row) => ({
+        id: row.id, fromAccountId: row.from_account_id, toAccountId: row.to_account_id,
+        fromAccount: accountMap.get(row.from_account_id)?.name || 'Cuenta no disponible',
+        toAccount: accountMap.get(row.to_account_id)?.name || 'Cuenta no disponible',
+        currencyCode: String(accountMap.get(row.from_account_id)?.currency_code || 'EUR').trim(),
+        amount: Number(row.amount), date: row.occurred_on, description: row.description || '',
+        status: (statusMap.get(row.id) || []).length === 2 && (statusMap.get(row.id) || []).every((value) => value === 'void') ? 'cancelled' : 'posted',
+      })))
+    }
+
+    if (method === 'POST') {
+      const fromAccountId = String(body.fromAccountId || '')
+      const toAccountId = String(body.toAccountId || '')
+      const amount = Number(body.amount)
+      const date = String(body.date || '').slice(0, 10)
+      const dateValue = /^\d{4}-\d{2}-\d{2}$/.test(date) ? new Date(date + 'T00:00:00.000Z') : null
+      if (!fromAccountId || !toAccountId || fromAccountId === toAccountId || !Number.isFinite(amount) || amount <= 0 ||
+        !dateValue || !Number.isFinite(dateValue.getTime()) || dateValue.toISOString().slice(0, 10) !== date) {
+        return jsonResponse({ error: 'Indica dos cuentas distintas, un importe positivo y una fecha válida.' }, 400)
+      }
+      const { data, error } = await supabase.rpc('create_account_transfer', {
+        p_from_account_id: fromAccountId, p_to_account_id: toAccountId,
+        p_amount: Math.round((amount + Number.EPSILON) * 100) / 100,
+        p_occurred_on: date, p_description: String(body.description || '').trim() || null,
+        p_idempotency_key: String(body.idempotencyKey || ''),
+      })
+      if (error) throw error
+      dashboardSnapshotPromise = null
+      dashboardSnapshotExpiresAt = 0
+      return jsonResponse(data, 201)
+    }
+
+    if (method === 'DELETE') {
+      if (!body.id) return jsonResponse({ error: 'Falta el identificador de la transferencia.' }, 400)
+      const { data, error } = await supabase.rpc('cancel_account_transfer', { p_transfer_id: body.id })
+      if (error) throw error
+      dashboardSnapshotPromise = null
+      dashboardSnapshotExpiresAt = 0
+      return jsonResponse({ success: true, transfer: data })
+    }
+    return jsonResponse({ error: 'Método no permitido.' }, 405)
+  } catch (error) {
+    console.error('No se pudo gestionar la transferencia en Android:', error)
+    return jsonResponse({ error: error?.message || 'No se pudo completar la transferencia.' }, 400)
+  }
+}
+
 async function fetchAndroidApi(parsedUrl, method, input, init, sourceRequest) {
+  if (parsedUrl.pathname === '/api/cuentas' && parsedUrl.searchParams.get('resource') === 'transfers') {
+    if (method === 'GET' || ['POST', 'DELETE'].includes(method)) return handleAndroidTransfers(method, init, sourceRequest)
+    return jsonResponse({ error: 'Método no permitido.' }, 405)
+  }
+
+
+  if (ANDROID_MANAGEMENT_WRITE_PATHS.has(parsedUrl.pathname) && ['POST', 'PATCH', 'DELETE'].includes(method)) {
+    return forwardAndroidManagementWrite(parsedUrl, method, init, sourceRequest)
+  }
+
+  if (parsedUrl.pathname === '/api/compromisos' && parsedUrl.searchParams.get('resource') === 'reservations') {
+    if (method === 'GET' || ['POST', 'PATCH', 'DELETE'].includes(method)) return handleAndroidReservations(method, init, sourceRequest)
+    return jsonResponse({ error: 'Método no permitido.' }, 405)
+  }
+
   if (method === 'GET') {
+    // The expense form requests category names separately from the dashboard snapshot.
+    // Read them directly with the signed-in user's JWT and RLS on Android.
+    if (parsedUrl.pathname === '/api/gastos' && parsedUrl.searchParams.get('resource') === 'categories') {
+      try {
+        const { data, error } = await supabase.from('categories')
+          .select('name')
+          .eq('is_active', true)
+          .in('direction', ['expense', 'both'])
+          .order('name', { ascending: true })
+        if (error) throw error
+
+        const seen = new Set()
+        const categories = []
+        for (const value of [...DEFAULT_ANDROID_EXPENSE_CATEGORIES, ...(data || []).map((row) => row.name)]) {
+          const name = String(value || '').trim().replace(/\s+/g, ' ')
+          const key = name.normalize('NFKC').toLocaleLowerCase('es-ES')
+          if (!name || seen.has(key)) continue
+          seen.add(key)
+          categories.push(name)
+        }
+        return jsonResponse(categories.sort((a, b) => a.localeCompare(b, 'es', { sensitivity: 'base' })))
+      } catch (error) {
+        console.error('No se pudieron cargar las categorías de gastos en Android:', error)
+        return jsonResponse({ error: error?.message || 'No se pudieron cargar las categorías.' }, 502)
+      }
+    }
+
     if (parsedUrl.pathname === '/api/cuentas') {
       try {
         return jsonResponse(await getAndroidAccounts())
@@ -485,8 +870,12 @@ async function fetchAndroidApi(parsedUrl, method, input, init, sourceRequest) {
     }
   }
 
+  if (method === 'POST' && parsedUrl.pathname === '/api/cuentas') {
+    return createAndroidAccount(init, sourceRequest)
+  }
+
   if (method === 'PATCH' && parsedUrl.pathname === '/api/cuentas') {
-    return updateAndroidAccountBalance(init, sourceRequest)
+    return updateAndroidAccount(init, sourceRequest)
   }
 
   if ((method === 'PATCH' || method === 'DELETE') && getAndroidCreateKind(parsedUrl.pathname)) {

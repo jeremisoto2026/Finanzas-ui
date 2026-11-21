@@ -1,11 +1,13 @@
 import {
   ArrowRight,
+  ArrowLeftRight,
   BellRing,
   Settings,
   CreditCard,
   Wallet,
   DollarSign,
   Receipt,
+  Landmark,
 } from 'lucide-react'
 
 const sections = [
@@ -13,6 +15,8 @@ const sections = [
     title: 'Finanzas',
     description: 'Organiza cuentas, compromisos y planificación.',
     items: [
+      { page: 'Cuentas', title: 'Mis cuentas', description: 'Bancos, tarjetas, efectivo y monederos personalizados.', icon: Landmark },
+      { page: 'Transferencias', title: 'Transferencias', description: 'Mueve dinero entre tus propias cuentas sin registrarlo como ingreso ni gasto.', icon: ArrowLeftRight },
       { page: 'Gestión financiera', title: 'Pagos y presupuestos', description: 'Pagos fijos, cuotas y planificación mensual.', icon: Wallet },
       { page: 'Deudas', title: 'Deudas', description: 'Control de dinero pendiente de cobrar o devolver.', icon: DollarSign },
       { page: 'Compromisos', title: 'Compromisos y reposiciones', description: 'Reservas y dinero que quieres reponer.', icon: CreditCard },
@@ -28,7 +32,7 @@ const sections = [
   },
   {
     title: 'Dispositivo y avisos',
-    description: 'Configura las funciones que trabajan junto a tu teléfono.',
+    description: 'Configura los avisos y las funciones de tus dispositivos.',
     items: [
       { page: 'Recordatorios', title: 'Notificaciones y recordatorios', description: 'Avisos de vencimientos, cuotas y pagos próximos.', icon: BellRing },
     ],

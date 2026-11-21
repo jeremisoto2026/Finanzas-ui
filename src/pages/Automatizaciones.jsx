@@ -1,3 +1,4 @@
+import FinanceSelect from '@/components/ui/FinanceSelect'
 import { useEffect, useMemo, useState } from 'react'
 import { merchantKeyFromName } from '@/lib/merchant-classifier'
 import { getLocalCaptureState, isFinanzasAndroid, openNotificationAccessSettings } from '@/lib/native-captures'
@@ -492,14 +493,14 @@ export default function Automatizaciones({ onNavigate }) {
 
               <div className="rounded-xl border border-slate-800 bg-slate-950/70 p-4">
                 <label htmlFor="merchant-category" className="mb-2 block text-xs font-medium text-slate-400">Categoría que guardarás para este comercio</label>
-                <select
+                <FinanceSelect
                   id="merchant-category"
                   value={selectedCategory}
                   onChange={(event) => setSelectedCategory(event.target.value)}
                   className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-white outline-none focus:border-emerald-500"
                 >
                   {categories.map((category) => <option key={category} value={category}>{category}</option>)}
-                </select>
+                </FinanceSelect>
                 <button
                   type="button"
                   onClick={saveRule}
@@ -565,7 +566,8 @@ export default function Automatizaciones({ onNavigate }) {
             </div>
             <p className="mt-3 text-xs leading-5 text-slate-400">
               Capturas cifradas en este móvil: {localCaptureCount}. Los avisos de otras aplicaciones se ignoran.
-              Las compras fiables se registran solas; las dudosas quedan pendientes.
+              Una compra solo se registra sola cuando coinciden Google Wallet y el aviso del banco, existe una cuenta vinculada
+              y la categoría es fiable. Si falta un aviso o hay ambigüedad, queda pendiente de revisión.
             </p>
             <div className="mt-4 flex flex-wrap gap-2">
               {isNativeAndroid && (

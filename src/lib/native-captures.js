@@ -76,13 +76,25 @@ export async function syncLocalCaptures(captures = []) {
     return { ok: true, syncedCaptures: 0, syncedEvents: 0 }
   }
 
+  const normalizedCaptures = captures.map((capture) => ({
+    ...capture,
+    // Keep human-readable sources for the UI, but send package-backed source
+    // records to the Edge Function so future banks are not reduced to labels.
+    sources: Array.isArray(capture.sourceDetails) && capture.sourceDetails.length
+      ? capture.sourceDetails
+      : capture.sources,
+  }))
+
   const { data, error } = await supabase.functions.invoke('notification-capture-sync', {
-    body: { captures },
+    body: { captures: normalizedCaptures },
   })
 
   if (error) throw error
   if (!data?.ok) {
     throw new Error(data?.error || 'No se pudieron sincronizar las capturas.')
+  }
+  if (Array.isArray(data.registeredExpenses) && data.registeredExpenses.length > 0) {
+    await LocalCaptures.showRegisteredExpenses({ expenses: data.registeredExpenses })
   }
   return data
 }

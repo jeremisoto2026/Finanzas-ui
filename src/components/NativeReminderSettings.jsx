@@ -1,3 +1,4 @@
+import FinanceSelect from '@/components/ui/FinanceSelect'
 import { useCallback, useEffect, useState } from 'react'
 import { BellRing, CheckCircle2, Clock3, Loader2, ShieldCheck, Smartphone, Volume2 } from 'lucide-react'
 import { LocalNotifications } from '@capacitor/local-notifications'
@@ -297,16 +298,16 @@ export default function NativeReminderSettings() {
           <label className="rounded-xl bg-slate-800/45 p-4">
             <span className="block text-sm font-medium text-slate-100">Antelación</span>
             <span className="mt-1 block text-xs text-slate-400">Cuántos días antes avisar</span>
-            <select value={preferences.reminder_days_before} disabled={loading || saving} onChange={(event) => savePreferences({ reminder_days_before: Number(event.target.value) })} className="mt-3 min-h-11 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 text-sm text-white">
+            <FinanceSelect value={preferences.reminder_days_before} disabled={loading || saving} onChange={(event) => savePreferences({ reminder_days_before: Number(event.target.value) })} className="mt-3 min-h-11 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 text-sm text-white">
               {[1, 2, 3, 5, 7].map((days) => <option key={days} value={days}>{days} {days === 1 ? 'día antes' : 'días antes'}</option>)}
-            </select>
+            </FinanceSelect>
           </label>
           <label className="rounded-xl bg-slate-800/45 p-4">
             <span className="block text-sm font-medium text-slate-100">Hora</span>
             <span className="mt-1 block text-xs text-slate-400">Zona horaria Europe/Madrid</span>
-            <select value={preferences.reminder_hour} disabled={loading || saving} onChange={(event) => savePreferences({ reminder_hour: Number(event.target.value) })} className="mt-3 min-h-11 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 text-sm text-white">
+            <FinanceSelect value={preferences.reminder_hour} disabled={loading || saving} onChange={(event) => savePreferences({ reminder_hour: Number(event.target.value) })} className="mt-3 min-h-11 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 text-sm text-white">
               {[7, 8, 9, 10, 11, 12, 18, 19, 20].map((hour) => <option key={hour} value={hour}>{String(hour).padStart(2, '0')}:00</option>)}
-            </select>
+            </FinanceSelect>
           </label>
         </div>
 

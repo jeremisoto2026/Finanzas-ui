@@ -14,7 +14,6 @@ data class LocalCapture(
     val currencyCode: String,
     val occurredAtMillis: Long,
     val accountName: String?,
-    val cardLast4: String?,
     val categorySuggestion: String?,
     val sources: Set<NotificationSource>,
     val notificationKeys: Set<String>,
@@ -31,12 +30,12 @@ internal fun isSameSourceDuplicate(item: LocalCapture, payment: ParsedPayment): 
     val notificationKeyMatches = !payment.notificationKey.isNullOrBlank() &&
         payment.notificationKey in item.notificationKeys
     val samePaymentArrivedAgainImmediately =
-        abs(item.occurredAtMillis - payment.occurredAtMillis) <= 10_000L
+        abs(item.occurredAtMillis - payment.occurredAtMillis) <= 2_000L
 
     return item.merchantKey == payment.merchantKey &&
         item.amountCents == payment.amountCents &&
         item.currencyCode == payment.currencyCode &&
-        payment.source in item.sources &&
+        item.sources.any { it.sourceApp == payment.source.sourceApp } &&
         (notificationKeyMatches || samePaymentArrivedAgainImmediately)
 }
 
@@ -51,50 +50,62 @@ class CaptureStore(context: Context) {
     fun add(payment: ParsedPayment): CaptureResult {
         val items = readAll().toMutableList()
 
-        // Android can repost the same bank alert with a new StatusBarNotification
-        // key. Match the same source/merchant/amount in a short window as well
-        // as an exact notification-key replay, otherwise one payment can be
-        // auto-posted twice before the wallet/bank pair is even considered.
+        // Android may repost the same notice with a new notification key.
         val duplicate = items.firstOrNull { item ->
             isSameSourceDuplicate(item, payment)
         }
-
         if (duplicate != null) {
             return CaptureResult(duplicate, wasPaired = false, wasDuplicate = true)
         }
 
-        val possiblePairIndex = items.indexOfFirst { item ->
-            val crossAppWalletPair =
-                (payment.source == NotificationSource.GOOGLE_WALLET && item.sources.any { it.isBank }) ||
-                (payment.source.isBank && NotificationSource.GOOGLE_WALLET in item.sources)
-            val previousBank = item.sources.firstOrNull { it.isBank }?.accountName
-            val conflictingIssuer =
-                (previousBank != null && payment.source.isBank && previousBank != payment.accountName) ||
-                (payment.source == NotificationSource.GOOGLE_WALLET &&
-                    payment.accountName != null && previousBank != null && payment.accountName != previousBank)
+        val possiblePairIndexes = items.indices.filter { index ->
+            val item = items[index]
+            val hasWallet = item.sources.any { it.isWallet } || payment.source.isWallet
+            val hasBank = item.sources.any { it.isBank } || payment.source.isBank
+            val isCrossAppPair = hasWallet && hasBank &&
+                item.sources.none { it.sourceApp == payment.source.sourceApp }
+
+            // A capture may contain only one bank source; never combine two banks.
+            val existingBanks = item.sources.filter { it.isBank }
+            val hasConflictingBank = payment.source.isBank && existingBanks.isNotEmpty()
             item.merchantKey == payment.merchantKey &&
                 item.amountCents == payment.amountCents &&
                 item.currencyCode == payment.currencyCode &&
                 payment.source !in item.sources &&
-                crossAppWalletPair &&
-                !conflictingIssuer &&
+                isCrossAppPair &&
+                !hasConflictingBank &&
                 abs(item.occurredAtMillis - payment.occurredAtMillis) <= PAIR_WINDOW_MS
         }
 
-        if (possiblePairIndex >= 0) {
-            val previous = items[possiblePairIndex]
-            val trustedBank = previous.sources.firstOrNull { it.isBank }?.accountName
-                ?: payment.source.takeIf { it.isBank }?.accountName
+        // Only a unique wallet/bank counterpart is paired. Identical purchases
+        // close together remain separate so we never join the wrong transaction.
+        if (possiblePairIndexes.size == 1) {
+            val index = possiblePairIndexes.single()
+            val previous = items[index]
+            val walletPayment = if (payment.source.isWallet) {
+                payment
+            } else {
+                null
+            }
+            val walletAlreadyStored = previous.sources.any { it.isWallet }
+            val selectedMerchant = when {
+                walletPayment != null -> walletPayment.merchant
+                walletAlreadyStored -> previous.merchant
+                else -> payment.merchant
+            }
+            val bankSource = previous.sources.firstOrNull { it.isBank }
+                ?: payment.source.takeIf { it.isBank }
             val merged = previous.copy(
-                accountName = trustedBank ?: previous.accountName ?: payment.accountName,
-                cardLast4 = previous.cardLast4 ?: payment.cardLast4,
-                categorySuggestion = previous.categorySuggestion ?: payment.categorySuggestion,
+                merchant = selectedMerchant,
+                merchantKey = NotificationParser.normalizeMerchantKey(selectedMerchant),
+                accountName = bankSource?.label,
+                categorySuggestion = payment.categorySuggestion ?: previous.categorySuggestion,
                 sources = previous.sources + payment.source,
                 notificationKeys = previous.notificationKeys +
                     listOfNotNull(payment.notificationKey),
                 isPaired = true
             )
-            items[possiblePairIndex] = merged
+            items[index] = merged
             persist(items)
             return CaptureResult(merged, wasPaired = true, wasDuplicate = false)
         }
@@ -107,7 +118,6 @@ class CaptureStore(context: Context) {
             currencyCode = payment.currencyCode,
             occurredAtMillis = payment.occurredAtMillis,
             accountName = payment.accountName,
-            cardLast4 = payment.cardLast4,
             categorySuggestion = payment.categorySuggestion,
             sources = setOf(payment.source),
             notificationKeys = listOfNotNull(payment.notificationKey).toSet(),
@@ -121,7 +131,7 @@ class CaptureStore(context: Context) {
     @Synchronized
     fun readAll(): List<LocalCapture> {
         val raw = encrypted.getString(KEY) ?: return emptyList()
-        return try {
+        val captures = try {
             val array = JSONArray(raw)
             buildList {
                 for (index in 0 until array.length()) {
@@ -129,9 +139,21 @@ class CaptureStore(context: Context) {
                     val sourceArray = item.optJSONArray("sources") ?: JSONArray()
                     val sources = buildSet {
                         for (sourceIndex in 0 until sourceArray.length()) {
-                            NotificationSource.entries.firstOrNull {
-                                it.name == sourceArray.optString(sourceIndex)
-                            }?.let(::add)
+                            val sourceItem = sourceArray.opt(sourceIndex)
+                            val source = when (sourceItem) {
+                                is JSONObject -> NotificationSource.fromPersisted(
+                                    sourceApp = sourceItem.optString("sourceApp"),
+                                    packageName = sourceItem.optString("packageName").takeIf { it.isNotBlank() },
+                                    label = sourceItem.optString("label").takeIf { it.isNotBlank() }
+                                )
+                                is String -> NotificationSource.fromPersisted(
+                                    sourceApp = sourceItem,
+                                    packageName = null,
+                                    label = null
+                                )
+                                else -> null
+                            }
+                            source?.let(::add)
                         }
                     }
                     add(
@@ -143,26 +165,26 @@ class CaptureStore(context: Context) {
                             currencyCode = item.optString("currencyCode", "EUR"),
                             occurredAtMillis = item.optLong("occurredAtMillis"),
                             accountName = run {
-                                val stored = item.optString("accountName").takeIf { it.isNotBlank() && it != "null" }
-                                if (sources.any { it.isBank }) {
-                                    stored ?: sources.firstOrNull { it.isBank }?.accountName
-                                } else if (NotificationSource.GOOGLE_WALLET in sources) {
-                                    // Older builds incorrectly labeled Wallet-only captures as Revolut.
-                                    null
-                                } else stored
+                                val stored = item.optString("accountName")
+                                    .takeIf { it.isNotBlank() && it != "null" }
+                                sources.firstOrNull { it.isBank }?.label ?: stored
                             },
-                            cardLast4 = if (item.isNull("cardLast4")) null else item.optString("cardLast4").takeIf { it.isNotBlank() },
-                            categorySuggestion = if (item.isNull("categorySuggestion")) null else item.optString("categorySuggestion").takeIf { it.isNotBlank() },
+                            categorySuggestion = if (item.isNull("categorySuggestion")) null
+                                else item.optString("categorySuggestion").takeIf { it.isNotBlank() },
                             sources = sources,
                             notificationKeys = item.optJSONArray("notificationKeys").toStringSet(),
                             isPaired = item.optBoolean("isPaired")
                         )
                     )
                 }
-            }.sortedByDescending { it.occurredAtMillis }
+            }
         } catch (_: Exception) {
             emptyList()
         }
+
+        // Rewriting also migrates old enum-name records to package-aware source records.
+        persist(captures)
+        return captures.sortedByDescending { it.occurredAtMillis }
     }
 
     @Synchronized
@@ -176,7 +198,15 @@ class CaptureStore(context: Context) {
             .take(MAX_LOCAL_CAPTURES)
             .forEach { item ->
                 val sources = JSONArray()
-                item.sources.forEach { sources.put(it.name) }
+                item.sources.forEach { source ->
+                    sources.put(
+                        JSONObject()
+                            .put("sourceApp", source.sourceApp)
+                            .put("packageName", source.packageName)
+                            .put("label", source.label)
+                            .put("isBank", source.isBank)
+                    )
+                }
                 val keys = JSONArray()
                 item.notificationKeys.forEach { keys.put(it) }
 
@@ -189,7 +219,6 @@ class CaptureStore(context: Context) {
                         .put("currencyCode", item.currencyCode)
                         .put("occurredAtMillis", item.occurredAtMillis)
                         .put("accountName", item.accountName ?: JSONObject.NULL)
-                        .put("cardLast4", item.cardLast4 ?: JSONObject.NULL)
                         .put("categorySuggestion", item.categorySuggestion ?: JSONObject.NULL)
                         .put("sources", sources)
                         .put("notificationKeys", keys)
@@ -212,6 +241,5 @@ class CaptureStore(context: Context) {
         private const val KEY = "captures"
         private const val MAX_LOCAL_CAPTURES = 100
         private const val PAIR_WINDOW_MS = 3 * 60 * 1000L
-        private const val SAME_SOURCE_DUPLICATE_WINDOW_MS = 10 * 1000L
     }
 }

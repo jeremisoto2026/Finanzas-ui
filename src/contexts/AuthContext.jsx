@@ -1,13 +1,19 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
-import { LockKeyhole, LogIn, UserPlus, Loader2 } from 'lucide-react'
+import { Capacitor, registerPlugin } from '@capacitor/core'
+import { Loader2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { DEFAULT_EXPENSE_CATEGORIES } from '@/lib/category-catalog'
+import { normalizeCategoryName } from '@/lib/category-utils'
 import { GastosProvider } from '@/contexts/GastosContext'
 import Layout from '@/components/layout/Layout'
+import LandingPage from '@/components/auth/LandingPage'
 import NotificationCaptureSync from '@/components/NotificationCaptureSync'
 import NativeReminderSync from '@/components/NativeReminderSync'
 import FirstLoginPermissions from '@/components/FirstLoginPermissions'
+import FirstLoginWebSetup from '@/components/FirstLoginWebSetup'
 
 const AuthContext = createContext(null)
+const LocalCaptures = registerPlugin('LocalCaptures')
 
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(null)
@@ -43,6 +49,17 @@ export function AuthProvider({ children }) {
       password,
       options: { emailRedirectTo: window.location.origin },
     }),
+    signInWithGoogle: async () => {
+      if (Capacitor.getPlatform() === 'android') {
+        const { idToken } = await LocalCaptures.signInWithGoogle()
+        if (!idToken) throw new Error('Google no devolvió un token de acceso.')
+        return supabase.auth.signInWithIdToken({ provider: 'google', token: idToken })
+      }
+      return supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: window.location.origin },
+      })
+    },
     signOut: () => supabase.auth.signOut(),
   }), [session, loading])
 
@@ -56,102 +73,8 @@ export function useAuth() {
 }
 
 function AuthScreen() {
-  const { signIn, signUp } = useAuth()
-  const [mode, setMode] = useState('signin')
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState('')
-  const [notice, setNotice] = useState('')
-
-  async function submit(event) {
-    event.preventDefault()
-    setError('')
-    setNotice('')
-    if (!email.trim() || password.length < 8) {
-      setError('Introduce un correo válido y una contraseña de al menos 8 caracteres.')
-      return
-    }
-
-    setBusy(true)
-    try {
-      const { data, error: authError } = mode === 'signin'
-        ? await signIn(email.trim(), password)
-        : await signUp(email.trim(), password)
-      if (authError) throw authError
-      if (mode === 'signup' && !data.session) {
-        setNotice('Cuenta creada. Revisa tu correo para confirmar la dirección antes de iniciar sesión.')
-      } else if (mode === 'signup') {
-        setNotice('Cuenta creada correctamente.')
-      }
-    } catch (err) {
-      setError(err.message || 'No se pudo completar la autenticación.')
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  return (
-    <main className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center px-4 py-10">
-      <section className="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-900/80 p-7 shadow-2xl">
-        <div className="mx-auto mb-5 flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-400">
-          <LockKeyhole className="h-6 w-6" />
-        </div>
-        <h1 className="text-center text-2xl font-bold">Finanzas-ui</h1>
-        <p className="mt-2 text-center text-sm text-slate-400">
-          {mode === 'signin' ? 'Inicia sesión para acceder a tus finanzas.' : 'Crea tu cuenta privada de finanzas.'}
-        </p>
-
-        <form onSubmit={submit} className="mt-7 space-y-4">
-          <label className="block text-sm text-slate-300">
-            Correo electrónico
-            <input
-              type="email"
-              autoComplete="email"
-              required
-              value={email}
-              onChange={event => setEmail(event.target.value)}
-              className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-3 text-white outline-none focus:border-emerald-500"
-              placeholder="tu correo"
-            />
-          </label>
-          <label className="block text-sm text-slate-300">
-            Contraseña
-            <input
-              type="password"
-              autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
-              minLength={8}
-              required
-              value={password}
-              onChange={event => setPassword(event.target.value)}
-              className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-3 text-white outline-none focus:border-emerald-500"
-              placeholder="Mínimo 8 caracteres"
-            />
-          </label>
-
-          {error && <p role="alert" className="rounded-lg border border-red-800/60 bg-red-950/40 p-3 text-sm text-red-300">{error}</p>}
-          {notice && <p role="status" className="rounded-lg border border-emerald-800/60 bg-emerald-950/40 p-3 text-sm text-emerald-300">{notice}</p>}
-
-          <button
-            type="submit"
-            disabled={busy}
-            className="flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-3 font-semibold text-white transition hover:bg-emerald-500 disabled:cursor-wait disabled:opacity-60"
-          >
-            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : mode === 'signin' ? <LogIn className="h-4 w-4" /> : <UserPlus className="h-4 w-4" />}
-            {busy ? 'Procesando…' : mode === 'signin' ? 'Iniciar sesión' : 'Crear cuenta'}
-          </button>
-        </form>
-
-        <button
-          type="button"
-          onClick={() => { setMode(mode === 'signin' ? 'signup' : 'signin'); setError(''); setNotice('') }}
-          className="mt-5 w-full text-center text-sm text-slate-400 hover:text-white"
-        >
-          {mode === 'signin' ? '¿Aún no tienes cuenta? Crear cuenta' : 'Ya tengo cuenta. Iniciar sesión'}
-        </button>
-      </section>
-    </main>
-  )
+  const { signIn, signUp, signInWithGoogle } = useAuth()
+  return <LandingPage signIn={signIn} signUp={signUp} signInWithGoogle={signInWithGoogle} />
 }
 
 function AuthenticatedFinanceApp() {
@@ -164,12 +87,57 @@ function AuthenticatedFinanceApp() {
     setProfileReady(false)
     setProfileError('')
 
-    supabase.from('profiles')
-      .upsert({ id: user.id }, { onConflict: 'id' })
-      .then(({ error }) => {
-        if (!alive) return
-        if (error) setProfileError('No se pudo inicializar tu perfil: ' + error.message)
-        else setProfileReady(true)
+    async function initializeProfile() {
+      const { error: profileError } = await supabase.from('profiles')
+        .upsert({ id: user.id }, { onConflict: 'id' })
+      if (profileError) throw profileError
+
+      // Notification captures need real category IDs, not only the labels that
+      // the expense form can display as defaults. Seed the expense catalog
+      // once per user so first-time captures can be reviewed and posted.
+      const { data: existingCategories, error: categoriesError } = await supabase
+        .from('categories')
+        .select('id, name, direction')
+        .eq('user_id', user.id)
+      if (categoriesError) throw categoriesError
+
+      const byName = new Map((existingCategories || []).map((category) => [
+        normalizeCategoryName(category.name),
+        category,
+      ]))
+      const missing = DEFAULT_EXPENSE_CATEGORIES
+        .filter((name) => !byName.has(normalizeCategoryName(name)))
+        .map((name) => ({
+          user_id: user.id,
+          name,
+          direction: normalizeCategoryName(name) === normalizeCategoryName('Otros') ? 'both' : 'expense',
+        }))
+
+      if (missing.length) {
+        const { error: seedError } = await supabase.from('categories').insert(missing)
+        // A second signed-in device may have seeded the same defaults first.
+        if (seedError && seedError.code !== '23505') throw seedError
+      }
+
+      const sharedIds = DEFAULT_EXPENSE_CATEGORIES
+        .map((name) => byName.get(normalizeCategoryName(name)))
+        .filter((category) => category?.id && category.direction === 'income')
+        .map((category) => category.id)
+      if (sharedIds.length) {
+        const { error: directionError } = await supabase.from('categories')
+          .update({ direction: 'both' })
+          .eq('user_id', user.id)
+          .in('id', sharedIds)
+        if (directionError) throw directionError
+      }
+    }
+
+    initializeProfile()
+      .then(() => {
+        if (alive) setProfileReady(true)
+      })
+      .catch((error) => {
+        if (alive) setProfileError('No se pudo preparar tu perfil y las categorías: ' + error.message)
       })
 
     return () => { alive = false }
@@ -185,7 +153,7 @@ function AuthenticatedFinanceApp() {
   }
 
   if (!profileReady) {
-    return <main className="min-h-screen bg-slate-950 flex items-center justify-center text-slate-300"><Loader2 className="mr-2 h-5 w-5 animate-spin" /> Preparando tu espacio financiero…</main>
+    return <main className="min-h-screen bg-slate-950 flex items-center justify-center text-slate-300"><Loader2 className="mr-2 h-5 w-5 animate-spin" /> Preparando tu espacio en Finanzas…</main>
   }
 
   return (
@@ -193,6 +161,7 @@ function AuthenticatedFinanceApp() {
       <NotificationCaptureSync />
       <NativeReminderSync />
       <FirstLoginPermissions userId={user.id} />
+      <FirstLoginWebSetup userId={user.id} />
       <div className="relative">
         <Layout onSignOut={() => signOut()} />
       </div>

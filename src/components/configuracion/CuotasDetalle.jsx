@@ -1,3 +1,4 @@
+import FinanceSelect from '@/components/ui/FinanceSelect'
 import { useState } from 'react'
 import {
   CheckCircle,
@@ -18,8 +19,6 @@ const METODOS = [
   { value: 'transferencia', label: 'Transferencia', icon: TrendingUp, color: 'text-cyan-400' },
   { value: 'bizum', label: 'Bizum', icon: Wallet, color: 'text-pink-400' }
 ]
-
-const CUENTAS = ['BBVA', 'Santander', 'Efectivo', 'Revolut', 'PayPal']
 
 export default function CuotasDetalle({ cuotas: cuotasIniciales }) {
   const [cuotas, setCuotas] = useState(cuotasIniciales)
@@ -170,7 +169,7 @@ export default function CuotasDetalle({ cuotas: cuotasIniciales }) {
                       Método de pago
                     </label>
                     <div className="relative">
-                      <select
+                      <FinanceSelect
                         value={cuota.metodo || ''}
                         onChange={(e) => actualizarCuota(index, 'metodo', e.target.value)}
                         className="w-full px-3 py-2 rounded-lg bg-slate-900/50 border border-slate-700 text-slate-200 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition appearance-none"
@@ -184,7 +183,7 @@ export default function CuotasDetalle({ cuotas: cuotasIniciales }) {
                             </option>
                           )
                         })}
-                      </select>
+                      </FinanceSelect>
                       <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
                         {cuota.metodo ? (
                           <MetodoIcon className={`h-4 w-4 ${metodoColor}`} />

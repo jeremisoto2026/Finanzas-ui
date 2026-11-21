@@ -12,7 +12,7 @@ test('el formulario de gastos exige una cuenta real elegida por id', () => {
   assert.match(source, /fetch\('\/api\/cuentas'/)
   assert.match(source, /required value=\{nuevoGasto\.cuentaId\}/)
   assert.match(source, /account\.id/)
-  assert.match(source, /Selecciona una cuenta válida/)
+  assert.match(source, /Selecciona una cuenta activa/)
   assert.doesNotMatch(source, /cuenta: 'Revolut'/)
 })
 
@@ -20,7 +20,7 @@ test('el formulario de ingresos exige la cuenta receptora', () => {
   const source = read('src/components/ingresos/TablaIngresos.jsx')
   assert.match(source, /fetch\('\/api\/cuentas'/)
   assert.match(source, /required value=\{nuevoIngreso\.cuentaId\}/)
-  assert.match(source, /Selecciona una cuenta válida/)
+  assert.match(source, /Selecciona una cuenta activa/)
   assert.doesNotMatch(source, /cuenta: 'Revolut'/)
 })
 
