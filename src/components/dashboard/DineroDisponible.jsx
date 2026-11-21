@@ -127,7 +127,7 @@ export default function DineroDisponible() {
     let cancelled = false
     const loadReservations = async () => {
       try {
-        const response = await fetch('/api/reservas', { cache: 'no-store' })
+        const response = await fetch('/api/compromisos?resource=reservations', { cache: 'no-store' })
         if (!response.ok) throw new Error('No se pudieron cargar las reservas activas.')
         const data = await response.json()
         if (!cancelled) setReservations(Array.isArray(data) ? data : [])
