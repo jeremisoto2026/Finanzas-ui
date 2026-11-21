@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { BanknotesIcon, PlusIcon, PencilSquareIcon, LockOpenIcon, TrashIcon, XMarkIcon, ArrowPathIcon } from '@heroicons/react/24/outline'
 import FinanceSelect from '@/components/ui/FinanceSelect'
-import { sumMoney } from '@/lib/finance-core'
+import { sumMoneyBy } from '@/lib/finance-core'
 import { useConfirmationDialog } from '@/components/ui/ConfirmationDialog'
 
 const today = () => {
@@ -53,7 +53,7 @@ export default function ReservasPanel() {
     () => reservations.filter((item) => item.status === 'active'),
     [reservations]
   )
-  const reservedTotal = useMemo(() => sumMoney(activeReservations, (item) => item.amount), [activeReservations])
+  const reservedByCurrency = useMemo(() => sumMoneyBy(activeReservations, (item) => item.currencyCode || 'EUR', (item) => item.amount), [activeReservations])
 
   const openNew = () => {
     setEditingId(null)
@@ -170,8 +170,10 @@ export default function ReservasPanel() {
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="rounded-xl border border-emerald-800/40 bg-emerald-950/20 p-4">
           <p className="text-sm text-emerald-200">Dinero reservado activo</p>
-          <p className="mt-1 text-2xl font-bold tabular-nums text-white">{money(reservedTotal)}</p>
-          <p className="mt-1 text-xs text-emerald-200/60">{activeReservations.length} reservas activas · suma en EUR solo orientativa si usas varias monedas</p>
+          {Object.entries(reservedByCurrency).length ? Object.entries(reservedByCurrency).map(([currency, amount]) => (
+            <p key={currency} className="mt-1 text-2xl font-bold tabular-nums text-white">{money(amount, currency)}</p>
+          )) : <p className="mt-1 text-2xl font-bold tabular-nums text-white">{money(0)}</p>}
+          <p className="mt-1 text-xs text-emerald-200/60">{activeReservations.length} reservas activas · importes separados por moneda</p>
         </div>
         <div className="rounded-xl border border-slate-800 bg-slate-950/40 p-4">
           <p className="text-sm text-slate-300">Cómo funciona</p>
