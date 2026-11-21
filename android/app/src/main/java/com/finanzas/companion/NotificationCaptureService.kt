@@ -38,7 +38,7 @@ class NotificationCaptureService : NotificationListenerService() {
             extras.getCharSequence(Notification.EXTRA_TEXT)?.toString(),
             extras.getCharSequence(Notification.EXTRA_SUMMARY_TEXT)?.toString(),
             extras.getCharSequence(Notification.EXTRA_SUB_TEXT)?.toString(),
-            extras.getCharSequence(Notification.EXTRA_BIG_TITLE)?.toString(),
+            extras.getCharSequence(Notification.EXTRA_TITLE_BIG)?.toString(),
             extras.getCharSequence(Notification.EXTRA_INFO_TEXT)?.toString()
         ).filterNot { it.isNullOrBlank() }.distinct()
 
