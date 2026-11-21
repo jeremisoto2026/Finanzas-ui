@@ -112,4 +112,41 @@ class IncomeNotificationClassifierTest {
         )
         assertEquals(IncomeNoticeDecision.IGNORE, result.decision)
     }
+
+    @Test
+    fun unfamiliarPositiveBankMovementIsCapturedForReview() {
+        val result = IncomeNotificationClassifier.classify(
+            "BBVA", "Movimiento a tu favor: 42,50 EUR", isFinancialSource = true
+        )
+        assertEquals(IncomeNoticeDecision.NEEDS_REVIEW, result.decision)
+        assertEquals(4250L, result.amountCents)
+    }
+
+    @Test
+    fun capturesBizumAndRefundLikeCreditsForReview() {
+        val bizum = IncomeNotificationClassifier.classify("Bizum", "Has recibido un Bizum de 18,00 EUR")
+        assertEquals(IncomeNoticeDecision.NEEDS_REVIEW, bizum.decision)
+        assertEquals(1800L, bizum.amountCents)
+
+        val refund = IncomeNotificationClassifier.classify("Revolut", "Devolución completada: 12,99 EUR")
+        assertEquals(IncomeNoticeDecision.NEEDS_REVIEW, refund.decision)
+        assertEquals(1299L, refund.amountCents)
+    }
+
+    @Test
+    fun ignoresOutgoingCardPurchaseAndFailedCredit() {
+        val purchase = IncomeNotificationClassifier.classify("BBVA", "Compra realizada: 25,00 EUR")
+        assertEquals(IncomeNoticeDecision.IGNORE, purchase.decision)
+
+        val failed = IncomeNotificationClassifier.classify("BBVA", "Abono rechazado: 25,00 EUR")
+        assertEquals(IncomeNoticeDecision.IGNORE, failed.decision)
+    }
+
+    @Test
+    fun unknownNonFinancialAppDoesNotBecomeIncomeFromAmountAlone() {
+        val result = IncomeNotificationClassifier.classify(
+            "Juego", "Has conseguido 10 EUR de puntos", isFinancialSource = false
+        )
+        assertEquals(IncomeNoticeDecision.IGNORE, result.decision)
+    }
 }
