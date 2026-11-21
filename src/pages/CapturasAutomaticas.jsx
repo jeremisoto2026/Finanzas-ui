@@ -21,6 +21,7 @@ import {
   syncLocalCaptures,
 } from '@/lib/native-captures'
 import { supabase } from '@/lib/supabase'
+import { DEFAULT_INCOME_CATEGORIES } from '@/lib/category-catalog'
 import { getAccountMappingSuggestion, getAccountOptionLabel, getBankSourceLabel, isExactAccountNameMatch } from '@/lib/account-notification-mapping'
 
 const SOURCE_LABELS = {
@@ -233,7 +234,14 @@ export default function CapturasAutomaticas() {
       setAccounts((accountsResult.data || []).filter((account) => String(account.currency_code || 'EUR').trim().toUpperCase() === 'EUR'))
       setAccountMappings(mappingsResult.data || [])
       setCategories(categoriesResult.data || [])
-      setIncomeCategories(incomeCategoriesResult.data || [])
+      const savedIncomeCategories = incomeCategoriesResult.data || []
+      const incomeCategoryNames = new Set(savedIncomeCategories.map((category) => category.name.trim().toLocaleLowerCase('es')))
+      setIncomeCategories([
+        ...savedIncomeCategories,
+        ...DEFAULT_INCOME_CATEGORIES
+          .filter((name) => !incomeCategoryNames.has(name.trim().toLocaleLowerCase('es')))
+          .map((name) => ({ id: null, name })),
+      ].sort((a, b) => a.name.localeCompare(b.name, 'es')))
     } catch (loadError) {
       setError(loadError?.message || 'No se pudieron consultar las capturas.')
     } finally {
@@ -521,7 +529,7 @@ export default function CapturasAutomaticas() {
 
   const registerPendingIncome = async (item) => {
     const accountId = incomeAccountSelections[item.id] || item.account_id || accountMappings.find((mapping) => mapping.source_app === item.source_app)?.account_id || ''
-    const categoryId = incomeCategorySelections[item.id] || ''
+    const categoryName = incomeCategorySelections[item.id] || ''
     if (!Number.isFinite(Number(item.amount)) || Number(item.amount) <= 0) {
       setError('Este aviso no contiene un importe inequívoco. No se puede registrar hasta disponer de una cantidad confirmada.')
       return
@@ -530,7 +538,7 @@ export default function CapturasAutomaticas() {
       setError('Selecciona la cuenta donde recibiste el ingreso.')
       return
     }
-    if (!categoryId || !incomeCategories.some((category) => category.id === categoryId)) {
+    if (!categoryName || !incomeCategories.some((category) => category.name === categoryName)) {
       setError('Selecciona una categoría de ingreso.')
       return
     }
@@ -542,6 +550,38 @@ export default function CapturasAutomaticas() {
       const { data: authData, error: authError } = await supabase.auth.getUser()
       if (authError || !authData?.user) throw new Error('Tu sesión ha caducado. Inicia sesión de nuevo.')
       const userId = authData.user.id
+      let selectedCategory = incomeCategories.find((category) => category.name === categoryName && category.id)
+      if (!selectedCategory?.id) {
+        const { data: existingCategory, error: categoryLookupError } = await supabase
+          .from('categories')
+          .select('id, name')
+          .eq('user_id', userId)
+          .eq('name', categoryName)
+          .maybeSingle()
+        if (categoryLookupError) throw categoryLookupError
+        selectedCategory = existingCategory
+      }
+      if (!selectedCategory?.id) {
+        const { data: createdCategory, error: createCategoryError } = await supabase
+          .from('categories')
+          .insert({ user_id: userId, name: categoryName, direction: 'income' })
+          .select('id, name')
+          .single()
+        if (createCategoryError) {
+          if (createCategoryError.code !== '23505') throw createCategoryError
+          const { data: retryCategory, error: retryError } = await supabase
+            .from('categories')
+            .select('id, name')
+            .eq('user_id', userId)
+            .eq('name', categoryName)
+            .single()
+          if (retryError) throw retryError
+          selectedCategory = retryCategory
+        } else {
+          selectedCategory = createdCategory
+        }
+      }
+      const categoryId = selectedCategory.id
       const idempotencyKey = `income-notification:${item.id}`
       const { data: existing, error: existingError } = await supabase
         .from('transactions')
@@ -977,7 +1017,7 @@ export default function CapturasAutomaticas() {
                   <label className="text-xs font-medium text-slate-300">Categoría del ingreso
                     <FinanceSelect value={incomeCategorySelections[item.id] || ''} onChange={(event) => setIncomeCategorySelections((current) => ({ ...current, [item.id]: event.target.value }))} className="mt-1.5 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-white">
                       <option value="">Selecciona una categoría</option>
-                      {incomeCategories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
+                      {incomeCategories.map((category) => <option key={category.name} value={category.name}>{category.name}</option>)}
                     </FinanceSelect>
                   </label>
                 </div>
