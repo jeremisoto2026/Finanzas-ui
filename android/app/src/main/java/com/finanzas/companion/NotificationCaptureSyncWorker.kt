@@ -54,7 +54,7 @@ class NotificationCaptureSyncWorker(
                             }
                         })
                         .put("isPaired", capture.isPaired))
-                })
+                }})
                 .put("incomeCandidates", JSONArray().apply {
                     incomeCandidates.forEach { candidate ->
                         put(JSONObject()
