@@ -49,10 +49,7 @@ object IncomeNotificationClassifier {
         """\b(saldo|balance|disponible|available\s+balance|l[ií]mite|c[oó]digo|verification|security\s+code|otp|publicidad|promoci[oó]n|newsletter|oferta|descuento|promo(?:tion)?)\b""",
         RegexOption.IGNORE_CASE
     )
-    private val moneyContextSignal = Regex(
-        """\b(movimiento|operaci[oó]n|transacci[oó]n|cuenta|account|dinero|money|importe|amount|euros?|eur|abono|cr[eé]dito|credit|transfer|bizum|pago|payment|recib|ingres|reembolso|refund|devoluci[oó]n|cashback|n[oó]mina|salary|payroll|dep[oó]sito|deposit)\b""",
-        RegexOption.IGNORE_CASE
-    )
+
 
     fun shouldSkipExpense(title: String?, text: String?): Boolean =
         ownTransferSignal.containsMatchIn(combine(title, text))
