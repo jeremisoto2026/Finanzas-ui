@@ -1,29 +1,39 @@
 # Fase 4 — Detección prudente de ingresos
 
-## Alcance de esta primera entrega
+## Integración incorporada en Preview
 
-Se incorpora un clasificador Android aislado que diferencia tres resultados:
-
-- `AUTO_INCOME`: la notificación expresa claramente una entrada de dinero y contiene un único importe monetario. Es una candidatura de alta confianza, no una orden de contabilización por sí sola.
-- `NEEDS_REVIEW`: la notificación parece describir una entrada, pero requiere confirmar origen, titularidad o importe.
-- `IGNORE`: no hay señal explícita de ingreso, es un aviso informativo, una operación fallida o un traspaso entre cuentas propias.
+- Clasificador Android para señales de nómina, abono, reembolso y transferencias entrantes.
+- Separación entre compras y candidatos de ingreso en almacenamiento cifrado local.
+- Dedupe local y huella idempotente en sincronización autenticada.
+- La sincronización envía únicamente importe (si es inequívoco), fecha, app de origen y motivo de revisión. Nunca envía el cuerpo original de la notificación.
+- Bandeja remota separada `notification_income_candidates`, con RLS por usuario.
+- Pantalla de revisión de ingresos separada de compras, con selección de cuenta y categoría de tipo `income` / `both`.
+- Confirmación manual crea una transacción `income` idempotente; descartar solo cambia el estado del candidato.
+- Importe ausente o ambiguo: no se permite registrar el candidato.
+- Las transferencias entre cuentas propias se excluyen también del parser de gastos.
+- La función `notification-capture-sync` está desplegada en Supabase Preview (versión 8).
 
 ## Reglas de prudencia
 
-1. Una transferencia recibida genérica siempre queda pendiente de revisión.
-2. Una transferencia entre cuentas propias se descarta como ingreso.
-3. Una notificación con varios importes no permite extraer uno por inferencia.
-4. Un aviso de saldo, límite, OTP, publicidad o una operación fallida no genera ingreso.
-5. No se crea ni modifica ninguna transacción con este clasificador.
-6. Los importes se convierten a céntimos y se exige un único importe inequívoco.
+1. Nómina/abono explícito con importe único: candidato de alta confianza, siempre pendiente de confirmación.
+2. Transferencia recibida genérica: revisión manual.
+3. Transferencia entre cuentas propias: ignorar como ingreso y como gasto.
+4. Varios importes o importe ausente: revisión sin cantidad inferida; no se puede contabilizar.
+5. Saldo, límite, OTP, publicidad, aviso informativo u operación fallida: ignorar.
+6. Los ingresos nunca se contabilizan automáticamente en esta fase.
 
-## Siguiente integración necesaria
+## Verificación pendiente antes de dar la fase por terminada
 
-Antes de activar la contabilización automática se debe integrar la clasificación en el almacenamiento local y el contrato de sincronización, añadir un tipo de evento de ingreso a la bandeja de revisión, filtrar categorías por dirección `income` y comprobar que la cuenta de destino está vinculada inequívocamente. La sincronización debe conservar idempotencia y RLS.
+- CI web y Android sobre el último commit de la rama.
+- Revisar APK Preview generada y probarla en POCO F8 Pro.
+- Pruebas reales controladas: nómina/abono, transferencia entrante ambigua, transferencia propia, duplicado, aviso de saldo y operación fallida.
+- Confirmar bandeja de revisión, registro manual idempotente, descarte y persistencia de saldos.
+- No crear transacciones de prueba ni alterar datos reales para probar. Usar solo un flujo controlado y autorizado.
 
 ## Seguridad / entorno
 
-- Trabajo aislado en `feat/fase4-deteccion-prudente-ingresos`.
-- Objetivo de integración: rama Preview `feat/finanzas-cuentas-dinamicas-edicion`.
-- No se aplican migraciones ni escrituras a Supabase Production.
-- Esta entrega no activa todavía ingresos automáticos en usuarios reales.
+- Rama aislada: `feat/fase4-deteccion-prudente-ingresos`.
+- PR draft #5 hacia `feat/finanzas-cuentas-dinamicas-edicion`.
+- Migración aplicada solo a Supabase Preview `brkckgaicoqkqdcwwftm`.
+- Función Edge desplegada solo en Supabase Preview.
+- Production y sus datos permanecen intactos.
