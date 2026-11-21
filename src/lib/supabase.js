@@ -730,7 +730,12 @@ async function fetchAndroidApi(parsedUrl, method, input, init, sourceRequest) {
     return forwardAndroidManagementWrite(parsedUrl, method, init, sourceRequest)
   }
 
-  if (parsedUrl.pathname === '/api/compromisos' && parsedUrl.searchParams.get('resource') === 'reservations') {\n    if (method === 'GET' || ['POST', 'PATCH', 'DELETE'].includes(method)) return handleAndroidReservations(method, init, sourceRequest)\n    return jsonResponse({ error: 'Método no permitido.' }, 405)\n  }\n\n  if (method === 'GET') {
+  if (parsedUrl.pathname === '/api/compromisos' && parsedUrl.searchParams.get('resource') === 'reservations') {
+    if (method === 'GET' || ['POST', 'PATCH', 'DELETE'].includes(method)) return handleAndroidReservations(method, init, sourceRequest)
+    return jsonResponse({ error: 'Método no permitido.' }, 405)
+  }
+
+  if (method === 'GET') {
     // The expense form requests category names separately from the dashboard snapshot.
     // Read them directly with the signed-in user's JWT and RLS on Android.
     if (parsedUrl.pathname === '/api/gastos' && parsedUrl.searchParams.get('resource') === 'categories') {
