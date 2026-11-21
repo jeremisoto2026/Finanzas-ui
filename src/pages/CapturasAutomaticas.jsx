@@ -512,7 +512,7 @@ export default function CapturasAutomaticas() {
   }
 
   const registerPendingIncome = async (item) => {
-    const accountId = incomeAccountSelections[item.id] || item.account_id || ''
+    const accountId = incomeAccountSelections[item.id] || item.account_id || accountMappings.find((mapping) => mapping.source_app === item.source_app)?.account_id || ''
     const categoryId = incomeCategorySelections[item.id] || ''
     if (!Number.isFinite(Number(item.amount)) || Number(item.amount) <= 0) {
       setError('Este aviso no contiene un importe inequívoco. No se puede registrar hasta disponer de una cantidad confirmada.')
