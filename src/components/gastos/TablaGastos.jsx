@@ -158,14 +158,16 @@ export default function TablaGastos() {
     return () => window.removeEventListener('finanzas:open-new-expense', handleQuickCreate)
   }, [categoriasDisponibles])
   useEffect(() => {
-    const handleFocusExpense = (event) => {
-      const detail = event.detail || {}
+    const applyFocus = (detail = {}) => {
       setFocusedExpense({
         merchant: String(detail.merchant || '').trim().toLocaleLowerCase('es'),
         amountCents: Number(detail.amountCents || 0),
       })
+      window.__finanzasPendingExpenseFocus = null
     }
+    const handleFocusExpense = (event) => applyFocus(event.detail || {})
     window.addEventListener('finanzas:focus-expense', handleFocusExpense)
+    if (window.__finanzasPendingExpenseFocus) applyFocus(window.__finanzasPendingExpenseFocus)
     return () => window.removeEventListener('finanzas:focus-expense', handleFocusExpense)
   }, [])
 
