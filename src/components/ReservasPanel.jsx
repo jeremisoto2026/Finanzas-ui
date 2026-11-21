@@ -248,7 +248,11 @@ export default function ReservasPanel() {
                   ) : item.status === 'released' ? (
                     <button type="button" onClick={() => changeStatus(item, 'active')} disabled={saving} className="rounded-lg p-2 text-emerald-300 hover:bg-slate-800 disabled:opacity-50" aria-label={`Reactivar reserva ${item.name}`} title="Reactivar reserva"><ArrowPathIcon className="h-4 w-4" /></button>
                   ) : null}
-                  <button type="button" onClick={() => remove(item)} disabled={saving} className="rounded-lg p-2 text-rose-300 hover:bg-slate-800 disabled:opacity-50" aria-label={`Eliminar reserva ${item.name}`}><TrashIcon className="h-4 w-4" /></button>
+                  {item.status !== 'consumed' ? (
+                    <button type="button" onClick={() => remove(item)} disabled={saving} className="rounded-lg p-2 text-rose-300 hover:bg-slate-800 disabled:opacity-50" aria-label={`Eliminar reserva ${item.name}`}><TrashIcon className="h-4 w-4" /></button>
+                  ) : (
+                    <span className="px-2 text-xs text-slate-500">Historial protegido</span>
+                  )}
                 </div>
               </div>
             </article>
