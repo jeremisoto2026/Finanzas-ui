@@ -147,7 +147,7 @@ export default function DineroDisponible() {
   ), [accounts])
 
   const reservedByCurrency = useMemo(() => sumMoneyBy(
-    reservations.filter((reservation) => reservation.status === 'active'),
+    reservations.filter((reservation) => reservation.status === 'active' && reservation.accountIsActive !== false),
     (reservation) => String(reservation.currencyCode || 'EUR').trim().toUpperCase(),
     (reservation) => reservation.amount || 0
   ), [reservations])
