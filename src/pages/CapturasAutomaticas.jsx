@@ -18,6 +18,7 @@ import {
   isFinanzasAndroid,
   listenForCaptureChanges,
   openNotificationAccessSettings,
+  openAppNotificationSettings,
   syncLocalCaptures,
 } from '@/lib/native-captures'
 import { supabase } from '@/lib/supabase'
@@ -410,6 +411,15 @@ export default function CapturasAutomaticas() {
     }
   }
 
+  const openAppNotifications = async () => {
+    setError('')
+    try {
+      await openAppNotificationSettings()
+    } catch (openError) {
+      setError(openError?.message || 'No se pudieron abrir los ajustes de notificaciones de Finanzas.')
+    }
+  }
+
   const syncNow = async () => {
     setSyncing(true)
     setError('')
@@ -554,12 +564,20 @@ export default function CapturasAutomaticas() {
       if (!selectedCategory?.id) {
         const { data: existingCategory, error: categoryLookupError } = await supabase
           .from('categories')
-          .select('id, name')
+          .select('id, name, direction')
           .eq('user_id', userId)
           .eq('name', categoryName)
           .maybeSingle()
         if (categoryLookupError) throw categoryLookupError
         selectedCategory = existingCategory
+        if (selectedCategory?.id && !['income', 'both'].includes(selectedCategory.direction)) {
+          const { error: directionError } = await supabase
+            .from('categories')
+            .update({ direction: 'both' })
+            .eq('user_id', userId)
+            .eq('id', selectedCategory.id)
+          if (directionError) throw directionError
+        }
       }
       if (!selectedCategory?.id) {
         const { data: createdCategory, error: createCategoryError } = await supabase
@@ -725,6 +743,13 @@ export default function CapturasAutomaticas() {
               className="rounded-lg border border-slate-700 px-4 py-2.5 text-sm font-semibold text-slate-200 hover:bg-slate-800"
             >
               Ajustes de notificaciones
+            </button>
+            <button
+              type="button"
+              onClick={openAppNotifications}
+              className="rounded-lg border border-emerald-700/70 px-4 py-2.5 text-sm font-semibold text-emerald-200 hover:bg-emerald-500/10"
+            >
+              Avisos de Finanzas
             </button>
             <button
               type="button"
