@@ -26,7 +26,7 @@ export default function Transferencias() {
     setLoading(true)
     setError('')
     try {
-      const [accountsResponse, transfersResponse] = await Promise.all([fetch('/api/cuentas'), fetch('/api/transferencias')])
+      const [accountsResponse, transfersResponse] = await Promise.all([fetch('/api/cuentas'), fetch('/api/cuentas?resource=transfers')])
       const [accountRows, transferRows] = await Promise.all([accountsResponse.json(), transfersResponse.json()])
       if (!accountsResponse.ok) throw new Error(accountRows.error || 'No se pudieron cargar las cuentas.')
       if (!transfersResponse.ok) throw new Error(transferRows.error || 'No se pudieron cargar las transferencias.')
@@ -57,7 +57,7 @@ export default function Transferencias() {
     event.preventDefault()
     setSaving(true); setError(''); setNotice('')
     try {
-      const response = await fetch('/api/transferencias', {
+      const response = await fetch('/api/cuentas?resource=transfers', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           fromAccountId, toAccountId, amount: Number(amount), date, description,
@@ -78,7 +78,7 @@ export default function Transferencias() {
     if (!window.confirm('¿Anular esta transferencia? Se anularán conjuntamente sus dos movimientos y se restaurarán los saldos.')) return
     setBusyId(transfer.id); setError(''); setNotice('')
     try {
-      const response = await fetch('/api/transferencias', {
+      const response = await fetch('/api/cuentas?resource=transfers', {
         method: 'DELETE', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: transfer.id }),
       })
