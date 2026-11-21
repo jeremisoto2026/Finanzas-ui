@@ -39,7 +39,12 @@ const sections = [
   },
 ]
 
-export default function Ajustes({ onNavigate }) {
+function AttentionBadge({ count }) {
+  if (!count) return null
+  return <span aria-label={count + ' pendientes'} className="inline-flex h-6 min-w-6 shrink-0 items-center justify-center rounded-full bg-rose-500/15 px-2 text-[11px] font-bold tabular-nums text-rose-300 ring-1 ring-inset ring-rose-400/30">{count > 99 ? '99+' : count}</span>
+}
+
+export default function Ajustes({ onNavigate, attentionCounts = {} }) {
   return (
     <section className="mx-auto w-full max-w-5xl space-y-7 pb-6">
       <header className="space-y-2">
@@ -71,6 +76,7 @@ export default function Ajustes({ onNavigate }) {
                     <span className="block text-sm font-semibold text-slate-100">{item.title}</span>
                     <span className="mt-1 block text-xs leading-5 text-slate-400">{item.description}</span>
                   </span>
+                  <AttentionBadge count={pendingCount} />
                   <ArrowRight className="h-4 w-4 shrink-0 text-slate-500 transition group-hover:translate-x-0.5 group-hover:text-emerald-300" />
                 </button>
               )
