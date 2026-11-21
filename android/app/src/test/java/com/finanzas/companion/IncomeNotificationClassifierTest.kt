@@ -95,6 +95,16 @@ class IncomeNotificationClassifierTest {
     }
 
     @Test
+    fun revolutSenderNotificationIsCapturedForManualReview() {
+        val result = IncomeNotificationClassifier.classify(
+            "José S.G.",
+            "Te ha enviado 1€"
+        )
+        assertEquals(IncomeNoticeDecision.NEEDS_REVIEW, result.decision)
+        assertEquals(100L, result.amountCents)
+    }
+
+    @Test
     fun ignoresNotificationsWithoutAnExplicitInboundSignal() {
         val result = IncomeNotificationClassifier.classify(
             "BBVA",
