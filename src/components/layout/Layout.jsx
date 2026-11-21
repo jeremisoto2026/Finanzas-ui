@@ -78,6 +78,7 @@ export default function Layout({ onSignOut }) {
           cambiarPagina('Compras pendientes')
         } else if (payload.route === 'expenses') {
           cambiarPagina('Gastos')
+          window.__finanzasPendingExpenseFocus = payload
           window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
             window.dispatchEvent(new CustomEvent('finanzas:focus-expense', { detail: payload }))
           }))
