@@ -86,6 +86,7 @@ async function getAccountLedger(supabase, userId, accountId, openingDate, today)
 
 export default async function handler(req, res) {
   if (handleCors(req, res)) return
+  const method = req.method
   const isTransfersResource = req.query?.resource === 'transfers'
   if (!['GET', 'POST', 'PATCH'].includes(req.method) && !(isTransfersResource && ['GET', 'POST', 'DELETE'].includes(req.method))) {
     res.setHeader('Allow', 'GET, POST, PATCH')
@@ -142,7 +143,7 @@ export default async function handler(req, res) {
         if (error) throw error
         return res.status(201).json(data)
       }
-      if (req.method === 'DELETE') {
+      if (method === 'DELETE') {
         const id = String(req.body?.id || '')
         if (!id) return res.status(400).json({ error: 'Falta el identificador de la transferencia.' })
         const { data, error } = await supabase.rpc('cancel_account_transfer', { p_transfer_id: id })
