@@ -35,7 +35,7 @@ object IncomeNotificationClassifier {
         RegexOption.IGNORE_CASE
     )
 
-    private val ambiguousTransferSignal = Regex(\n        """\\b(transferencia\\s+recibida|transferencia\\s+entrante|incoming\\s+transfer)\\b""",\n        RegexOption.IGNORE_CASE\n    )\n\n    private val ownTransferSignal = Regex(
+    private val ambiguousTransferSignal = Regex(\n        """\\b(transferencia\\s+recibida|transferencia\\s+entrante|incoming\\s+transfer|has\\s+recibido\\s+una?\\s+transferencia|hemos\\s+recibido\\s+una?\\s+transferencia)\\b""",\n        RegexOption.IGNORE_CASE\n    )\n\n    private val ownTransferSignal = Regex(
         """\\b(entre\\s+(?:mis\\s+)?cuentas|traspaso\\s+(?:entre\\s+)?cuentas|cuenta\\s+propia|misma\\s+titularidad|transferencia\\s+interna|own\\s+account|between\\s+(?:my\\s+)?accounts|internal\\s+transfer)\\b""",
         RegexOption.IGNORE_CASE
     )
