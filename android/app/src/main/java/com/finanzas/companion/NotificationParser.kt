@@ -37,11 +37,19 @@ data class NotificationSource(
             "com.whatsapp"
         )
 
-        /**
-         * Known sources keep their historical keys so existing account links keep working.
-         * Any other non-system app gets a stable key based on its Android package.
-         * The parser decides whether a notification from that package is financial.
-         */
+        // Android has no universal "bank app" category. Accept only known financial
+        // brands or labels that explicitly identify themselves as a bank; never treat
+        // every third-party app as financial. The package is retained as the stable ID.
+        private val BANK_APP_LABEL = Regex(
+            """(?ix)\\b(
+                banco|banca|bank|banking|caixa|caixabank|santander|sabadell|bankinter|bbva|
+                revolut|ing|openbank|n26|wise|bunq|abanca|unicaja|iber caja|ibercaja|
+                kutxabank|cajamar|caja\\s+rural|cajasur|laboral\\s+kutxa|imagin|evo|
+                myinvestor|pibank|deutsche\\s+bank|targobank|mediolanum|b100|nickel|
+                cetelem|cofidis|trade\\s+republic|paypal
+            )\\b"""
+        )
+
         fun fromPackage(packageName: String, applicationLabel: String? = null): NotificationSource? {
             val normalizedPackage = packageName.trim()
             if (normalizedPackage.isBlank()) return null
@@ -69,6 +77,8 @@ data class NotificationSource(
                 ?: normalizedPackage.substringAfterLast('.')
                     .replace(Regex("[_-]+"), " ")
                     .replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.ROOT) else it.toString() }
+
+            if (!BANK_APP_LABEL.containsMatchIn(label)) return null
 
             return NotificationSource(
                 sourceApp = "android:$normalizedPackage",
