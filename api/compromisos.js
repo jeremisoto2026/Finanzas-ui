@@ -163,9 +163,17 @@ async function handleReservations(req, res, supabase, user) {
   const { id } = req.body || {}
   if (!id) return res.status(400).json({ error: 'Falta el identificador de la reserva.' })
   const { data, error } = await supabase.from('reservations').delete()
-    .eq('user_id', user.id).eq('id', id).select('id').maybeSingle()
+    .eq('user_id', user.id).eq('id', id).neq('status', 'consumed').select('id').maybeSingle()
   if (error) throw error
-  if (!data) return res.status(404).json({ error: 'No se encontró esa reserva.' })
+  if (!data) {
+    const { data: existing, error: lookupError } = await supabase.from('reservations')
+      .select('id, status').eq('user_id', user.id).eq('id', id).maybeSingle()
+    if (lookupError) throw lookupError
+    if (existing?.status === 'consumed') {
+      return res.status(409).json({ error: 'Esta reserva figura como utilizada y se conserva en el historial. No se puede eliminar.' })
+    }
+    return res.status(404).json({ error: 'No se encontró esa reserva.' })
+  }
   return res.status(200).json({ success: true, id })
 }
 
