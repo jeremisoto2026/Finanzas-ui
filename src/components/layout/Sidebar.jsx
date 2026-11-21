@@ -47,7 +47,7 @@ const groups = [
   },
 ]
 
-export default function Sidebar({ activePage, setActivePage }) {
+export default function Sidebar({ activePage, setActivePage, attentionCount = 0 }) {
   return (
     <aside className="app-sidebar hidden w-[16.5rem] shrink-0 flex-col border-r border-slate-800/80 bg-[#080F1C] shadow-2xl shadow-black/10 lg:sticky lg:top-0 lg:flex lg:h-screen lg:overflow-y-auto">
       <div className="flex items-center border-b border-slate-800/70 px-5 py-6">
@@ -83,6 +83,7 @@ export default function Sidebar({ activePage, setActivePage }) {
                     {active && <span className="absolute inset-y-2 left-0 w-0.5 rounded-full bg-emerald-400" aria-hidden="true" />}
                     <Icon className={'h-[18px] w-[18px] shrink-0 ' + (active ? 'text-emerald-300' : 'text-slate-500 group-hover:text-slate-300')} />
                     <span className="min-w-0 flex-1 text-[13px] font-medium">{item.label}</span>
+                    {item.name === 'Ajustes' && attentionCount > 0 && <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-500/15 px-1.5 text-[10px] font-bold tabular-nums text-rose-300 ring-1 ring-inset ring-rose-400/30">{attentionCount > 99 ? '99+' : attentionCount}</span>}
                     {active && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.6)]" aria-hidden="true" />}
                   </button>
                 )
