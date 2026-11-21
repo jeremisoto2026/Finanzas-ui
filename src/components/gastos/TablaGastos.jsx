@@ -613,8 +613,16 @@ export default function TablaGastos() {
             </div>
 
             {/* TABLA DETALLADA */}
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[800px]">
+            <div className="flex items-center justify-end px-4 py-2 text-xs text-slate-500 sm:hidden">
+              <span>Desliza horizontalmente para consultar todas las columnas</span>
+            </div>
+            <div
+              role="region"
+              aria-label="Historial de gastos, desplazamiento horizontal"
+              tabIndex={0}
+              className="overflow-x-auto overscroll-x-contain"
+            >
+              <table className="w-full min-w-[1040px]">
                 <thead className="bg-slate-900">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">
@@ -630,6 +638,9 @@ export default function TablaGastos() {
                       Categoría
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">
+                      Cuenta de salida
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">
                       Origen
                     </th>
                     <th className="px-6 py-3 text-right text-xs font-medium text-slate-400 uppercase tracking-wider">
@@ -642,7 +653,7 @@ export default function TablaGastos() {
                 <tbody className="divide-y divide-slate-800">
                   {gastosFiltrados.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="px-6 py-8 text-center">
+                      <td colSpan={8} className="px-6 py-8 text-center">
                         <div className="text-slate-500">
                           <Receipt className="h-12 w-12 mx-auto mb-3 opacity-50" />
                           <p>No hay gastos para mostrar</p>
@@ -654,6 +665,7 @@ export default function TablaGastos() {
                     </tr>
                   ) : (
                     gastosFiltrados.map((gasto) => {
+                      const cuentaNombre = String(gasto.cuenta || '').trim();
                       let origenColor, origenBg, origenIcon, origenTooltip = '';
                       
                       switch (gasto.origen) {
@@ -703,6 +715,17 @@ export default function TablaGastos() {
                             <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-blue-900/30 text-blue-300">
                               {gasto.categoria}
                             </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center gap-2">
+                              <Database className="h-4 w-4 shrink-0 text-emerald-400" />
+                              <span
+                                className={`inline-flex max-w-[220px] items-center truncate rounded-lg border px-2.5 py-1 text-xs font-medium ${cuentaNombre ? 'border-emerald-700/30 bg-emerald-900/20 text-emerald-300' : 'border-amber-700/30 bg-amber-900/20 text-amber-300'}`}
+                                title={cuentaNombre ? `Sale de ${cuentaNombre}` : 'Este movimiento no tiene una cuenta asociada'}
+                              >
+                                {cuentaNombre || 'Sin cuenta registrada'}
+                              </span>
+                            </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span 

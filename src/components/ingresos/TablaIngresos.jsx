@@ -1104,7 +1104,7 @@ export default function TablaIngresos() {
                     {filtroMes && ` en ${formatearMesTexto(filtroMes)}`}
                   </p>
                 </div>
-                <div className="flex items-center gap-2 text-xs text-slate-500 bg-slate-900 px-3 py-1.5 rounded-lg">
+                <div className="flex items-center gap-2 text-xs text-slate-500 bg-slate-900 px-3 py-1.5 rounded-lg sm:hidden">
                   <span>Desliza</span>
                   <span className="text-slate-400">→</span>
                   <span>para ver más columnas</span>
@@ -1113,8 +1113,13 @@ export default function TablaIngresos() {
             </div>
 
             {/* TABLA MEJORADA CON TIPO DE INGRESO */}
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[800px]">
+            <div
+              role="region"
+              aria-label="Historial de ingresos, desplazamiento horizontal"
+              tabIndex={0}
+              className="overflow-x-auto overscroll-x-contain"
+            >
+              <table className="w-full min-w-[1040px]">
                 <thead className="bg-slate-900">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">
@@ -1133,7 +1138,7 @@ export default function TablaIngresos() {
                       Tipo
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">
-                      Cuenta
+                      Cuenta de entrada
                     </th>
                     <th className="px-6 py-3 text-right text-xs font-medium text-slate-400 uppercase tracking-wider">
                       Monto
@@ -1149,6 +1154,7 @@ export default function TablaIngresos() {
                     const tipo = estadisticasCategorias[ingreso.categoria]?.tipo || 'variable';
                     const colorTipo = tipo === 'fijo' ? 'text-emerald-400' : 'text-amber-400';
                     const bgTipo = tipo === 'fijo' ? 'bg-emerald-900/30' : 'bg-amber-900/30';
+                    const cuentaNombre = String(ingreso.cuenta || '').trim();
                     
                     return (
                       <tr key={ingreso.id} className="hover:bg-slate-800/50 transition-colors">
@@ -1181,10 +1187,15 @@ export default function TablaIngresos() {
                             </span>
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-300">
+                        <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center gap-2">
-                            <Database className="h-4 w-4 text-slate-500" />
-                            {ingreso.cuenta}
+                            <Database className="h-4 w-4 shrink-0 text-emerald-400" />
+                            <span
+                              className={`inline-flex max-w-[220px] items-center truncate rounded-lg border px-2.5 py-1 text-xs font-medium ${cuentaNombre ? 'border-emerald-700/30 bg-emerald-900/20 text-emerald-300' : 'border-amber-700/30 bg-amber-900/20 text-amber-300'}`}
+                              title={cuentaNombre ? `Entra en ${cuentaNombre}` : 'Este movimiento no tiene una cuenta asociada'}
+                            >
+                              {cuentaNombre || 'Sin cuenta registrada'}
+                            </span>
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right">
