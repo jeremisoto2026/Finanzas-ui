@@ -4,7 +4,12 @@ export const DEFAULT_EXPENSE_CATEGORIES = [
 ]
 
 export const DEFAULT_INCOME_CATEGORIES = [
-  'Nómina', 'Trabajo / reparto', 'Horas extra', 'Extras',
-  'Alquiler recibido', 'Prestaciones y ayudas', 'Propinas', 'Ventas',
-  'Cobros de préstamos', 'Préstamo recibido', 'Reembolsos', 'Intereses', 'Otros',
+  'Nómina', 'Trabajo / reparto', 'Horas extra', 'Extras', 'Trabajos puntuales',
+  'Propinas', 'Bizum recibido', 'Transferencias recibidas',
+  'Alquiler recibido', 'Prestaciones y ayudas',
+  'Ventas', 'Ventas de segunda mano',
+  'Cobros de préstamos', 'Préstamo recibido',
+  'Reembolsos', 'Devoluciones de compras',
+  'Regalos recibidos', 'Cashback y recompensas',
+  'Intereses', 'Dividendos', 'Otros',
 ]
