@@ -797,7 +797,7 @@ async function handleAndroidTransfers(method, init, sourceRequest) {
 }
 
 async function fetchAndroidApi(parsedUrl, method, input, init, sourceRequest) {
-  if (parsedUrl.pathname === '/api/transferencias') {
+  if (parsedUrl.pathname === '/api/cuentas' && parsedUrl.searchParams.get('resource') === 'transfers') {
     if (method === 'GET' || ['POST', 'DELETE'].includes(method)) return handleAndroidTransfers(method, init, sourceRequest)
     return jsonResponse({ error: 'Método no permitido.' }, 405)
   }
