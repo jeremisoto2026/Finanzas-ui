@@ -65,7 +65,17 @@ class NotificationCaptureService : NotificationListenerService() {
                 occurredAtMillis = sbn.postTime,
                 notificationKey = notificationKey
             )
-            if (added) CaptureSyncScheduler.enqueue(applicationContext)
+            if (added) {
+                PossibleIncomeNotifier.show(
+                    applicationContext,
+                    candidateId = incomeCaptureStore.readAll().firstOrNull {
+                        it.notificationKey == notificationKey
+                    }?.id.orEmpty(),
+                    sourceLabel = source.label,
+                    amountCents = incomeClassification.amountCents
+                )
+                CaptureSyncScheduler.enqueue(applicationContext)
+            }
             CaptureEvents.onChanged?.invoke()
             return
         }
