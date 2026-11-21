@@ -1,6 +1,7 @@
 package com.finanzas.companion
 
 import android.app.Notification
+import android.os.Bundle
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 
@@ -39,13 +40,23 @@ class NotificationCaptureService : NotificationListenerService() {
             extras.getCharSequence(Notification.EXTRA_SUMMARY_TEXT)?.toString(),
             extras.getCharSequence(Notification.EXTRA_SUB_TEXT)?.toString(),
             extras.getCharSequence(Notification.EXTRA_TITLE_BIG)?.toString(),
-            extras.getCharSequence(Notification.EXTRA_INFO_TEXT)?.toString()
+            extras.getCharSequence(Notification.EXTRA_INFO_TEXT)?.toString(),
+            extras.getCharSequence(Notification.EXTRA_CONVERSATION_TITLE)?.toString(),
+            notification.tickerText?.toString()
         ).filterNot { it.isNullOrBlank() }.distinct()
 
+        // Messaging-style notifications (and some bank app versions) keep the
+        // actual transaction text in android.messages instead of EXTRA_TEXT.
+        val messageLines = extras.getParcelableArray("android.messages")
+            ?.mapNotNull { item ->
+                (item as? Bundle)?.getCharSequence("text")?.toString()
+                    ?.takeIf(String::isNotBlank)
+            }
+            .orEmpty()
         val textLines = extras.getCharSequenceArray(Notification.EXTRA_TEXT_LINES)
             ?.mapNotNull { it?.toString()?.takeIf(String::isNotBlank) }
             .orEmpty()
-        val combinedText = (textParts + textLines).distinct().joinToString("\n")
+        val combinedText = (textParts + messageLines + textLines).distinct().joinToString("\n")
         if (title.isNullOrBlank() && combinedText.isBlank()) return
 
         val notificationKey = "${sbn.packageName}:${sbn.key}"
