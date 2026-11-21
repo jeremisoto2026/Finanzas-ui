@@ -764,7 +764,7 @@ async function handleAndroidTransfers(method, init, sourceRequest) {
       const toAccountId = String(body.toAccountId || '')
       const amount = Number(body.amount)
       const date = String(body.date || '').slice(0, 10)
-      const dateValue = /^\\d{4}-\\d{2}-\\d{2}$/.test(date) ? new Date(date + 'T00:00:00.000Z') : null
+      const dateValue = /^\d{4}-\d{2}-\d{2}$/.test(date) ? new Date(date + 'T00:00:00.000Z') : null
       if (!fromAccountId || !toAccountId || fromAccountId === toAccountId || !Number.isFinite(amount) || amount <= 0 ||
         !dateValue || !Number.isFinite(dateValue.getTime()) || dateValue.toISOString().slice(0, 10) !== date) {
         return jsonResponse({ error: 'Indica dos cuentas distintas, un importe positivo y una fecha válida.' }, 400)
