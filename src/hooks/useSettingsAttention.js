@@ -16,12 +16,15 @@ function rowsWithActionState(rows) {
   }).length
 }
 
-function overdueRows(rows, today, statusField = 'status') {
+function attentionRows(rows, today, includeOverdue = false) {
   return (Array.isArray(rows) ? rows : []).filter((row) => {
-    const status = String(row[statusField] || '').toLowerCase()
+    const status = String(row.status || row.estado || '').toLowerCase().replace(/[á]/g, 'a')
+    if (ACTION_STATES.has(status)) return true
+    if (!includeOverdue) return false
     const dueOn = String(row.dueOn || row.due_on || '').slice(0, 10)
     const outstanding = Number(row.outstandingAmount ?? row.outstanding_amount ?? 0)
-    return dueOn && dueOn <= today && outstanding > 0 && !['settled', 'written_off', 'cancelled', 'paid', 'completed'].includes(status)
+    return dueOn && dueOn <= today && outstanding > 0 &&
+      !['settled', 'written_off', 'cancelled', 'paid', 'completed'].includes(status)
   }).length
 }
 
@@ -61,8 +64,8 @@ export function useSettingsAttention() {
     setCounts({
       'Compras pendientes': purchaseKeys.size + pendingIncome,
       Automatizaciones: incompleteRules,
-      Deudas: overdueRows(debtRows, today),
-      Compromisos: overdueRows(commitmentRows, today),
+      Deudas: attentionRows(debtRows, today, true),
+      Compromisos: attentionRows(commitmentRows, today, true),
       'Gestión financiera': fixedPaymentActions + installmentActions + budgetActions,
     })
   }, [])
