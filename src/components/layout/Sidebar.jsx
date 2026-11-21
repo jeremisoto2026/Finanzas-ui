@@ -25,6 +25,7 @@ const groups = [
     label: 'Planificación',
     items: [
       { name: 'Cuentas', label: 'Cuentas y saldos', icon: Landmark },
+      { name: 'Transferencias', label: 'Transferencias', icon: ArrowLeftRight },
       { name: 'Gestión financiera', label: 'Pagos y presupuestos', icon: Wallet },
       { name: 'Deudas', label: 'Deudas', icon: CircleDollarSign },
       { name: 'Compromisos', label: 'Reservas y reposiciones', icon: CreditCard },
