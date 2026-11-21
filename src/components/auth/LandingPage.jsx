@@ -118,14 +118,13 @@ export default function LandingPage({ signIn, signUp, signInWithGoogle }) {
     <main className="landing-page relative bg-[#080F1C] text-slate-100">
       <header className="landing-header sticky top-0 z-40 border-b border-slate-800/80 bg-[#080F1C]/90 backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3.5 sm:px-6 lg:px-8">
-          <a href="#inicio" className="flex shrink-0 items-center gap-3" aria-label="Finanzas, inicio">
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-emerald-400/20 bg-emerald-400/10 text-emerald-300">
-              <Wallet className="h-5 w-5" />
-            </span>
-            <span>
-              <span className="block text-base font-semibold tracking-tight text-white">Finanzas</span>
-              <span className="hidden text-[11px] text-slate-500 sm:block">Personal y familiar</span>
-            </span>
+          <a href="#inicio" className="flex shrink-0 items-center" aria-label="Finanzas, inicio">
+            <img
+              src="/finanzas-logo-horizontal-dark.svg"
+              alt="Finanzas"
+              className="h-9 w-auto max-w-[10.75rem] object-contain"
+              draggable="false"
+            />
           </a>
 
           <nav className="hidden items-center gap-7 md:flex" aria-label="Navegación principal">
@@ -204,9 +203,12 @@ export default function LandingPage({ signIn, signUp, signInWithGoogle }) {
           <div className="grid gap-4">
             <div id="acceso" className="w-full rounded-2xl border border-slate-800 bg-slate-900/90 p-5 shadow-xl shadow-black/20 sm:p-6">
               <div className="mb-5 flex items-center gap-3">
-                <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-emerald-400/15 bg-emerald-400/10 text-emerald-300">
-                  <LockKeyhole className="h-5 w-5" />
-                </span>
+                <img
+                  src="/finanzas-icon.svg"
+                  alt="Finanzas"
+                  className="h-10 w-10 shrink-0 object-contain"
+                  draggable="false"
+                />
                 <div>
                   <h2 className="text-lg font-semibold text-white">{mode === 'signin' ? 'Iniciar sesión' : 'Crear cuenta'}</h2>
                   <p className="mt-0.5 text-xs text-slate-500">Acceso directo a Finanzas</p>
@@ -462,7 +464,12 @@ export default function LandingPage({ signIn, signUp, signInWithGoogle }) {
 
       <footer className="landing-footer border-t border-slate-800/80 bg-slate-950/35">
         <div className="mx-auto flex max-w-7xl flex-col gap-2 px-4 py-6 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
-          <p className="font-semibold text-slate-300">Finanzas</p>
+          <img
+            src="/finanzas-logo-horizontal-dark.svg"
+            alt="Finanzas"
+            className="h-7 w-auto object-contain"
+            draggable="false"
+          />
           <p>Control financiero personal y familiar.</p>
         </div>
       </footer>
