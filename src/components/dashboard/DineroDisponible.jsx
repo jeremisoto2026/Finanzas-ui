@@ -12,6 +12,7 @@ const formatMoney = (amount, currency = 'EUR') => new Intl.NumberFormat('es-ES',
 
 export default function DineroDisponible() {
   const [accounts, setAccounts] = useState([])
+  const [reservations, setReservations] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [editingAccount, setEditingAccount] = useState(null)
@@ -122,11 +123,41 @@ export default function DineroDisponible() {
     return () => { cancelled = true }
   }, [])
 
+  useEffect(() => {
+    let cancelled = false
+    const loadReservations = async () => {
+      try {
+        const response = await fetch('/api/reservas', { cache: 'no-store' })
+        if (!response.ok) throw new Error('No se pudieron cargar las reservas activas.')
+        const data = await response.json()
+        if (!cancelled) setReservations(Array.isArray(data) ? data : [])
+      } catch (reservationError) {
+        console.error('No se pudieron cargar las reservas:', reservationError)
+        if (!cancelled) setReservations([])
+      }
+    }
+    loadReservations()
+    return () => { cancelled = true }
+  }, [])
+
   const totalsByCurrency = useMemo(() => sumMoneyBy(
     accounts,
     (account) => String(account.currencyCode || 'EUR').trim().toUpperCase(),
     (account) => account.balance || 0
   ), [accounts])
+
+  const reservedByCurrency = useMemo(() => sumMoneyBy(
+    reservations.filter((reservation) => reservation.status === 'active'),
+    (reservation) => String(reservation.currencyCode || 'EUR').trim().toUpperCase(),
+    (reservation) => reservation.amount || 0
+  ), [reservations])
+
+  const availableByCurrency = useMemo(() => Object.fromEntries(
+    Object.entries(totalsByCurrency).map(([currency, balance]) => [
+      currency,
+      Number((Number(balance || 0) - Number(reservedByCurrency[currency] || 0)).toFixed(2)),
+    ])
+  ), [totalsByCurrency, reservedByCurrency])
 
   return (
     <Card className="overflow-hidden border border-emerald-800/40 bg-gradient-to-br from-emerald-950/35 via-slate-900/95 to-slate-900 shadow-xl shadow-black/10">
@@ -179,7 +210,7 @@ export default function DineroDisponible() {
                         <p className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
                           {formatMoney(amount, currency)}
                         </p>
-                        <p className="mt-1 text-xs text-slate-400">Saldo disponible en {currency}</p>
+                        <p className="mt-1 text-xs text-slate-400">Saldo bancario en {currency}</p>
                       </div>
                     ))}
                   </div>
@@ -219,20 +250,29 @@ export default function DineroDisponible() {
               </div>
             </div>
 
-            {budgetReserve.month && (
-              <div className="grid gap-3 border-t border-slate-800/80 pt-4 sm:grid-cols-2">
+            <div className="grid gap-3 border-t border-slate-800/80 pt-4 sm:grid-cols-2 xl:grid-cols-3">
+              {budgetReserve.month && (
                 <div className="rounded-xl border border-amber-500/20 bg-amber-500/[0.06] p-4">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.13em] text-amber-300/80">Apartado · {new Date(budgetReserve.month + '-01T00:00:00').toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.13em] text-amber-300/80">Presupuesto pendiente · {new Date(budgetReserve.month + '-01T00:00:00').toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}</p>
                   <p className="mt-2 text-2xl font-semibold tabular-nums text-white">{formatMoney(budgetReserve.remaining)}</p>
-                  <p className="mt-1 text-xs text-slate-400">De {formatMoney(budgetReserve.planned)} planificados · {formatMoney(budgetReserve.spent)} gastados</p>
+                  <p className="mt-1 text-xs text-slate-400">De {formatMoney(budgetReserve.planned)} planificados · {formatMoney(budgetReserve.spent)} gastados. Es planificación, no una reserva bancaria.</p>
                 </div>
-                <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/[0.06] p-4">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.13em] text-emerald-300/80">Dinero libre tras reservas</p>
-                  <p className="mt-2 text-2xl font-semibold tabular-nums text-white">{formatMoney(Number(totalsByCurrency.EUR || 0) - budgetReserve.remaining)}</p>
-                  <p className="mt-1 text-xs text-slate-400">Saldo EUR menos lo que aún queda por apartar</p>
-                </div>
+              )}
+              <div className="rounded-xl border border-amber-500/20 bg-amber-500/[0.06] p-4">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.13em] text-amber-300/80">Dinero reservado</p>
+                {Object.entries(reservedByCurrency).length ? Object.entries(reservedByCurrency).map(([currency, amount]) => (
+                  <p key={currency} className="mt-2 text-2xl font-semibold tabular-nums text-white">{formatMoney(amount, currency)}</p>
+                )) : <p className="mt-2 text-2xl font-semibold tabular-nums text-white">{formatMoney(0)}</p>}
+                <p className="mt-1 text-xs text-slate-400">Reservas activas vinculadas a tus cuentas.</p>
               </div>
-            )}
+              <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/[0.06] p-4">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.13em] text-emerald-300/80">Dinero libre tras reservas</p>
+                {Object.entries(availableByCurrency).map(([currency, amount]) => (
+                  <p key={currency} className="mt-2 text-2xl font-semibold tabular-nums text-white">{formatMoney(amount, currency)}</p>
+                ))}
+                <p className="mt-1 text-xs text-slate-400">Saldo bancario menos reservas activas, sin mezclar monedas.</p>
+              </div>
+            </div>
             <div className="flex items-start gap-2 border-t border-slate-800/80 pt-3 text-xs leading-5 text-slate-500">
               <Landmark className="mt-0.5 h-4 w-4 shrink-0 text-slate-600" />
               <p>
