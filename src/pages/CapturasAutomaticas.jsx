@@ -115,8 +115,13 @@ export default function CapturasAutomaticas() {
         labels[event.source_app] = event.source_label
       }
     }
+    for (const candidate of incomeReviewItems) {
+      if (candidate.source_app && candidate.source_label) {
+        labels[candidate.source_app] = candidate.source_label
+      }
+    }
     return labels
-  }, [accountMappings, remoteEvents])
+  }, [accountMappings, remoteEvents, incomeReviewItems])
 
   const mappingSourceLabel = sourceLabelMap[mappingSource] ||
     getBankSourceLabel(mappingSource, sourceLabelMap)
@@ -128,10 +133,13 @@ export default function CapturasAutomaticas() {
     for (const event of remoteEvents) {
       if (event.source_app && event.source_app !== 'google_wallet') sources.add(event.source_app)
     }
+    for (const candidate of incomeReviewItems) {
+      if (candidate.source_app && candidate.source_app !== 'google_wallet') sources.add(candidate.source_app)
+    }
     return [...sources].sort((a, b) =>
       getBankSourceLabel(a, sourceLabelMap).localeCompare(getBankSourceLabel(b, sourceLabelMap), 'es')
     )
-  }, [accountMappings, remoteEvents, sourceLabelMap])
+  }, [accountMappings, remoteEvents, incomeReviewItems, sourceLabelMap])
 
   const reviewItems = useMemo(() => groupRemoteEvents(remoteEvents), [remoteEvents])
 
