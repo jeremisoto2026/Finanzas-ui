@@ -961,7 +961,7 @@ export default function CapturasAutomaticas() {
                 <p className="mt-2 text-xs text-slate-400">{item.reason}</p>
                 <div className="mt-4 grid gap-3 sm:grid-cols-2">
                   <label className="text-xs font-medium text-slate-300">Cuenta donde recibiste el dinero
-                    <FinanceSelect value={incomeAccountSelections[item.id] ?? item.account_id ?? ''} onChange={(event) => setIncomeAccountSelections((current) => ({ ...current, [item.id]: event.target.value }))} className="mt-1.5 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-white">
+                    <FinanceSelect value={incomeAccountSelections[item.id] ?? item.account_id ?? accountMappings.find((mapping) => mapping.source_app === item.source_app)?.account_id ?? ''} onChange={(event) => setIncomeAccountSelections((current) => ({ ...current, [item.id]: event.target.value }))} className="mt-1.5 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-white">
                       <option value="">Selecciona una cuenta</option>
                       {accounts.map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}
                     </FinanceSelect>
