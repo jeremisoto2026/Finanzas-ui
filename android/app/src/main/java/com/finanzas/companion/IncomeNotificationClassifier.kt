@@ -52,7 +52,10 @@ object IncomeNotificationClassifier {
         RegexOption.IGNORE_CASE
     )
 
-    fun shouldSkipExpense(title: String?, text: String?): Boolean =\n        ownTransferSignal.containsMatchIn((title.orEmpty() + "\\n" + text.orEmpty()).take(4_000))\n\n    fun classify(title: String?, text: String?): IncomeNoticeClassification {
+    fun shouldSkipExpense(title: String?, text: String?): Boolean =
+        ownTransferSignal.containsMatchIn((title.orEmpty() + "\n" + text.orEmpty()).take(4_000))
+
+    fun classify(title: String?, text: String?): IncomeNoticeClassification {
         val combined = (title.orEmpty() + "\n" + text.orEmpty()).trim().take(4_000)
         if (combined.isBlank()) return ignored("Notificación vacía")
         if (failedSignal.containsMatchIn(combined)) return ignored("Operación fallida o cancelada")
