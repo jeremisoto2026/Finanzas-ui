@@ -30,7 +30,7 @@ export default function ReservasPanel() {
       setLoading(true)
       setError('')
       const [reservationsResponse, accountsResponse] = await Promise.all([
-        fetch('/api/reservas', { cache: 'no-store' }),
+        fetch('/api/compromisos?resource=reservations', { cache: 'no-store' }),
         fetch('/api/cuentas', { cache: 'no-store' }),
       ])
       if (!reservationsResponse.ok) throw new Error('No se pudieron cargar las reservas.')
@@ -87,7 +87,7 @@ export default function ReservasPanel() {
     try {
       setSaving(true)
       setError('')
-      const response = await fetch('/api/reservas', {
+      const response = await fetch('/api/compromisos?resource=reservations', {
         method: editingId ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...(editingId ? { id: editingId } : {}), ...form, amount }),
@@ -111,7 +111,7 @@ export default function ReservasPanel() {
     try {
       setSaving(true)
       setError('')
-      const response = await fetch('/api/reservas', {
+      const response = await fetch('/api/compromisos?resource=reservations', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: item.id, status }),
@@ -137,7 +137,7 @@ export default function ReservasPanel() {
     try {
       setSaving(true)
       setError('')
-      const response = await fetch('/api/reservas', {
+      const response = await fetch('/api/compromisos?resource=reservations', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: item.id }),
