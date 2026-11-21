@@ -232,7 +232,7 @@ export default function ReservasPanel() {
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <h3 className="font-medium text-white">{item.name}</h3>
-                  <span className={item.status === 'active' ? 'rounded-full bg-emerald-900/40 px-2 py-0.5 text-xs text-emerald-300' : 'rounded-full bg-slate-800 px-2 py-0.5 text-xs text-slate-400'}>{item.status === 'active' ? 'Activa' : 'Liberada'}</span>
+                  <span className={item.status === 'active' ? 'rounded-full bg-emerald-900/40 px-2 py-0.5 text-xs text-emerald-300' : item.status === 'consumed' ? 'rounded-full bg-sky-900/40 px-2 py-0.5 text-xs text-sky-300' : 'rounded-full bg-slate-800 px-2 py-0.5 text-xs text-slate-400'}>{item.status === 'active' ? 'Activa' : item.status === 'consumed' ? 'Utilizada' : 'Liberada'}</span>
                 </div>
                 <p className="mt-1 text-xs text-slate-500">{item.accountName} · {item.reservedOn ? new Date(item.reservedOn + 'T00:00:00').toLocaleDateString('es-ES') : 'Fecha no indicada'}</p>
                 {item.notes && <p className="mt-1 text-sm text-slate-400">{item.notes}</p>}
@@ -240,12 +240,14 @@ export default function ReservasPanel() {
               <div className="flex flex-wrap items-center justify-between gap-3 sm:justify-end">
                 <p className="text-lg font-semibold tabular-nums text-white">{money(item.amount, item.currencyCode)}</p>
                 <div className="flex items-center gap-1">
-                  <button type="button" onClick={() => openEdit(item)} disabled={saving} className="rounded-lg p-2 text-sky-300 hover:bg-slate-800 disabled:opacity-50" aria-label={`Editar reserva ${item.name}`}><PencilSquareIcon className="h-4 w-4" /></button>
+                  {item.status !== 'consumed' && (
+                    <button type="button" onClick={() => openEdit(item)} disabled={saving} className="rounded-lg p-2 text-sky-300 hover:bg-slate-800 disabled:opacity-50" aria-label={`Editar reserva ${item.name}`}><PencilSquareIcon className="h-4 w-4" /></button>
+                  )}
                   {item.status === 'active' ? (
                     <button type="button" onClick={() => changeStatus(item, 'released')} disabled={saving} className="rounded-lg p-2 text-amber-300 hover:bg-slate-800 disabled:opacity-50" aria-label={`Liberar reserva ${item.name}`} title="Liberar reserva"><LockOpenIcon className="h-4 w-4" /></button>
-                  ) : (
+                  ) : item.status === 'released' ? (
                     <button type="button" onClick={() => changeStatus(item, 'active')} disabled={saving} className="rounded-lg p-2 text-emerald-300 hover:bg-slate-800 disabled:opacity-50" aria-label={`Reactivar reserva ${item.name}`} title="Reactivar reserva"><ArrowPathIcon className="h-4 w-4" /></button>
-                  )}
+                  ) : null}
                   <button type="button" onClick={() => remove(item)} disabled={saving} className="rounded-lg p-2 text-rose-300 hover:bg-slate-800 disabled:opacity-50" aria-label={`Eliminar reserva ${item.name}`}><TrashIcon className="h-4 w-4" /></button>
                 </div>
               </div>
