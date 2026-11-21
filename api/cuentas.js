@@ -86,7 +86,8 @@ async function getAccountLedger(supabase, userId, accountId, openingDate, today)
 
 export default async function handler(req, res) {
   if (handleCors(req, res)) return
-  if (!['GET', 'POST', 'PATCH'].includes(req.method)) {
+  const isTransfersResource = req.query?.resource === 'transfers'
+  if (!['GET', 'POST', 'PATCH'].includes(req.method) && !(isTransfersResource && ['GET', 'POST', 'DELETE'].includes(req.method))) {
     res.setHeader('Allow', 'GET, POST, PATCH')
     return res.status(405).json({ error: 'Método no permitido. Las cuentas se desactivan para conservar su historial.' })
   }
@@ -95,6 +96,60 @@ export default async function handler(req, res) {
   try {
     const { supabase, user } = await createAuthenticatedClient(req)
     const today = localTodayKey()
+
+    if (isTransfersResource) {
+      if (req.method === 'GET') {
+        const [{ data: rows, error }, { data: accounts, error: accountsError }, { data: entries, error: entriesError }] = await Promise.all([
+          supabase.from('transfers').select('id, from_account_id, to_account_id, amount, occurred_on, description, created_at')
+            .eq('user_id', user.id).order('occurred_on', { ascending: false }).order('created_at', { ascending: false }),
+          supabase.from('accounts').select('id, name, currency_code').eq('user_id', user.id),
+          supabase.from('transactions').select('transfer_id, status').eq('user_id', user.id).not('transfer_id', 'is', null),
+        ])
+        if (error) throw error
+        if (accountsError) throw accountsError
+        if (entriesError) throw entriesError
+        const accountMap = new Map((accounts || []).map((account) => [account.id, account]))
+        const statusMap = new Map()
+        for (const entry of entries || []) {
+          const list = statusMap.get(entry.transfer_id) || []
+          list.push(entry.status)
+          statusMap.set(entry.transfer_id, list)
+        }
+        return res.status(200).json((rows || []).map((row) => ({
+          id: row.id, fromAccountId: row.from_account_id, toAccountId: row.to_account_id,
+          fromAccount: accountMap.get(row.from_account_id)?.name || 'Cuenta no disponible',
+          toAccount: accountMap.get(row.to_account_id)?.name || 'Cuenta no disponible',
+          currencyCode: String(accountMap.get(row.from_account_id)?.currency_code || 'EUR').trim(),
+          amount: Number(row.amount), date: row.occurred_on, description: row.description || '',
+          status: (statusMap.get(row.id) || []).length === 2 && (statusMap.get(row.id) || []).every((value) => value === 'void') ? 'cancelled' : 'posted',
+        })))
+      }
+      if (req.method === 'POST') {
+        const body = req.body || {}
+        const fromAccountId = String(body.fromAccountId || '')
+        const toAccountId = String(body.toAccountId || '')
+        const amount = Number(body.amount)
+        const date = String(body.date || '').slice(0, 10)
+        if (!fromAccountId || !toAccountId || fromAccountId === toAccountId || !Number.isFinite(amount) || amount <= 0 || !isDateOnly(date) || date > today) {
+          return res.status(400).json({ error: 'Indica dos cuentas distintas, un importe positivo y una fecha válida.' })
+        }
+        const { data, error } = await supabase.rpc('create_account_transfer', {
+          p_from_account_id: fromAccountId, p_to_account_id: toAccountId,
+          p_amount: money(amount), p_occurred_on: date,
+          p_description: String(body.description || '').trim() || null,
+          p_idempotency_key: String(body.idempotencyKey || ''),
+        })
+        if (error) throw error
+        return res.status(201).json(data)
+      }
+      if (req.method === 'DELETE') {
+        const id = String(req.body?.id || '')
+        if (!id) return res.status(400).json({ error: 'Falta el identificador de la transferencia.' })
+        const { data, error } = await supabase.rpc('cancel_account_transfer', { p_transfer_id: id })
+        if (error) throw error
+        return res.status(200).json({ success: true, transfer: data })
+      }
+    }
 
     if (req.method === 'GET') {
       const [accountsResult, transactionsResult] = await Promise.all([
