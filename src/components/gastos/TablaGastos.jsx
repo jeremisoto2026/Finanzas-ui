@@ -54,7 +54,8 @@ export default function TablaGastos() {
   const [formOpen, setFormOpen] = useState(false);
   const [editingGastoId, setEditingGastoId] = useState(null);
   const [saving, setSaving] = useState(false);
-  const [formError, setFormError] = useState('');\n  const [focusedExpense, setFocusedExpense] = useState(null);
+  const [formError, setFormError] = useState('');
+  const [focusedExpense, setFocusedExpense] = useState(null);
   const [nuevoGasto, setNuevoGasto] = useState({
     concepto: '',
     monto: '',
