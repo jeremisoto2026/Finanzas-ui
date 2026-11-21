@@ -36,17 +36,27 @@ class NotificationCaptureService : NotificationListenerService() {
         val textParts = listOf(
             extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString(),
             extras.getCharSequence(Notification.EXTRA_TEXT)?.toString(),
-            extras.getCharSequence(Notification.EXTRA_SUMMARY_TEXT)?.toString()
+            extras.getCharSequence(Notification.EXTRA_SUMMARY_TEXT)?.toString(),
+            extras.getCharSequence(Notification.EXTRA_SUB_TEXT)?.toString(),
+            extras.getCharSequence(Notification.EXTRA_BIG_TITLE)?.toString(),
+            extras.getCharSequence(Notification.EXTRA_INFO_TEXT)?.toString()
         ).filterNot { it.isNullOrBlank() }.distinct()
 
-        val combinedText = textParts.joinToString("\n")
-        if (combinedText.isBlank()) return
+        val textLines = extras.getCharSequenceArray(Notification.EXTRA_TEXT_LINES)
+            ?.mapNotNull { it?.toString()?.takeIf(String::isNotBlank) }
+            .orEmpty()
+        val combinedText = (textParts + textLines).distinct().joinToString("\n")
+        if (title.isNullOrBlank() && combinedText.isBlank()) return
 
         val notificationKey = "${sbn.packageName}:${sbn.key}"
         val incomeClassification = if (source.isWallet) {
             IncomeNotificationClassifier.classify(null, null)
         } else {
-            IncomeNotificationClassifier.classify(title, combinedText)
+            IncomeNotificationClassifier.classify(
+                title,
+                combinedText,
+                isFinancialSource = source.isBank
+            )
         }
         if (incomeClassification.decision != IncomeNoticeDecision.IGNORE) {
             val added = incomeCaptureStore.add(
