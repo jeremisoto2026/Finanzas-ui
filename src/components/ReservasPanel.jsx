@@ -34,12 +34,16 @@ export default function ReservasPanel() {
         fetch('/api/cuentas', { cache: 'no-store' }),
       ])
       if (!reservationsResponse.ok) throw new Error('No se pudieron cargar las reservas.')
-      const rows = await reservationsResponse.json()
-      setReservations(Array.isArray(rows) ? rows : [])
-      if (accountsResponse.ok) {
-        const accountRows = await accountsResponse.json()
-        setAccounts(Array.isArray(accountRows) ? accountRows.filter((account) => account.isActive !== false) : [])
+      if (!accountsResponse.ok) throw new Error('No se pudieron cargar tus cuentas. Inténtalo de nuevo.')
+      const [rows, accountRows] = await Promise.all([
+        reservationsResponse.json(),
+        accountsResponse.json(),
+      ])
+      if (!Array.isArray(rows) || !Array.isArray(accountRows)) {
+        throw new Error('La respuesta de reservas o cuentas no es válida.')
       }
+      setReservations(rows)
+      setAccounts(accountRows.filter((account) => account.isActive !== false))
     } catch (loadError) {
       setError(loadError.message || 'No se pudieron cargar las reservas.')
     } finally {
