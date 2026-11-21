@@ -56,32 +56,6 @@ async function getReservationAccount(supabase, userId, accountId) {
   return data
 }
 
-async function getReservationAvailability(supabase, userId, account, excludingId = null) {
-  const today = reservationTodayKey()
-  const { data: movements, error: movementError } = await supabase.from('transactions')
-    .select('kind, amount')
-    .eq('user_id', userId).eq('account_id', account.id).eq('status', 'posted')
-    .gte('occurred_on', account.opening_balance_date || '0001-01-01')
-    .lte('occurred_on', today)
-  if (movementError) throw movementError
-
-  const balanceCents = Math.round(Number(account.opening_balance || 0) * 100) +
-    (movements || []).reduce((sum, movement) => {
-      const cents = Math.round(Number(movement.amount || 0) * 100)
-      if (movement.kind === 'income' || movement.kind === 'transfer_in') return sum + cents
-      if (movement.kind === 'expense' || movement.kind === 'transfer_out') return sum - cents
-      return sum
-    }, 0)
-
-  let query = supabase.from('reservations')
-    .select('id, amount').eq('user_id', userId).eq('account_id', account.id).eq('status', 'active')
-  if (excludingId) query = query.neq('id', excludingId)
-  const { data: activeRows, error } = await query
-  if (error) throw error
-  const reservedCents = (activeRows || []).reduce((sum, item) => sum + Math.round(Number(item.amount || 0) * 100), 0)
-  return reservationMoney((balanceCents - reservedCents) / 100)
-}
-
 function mapReservationRow(row, accounts) {
   const account = accounts.get(row.account_id)
   return {
@@ -183,7 +157,7 @@ async function handleReservations(req, res, supabase, user) {
     const saved = Array.isArray(savedRow) ? savedRow[0] : savedRow
     if (!saved) throw new Error('La base de datos no devolvió la reserva guardada.')
     const accountMap = new Map([[account.id, account]])
-    return res.status(isUpdate ? 200 : 201).json(mapReservationRow(saved, accountMap)))
+    return res.status(isUpdate ? 200 : 201).json(mapReservationRow(saved, accountMap))
   }
 
   const { id } = req.body || {}
