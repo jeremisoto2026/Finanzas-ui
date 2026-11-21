@@ -36,6 +36,16 @@ class IncomeNotificationClassifierTest {
     }
 
     @Test
+    fun incomingTransferWithoutArticleStillRequiresManualReview() {
+        val result = IncomeNotificationClassifier.classify(
+            "BBVA",
+            "Has recibido transferencia de 25,00 EUR"
+        )
+        assertEquals(IncomeNoticeDecision.NEEDS_REVIEW, result.decision)
+        assertEquals(2500L, result.amountCents)
+    }
+
+    @Test
     fun ownAccountTransfersAreAlsoBlockedFromExpenseParser() {
         assertEquals(
             true,
