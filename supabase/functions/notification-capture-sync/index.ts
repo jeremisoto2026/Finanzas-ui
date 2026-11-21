@@ -247,6 +247,62 @@ function normalizeMerchantKey(value: string) {
     .slice(0, 120)
 }
 
+type ValidIncomeCandidate = {
+  id: string
+  sourceApp: string
+  packageName: string
+  sourceLabel: string
+  amountCents: number | null
+  occurredAt: string
+  reason: string
+}
+
+function validateIncomeCandidate(value: unknown): ValidIncomeCandidate {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("Un posible ingreso tiene un formato incorrecto.")
+  }
+  const item = value as Record<string, unknown>
+  const id = String(item.id || "")
+  if (!UUID_PATTERN.test(id)) throw new Error("Un posible ingreso no tiene un identificador válido.")
+
+  const sourceApp = String(item.sourceApp || "").trim()
+  const packageName = String(item.packageName || "").trim()
+  const sourceLabel = String(item.sourceLabel || "").trim().replace(/\\s+/g, " ").slice(0, 100)
+  const known = KNOWN_SOURCES[sourceApp]
+  const validKnown = Boolean(known && !known.isWallet && known.packageName === packageName)
+  const validDynamic = sourceApp === "android:" + packageName && PACKAGE_PATTERN.test(packageName)
+  if ((!validKnown && !validDynamic) || sourceLabel.length < 2) {
+    throw new Error("La aplicación de origen del posible ingreso no es válida.")
+  }
+
+  const rawAmount = item.amountCents
+  const amountCents = rawAmount === null || rawAmount === undefined ? null : Number(rawAmount)
+  if (amountCents !== null &&
+    (!Number.isSafeInteger(amountCents) || amountCents <= 0 || amountCents > 100_000_000)) {
+    throw new Error("El importe del posible ingreso no es válido.")
+  }
+  if (String(item.currencyCode || "EUR").trim().toUpperCase() !== "EUR") {
+    throw new Error("Por ahora solo se admiten posibles ingresos en EUR.")
+  }
+  const occurredAtMillis = Number(item.occurredAtMillis)
+  if (!Number.isFinite(occurredAtMillis) || occurredAtMillis < 1_500_000_000_000 ||
+    occurredAtMillis > Date.now() + 10 * 60 * 1000) {
+    throw new Error("La fecha del posible ingreso no es válida.")
+  }
+  const reason = String(item.reason || "").trim().slice(0, 240)
+  if (reason.length < 2) throw new Error("Falta el motivo de revisión del posible ingreso.")
+
+  return {
+    id,
+    sourceApp,
+    packageName,
+    sourceLabel,
+    amountCents,
+    occurredAt: new Date(occurredAtMillis).toISOString(),
+    reason,
+  }
+}
+
 function validateCapture(value: unknown): ValidCapture {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new Error("Una captura tiene un formato incorrecto.")
@@ -376,19 +432,20 @@ Deno.serve(async (req: Request) => {
     }
 
     const body = await req.json().catch(() => null)
-    if (!body || typeof body !== "object" || !Array.isArray(body.captures)) {
+    if (!body || typeof body !== "object") {
       return json({ error: "El contenido de sincronización no es válido." }, 400, origin)
     }
-
-    if (body.captures.length > 100) {
-      return json({ error: "Se pueden sincronizar como máximo 100 capturas por envío." }, 413, origin)
+    const rawCaptures = Array.isArray(body.captures) ? body.captures : []
+    const rawIncomeCandidates = Array.isArray(body.incomeCandidates) ? body.incomeCandidates : []
+    if (rawCaptures.length > 100 || rawIncomeCandidates.length > 100) {
+      return json({ error: "Se pueden sincronizar como máximo 100 elementos de cada tipo por envío." }, 413, origin)
+    }
+    if (rawCaptures.length === 0 && rawIncomeCandidates.length === 0) {
+      return json({ ok: true, syncedCaptures: 0, syncedEvents: 0, syncedIncomeCandidates: 0 }, 200, origin)
     }
 
-    if (body.captures.length === 0) {
-      return json({ ok: true, syncedCaptures: 0, syncedEvents: 0 }, 200, origin)
-    }
-
-    const captures = body.captures.map(validateCapture)
+    const captures = rawCaptures.map(validateCapture)
+    const incomeCandidates = rawIncomeCandidates.map(validateIncomeCandidate)
     const userId = authData.user.id
 
     const { data: categories, error: categoryError } = await supabase
@@ -622,19 +679,46 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    const { data: savedRows, error: saveError } = await supabase
-      .from("notification_capture_events")
-      .upsert(rows, {
-        onConflict: "user_id,source_app,fingerprint",
-        ignoreDuplicates: false,
-      })
-      .select("id")
+    const { data: savedRows, error: saveError } = captures.length > 0
+      ? await supabase
+        .from("notification_capture_events")
+        .upsert(rows, {
+          onConflict: "user_id,source_app,fingerprint",
+          ignoreDuplicates: false,
+        })
+        .select("id")
+      : { data: [], error: null }
     if (saveError) throw saveError
+
+    let syncedIncomeCandidates = 0
+    if (incomeCandidates.length > 0) {
+      const incomeRows = await Promise.all(incomeCandidates.map(async (candidate) => ({
+        user_id: userId,
+        source_app: candidate.sourceApp,
+        source_label: candidate.sourceLabel,
+        fingerprint: await sha256(userId + "|income|" + candidate.id),
+        amount: candidate.amountCents === null ? null : candidate.amountCents / 100,
+        currency_code: "EUR",
+        occurred_at: candidate.occurredAt,
+        reason: candidate.reason,
+        status: "needs_review",
+      })))
+      const { data: savedIncomeRows, error: incomeSaveError } = await supabase
+        .from("notification_income_candidates")
+        .upsert(incomeRows, {
+          onConflict: "user_id,fingerprint",
+          ignoreDuplicates: true,
+        })
+        .select("id")
+      if (incomeSaveError) throw incomeSaveError
+      syncedIncomeCandidates = savedIncomeRows?.length || 0
+    }
 
     return json({
       ok: true,
       syncedCaptures: captures.length,
       syncedEvents: savedRows?.length || rows.length,
+      syncedIncomeCandidates,
       autoPosted,
       pendingReview,
       registeredExpenses,

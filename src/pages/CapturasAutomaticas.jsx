@@ -18,9 +18,11 @@ import {
   isFinanzasAndroid,
   listenForCaptureChanges,
   openNotificationAccessSettings,
+  openAppNotificationSettings,
   syncLocalCaptures,
 } from '@/lib/native-captures'
 import { supabase } from '@/lib/supabase'
+import { DEFAULT_INCOME_CATEGORIES } from '@/lib/category-catalog'
 import { getAccountMappingSuggestion, getAccountOptionLabel, getBankSourceLabel, isExactAccountNameMatch } from '@/lib/account-notification-mapping'
 
 const SOURCE_LABELS = {
@@ -81,9 +83,12 @@ export default function CapturasAutomaticas() {
   const [permissionEnabled, setPermissionEnabled] = useState(false)
   const [localCaptures, setLocalCaptures] = useState([])
   const [remoteEvents, setRemoteEvents] = useState([])
+  const [incomeReviewItems, setIncomeReviewItems] = useState([])
+  const [localIncomeCandidates, setLocalIncomeCandidates] = useState([])
   const [accounts, setAccounts] = useState([])
   const [accountMappings, setAccountMappings] = useState([])
   const [categories, setCategories] = useState([])
+  const [incomeCategories, setIncomeCategories] = useState([])
   const [mappingSource, setMappingSource] = useState('revolut')
   const [mappingAccountId, setMappingAccountId] = useState('')
   const [mappingSelectionTouched, setMappingSelectionTouched] = useState(false)
@@ -92,6 +97,8 @@ export default function CapturasAutomaticas() {
   const autoSaveAttemptRef = useRef('')
   const [accountSelections, setAccountSelections] = useState({})
   const [categorySelections, setCategorySelections] = useState({})
+  const [incomeAccountSelections, setIncomeAccountSelections] = useState({})
+  const [incomeCategorySelections, setIncomeCategorySelections] = useState({})
   const [savingReviewId, setSavingReviewId] = useState(null)
   const [loading, setLoading] = useState(true)
   const [syncing, setSyncing] = useState(false)
@@ -110,8 +117,13 @@ export default function CapturasAutomaticas() {
         labels[event.source_app] = event.source_label
       }
     }
+    for (const candidate of incomeReviewItems) {
+      if (candidate.source_app && candidate.source_label) {
+        labels[candidate.source_app] = candidate.source_label
+      }
+    }
     return labels
-  }, [accountMappings, remoteEvents])
+  }, [accountMappings, remoteEvents, incomeReviewItems])
 
   const mappingSourceLabel = sourceLabelMap[mappingSource] ||
     getBankSourceLabel(mappingSource, sourceLabelMap)
@@ -123,10 +135,13 @@ export default function CapturasAutomaticas() {
     for (const event of remoteEvents) {
       if (event.source_app && event.source_app !== 'google_wallet') sources.add(event.source_app)
     }
+    for (const candidate of incomeReviewItems) {
+      if (candidate.source_app && candidate.source_app !== 'google_wallet') sources.add(candidate.source_app)
+    }
     return [...sources].sort((a, b) =>
       getBankSourceLabel(a, sourceLabelMap).localeCompare(getBankSourceLabel(b, sourceLabelMap), 'es')
     )
-  }, [accountMappings, remoteEvents, sourceLabelMap])
+  }, [accountMappings, remoteEvents, incomeReviewItems, sourceLabelMap])
 
   const reviewItems = useMemo(() => groupRemoteEvents(remoteEvents), [remoteEvents])
 
@@ -158,22 +173,30 @@ export default function CapturasAutomaticas() {
         const localState = await getLocalCaptureState()
         setPermissionEnabled(Boolean(localState.permissionEnabled))
         setLocalCaptures(Array.isArray(localState.captures) ? localState.captures : [])
+        setLocalIncomeCandidates(Array.isArray(localState.incomeCandidates) ? localState.incomeCandidates : [])
       } else {
         setPermissionEnabled(false)
         setLocalCaptures([])
+        setLocalIncomeCandidates([])
       }
 
       const { data: authData, error: authError } = await supabase.auth.getUser()
       if (authError) throw authError
       if (!authData?.user) throw new Error('Inicia sesión para consultar las compras pendientes.')
 
-      const [eventsResult, accountsResult, categoriesResult, mappingsResult] = await Promise.all([
+      const [eventsResult, incomeResult, accountsResult, categoriesResult, incomeCategoriesResult, mappingsResult] = await Promise.all([
         supabase
           .from('notification_capture_events')
           .select('id, source_app, source_label, pair_key, notification_title, parsed_merchant, parsed_amount, currency_code, category_id, category_suggestion, account_label, account_id, payment_channel, occurred_at, status')
           .in('status', ['paired', 'needs_review'])
           .order('occurred_at', { ascending: false })
           .limit(200),
+        supabase
+          .from('notification_income_candidates')
+          .select('id, source_app, source_label, amount, currency_code, occurred_at, reason, status, account_id, matched_transaction_id')
+          .eq('status', 'needs_review')
+          .order('occurred_at', { ascending: false })
+          .limit(100),
         supabase
           .from('accounts')
           .select('id, name, institution, currency_code, is_active')
@@ -188,6 +211,13 @@ export default function CapturasAutomaticas() {
           .in('direction', ['expense', 'both'])
           .order('name', { ascending: true }),
         supabase
+          .from('categories')
+          .select('id, name')
+          .eq('user_id', authData.user.id)
+          .eq('is_active', true)
+          .in('direction', ['income', 'both'])
+          .order('name', { ascending: true }),
+        supabase
           .from('account_notification_sources')
           .select('id, source_app, source_label, account_id, is_active')
           .eq('user_id', authData.user.id)
@@ -195,13 +225,24 @@ export default function CapturasAutomaticas() {
           .order('source_app', { ascending: true }),
       ])
       if (eventsResult.error) throw eventsResult.error
+      if (incomeResult.error) throw incomeResult.error
       if (accountsResult.error) throw accountsResult.error
       if (categoriesResult.error) throw categoriesResult.error
+      if (incomeCategoriesResult.error) throw incomeCategoriesResult.error
       if (mappingsResult.error) throw mappingsResult.error
       setRemoteEvents(Array.isArray(eventsResult.data) ? eventsResult.data : [])
+      setIncomeReviewItems(Array.isArray(incomeResult.data) ? incomeResult.data : [])
       setAccounts((accountsResult.data || []).filter((account) => String(account.currency_code || 'EUR').trim().toUpperCase() === 'EUR'))
       setAccountMappings(mappingsResult.data || [])
       setCategories(categoriesResult.data || [])
+      const savedIncomeCategories = incomeCategoriesResult.data || []
+      const incomeCategoryNames = new Set(savedIncomeCategories.map((category) => category.name.trim().toLocaleLowerCase('es')))
+      setIncomeCategories([
+        ...savedIncomeCategories,
+        ...DEFAULT_INCOME_CATEGORIES
+          .filter((name) => !incomeCategoryNames.has(name.trim().toLocaleLowerCase('es')))
+          .map((name) => ({ id: null, name })),
+      ].sort((a, b) => a.name.localeCompare(b.name, 'es')))
     } catch (loadError) {
       setError(loadError?.message || 'No se pudieron consultar las capturas.')
     } finally {
@@ -370,6 +411,15 @@ export default function CapturasAutomaticas() {
     }
   }
 
+  const openAppNotifications = async () => {
+    setError('')
+    try {
+      await openAppNotificationSettings()
+    } catch (openError) {
+      setError(openError?.message || 'No se pudieron abrir los ajustes de notificaciones de Finanzas.')
+    }
+  }
+
   const syncNow = async () => {
     setSyncing(true)
     setError('')
@@ -378,20 +428,22 @@ export default function CapturasAutomaticas() {
       const localState = await getLocalCaptureState()
       setPermissionEnabled(Boolean(localState.permissionEnabled))
       const captures = Array.isArray(localState.captures) ? localState.captures : []
+      const incomeCandidates = Array.isArray(localState.incomeCandidates) ? localState.incomeCandidates : []
       setLocalCaptures(captures)
+      setLocalIncomeCandidates(incomeCandidates)
 
       if (!localState.permissionEnabled) {
         throw new Error('Activa primero el acceso a notificaciones de Finanzas en Android.')
       }
-      if (captures.length === 0) {
+      if (captures.length === 0 && incomeCandidates.length === 0) {
         setNotice('No hay nuevas capturas locales para sincronizar.')
         await loadCaptures(false)
         return
       }
 
-      const result = await syncLocalCaptures(captures)
+      const result = await syncLocalCaptures(captures, incomeCandidates)
       await loadCaptures(false)
-      setNotice(`Sincronización completada: ${result.autoPosted || 0} gastos registrados automáticamente y ${result.pendingReview || 0} compras pendientes de revisión.`)
+      setNotice(`Sincronización completada: ${result.autoPosted || 0} gastos registrados automáticamente, ${result.pendingReview || 0} compras pendientes y ${result.syncedIncomeCandidates || 0} posibles ingresos enviados a revisión.`)
     } catch (syncError) {
       setError(syncError?.message || 'No se pudieron sincronizar las capturas.')
     } finally {
@@ -485,6 +537,144 @@ export default function CapturasAutomaticas() {
     }
   }
 
+  const registerPendingIncome = async (item) => {
+    const accountId = incomeAccountSelections[item.id] || item.account_id || accountMappings.find((mapping) => mapping.source_app === item.source_app)?.account_id || ''
+    const categoryName = incomeCategorySelections[item.id] || ''
+    if (!Number.isFinite(Number(item.amount)) || Number(item.amount) <= 0) {
+      setError('Este aviso no contiene un importe inequívoco. No se puede registrar hasta disponer de una cantidad confirmada.')
+      return
+    }
+    if (!accountId || !accounts.some((account) => account.id === accountId)) {
+      setError('Selecciona la cuenta donde recibiste el ingreso.')
+      return
+    }
+    if (!categoryName || !incomeCategories.some((category) => category.name === categoryName)) {
+      setError('Selecciona una categoría de ingreso.')
+      return
+    }
+
+    setSavingReviewId(item.id)
+    setError('')
+    setNotice('')
+    try {
+      const { data: authData, error: authError } = await supabase.auth.getUser()
+      if (authError || !authData?.user) throw new Error('Tu sesión ha caducado. Inicia sesión de nuevo.')
+      const userId = authData.user.id
+      let selectedCategory = incomeCategories.find((category) => category.name === categoryName && category.id)
+      if (!selectedCategory?.id) {
+        const { data: existingCategory, error: categoryLookupError } = await supabase
+          .from('categories')
+          .select('id, name, direction')
+          .eq('user_id', userId)
+          .eq('name', categoryName)
+          .maybeSingle()
+        if (categoryLookupError) throw categoryLookupError
+        selectedCategory = existingCategory
+        if (selectedCategory?.id && !['income', 'both'].includes(selectedCategory.direction)) {
+          const { error: directionError } = await supabase
+            .from('categories')
+            .update({ direction: 'both' })
+            .eq('user_id', userId)
+            .eq('id', selectedCategory.id)
+          if (directionError) throw directionError
+        }
+      }
+      if (!selectedCategory?.id) {
+        const { data: createdCategory, error: createCategoryError } = await supabase
+          .from('categories')
+          .insert({ user_id: userId, name: categoryName, direction: 'income' })
+          .select('id, name')
+          .single()
+        if (createCategoryError) {
+          if (createCategoryError.code !== '23505') throw createCategoryError
+          const { data: retryCategory, error: retryError } = await supabase
+            .from('categories')
+            .select('id, name')
+            .eq('user_id', userId)
+            .eq('name', categoryName)
+            .single()
+          if (retryError) throw retryError
+          selectedCategory = retryCategory
+        } else {
+          selectedCategory = createdCategory
+        }
+      }
+      const categoryId = selectedCategory.id
+      const idempotencyKey = `income-notification:${item.id}`
+      const { data: existing, error: existingError } = await supabase
+        .from('transactions')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('idempotency_key', idempotencyKey)
+        .eq('kind', 'income')
+        .maybeSingle()
+      if (existingError) throw existingError
+      let transaction = existing
+      if (!transaction?.id) {
+        const occurredOn = new Intl.DateTimeFormat('sv-SE', {
+          timeZone: 'Europe/Madrid',
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+        }).format(new Date(item.occurred_at))
+        const { data: inserted, error: insertError } = await supabase
+          .from('transactions')
+          .insert({
+            user_id: userId,
+            account_id: accountId,
+            category_id: categoryId,
+            kind: 'income',
+            status: 'posted',
+            amount: Math.round((Number(item.amount) + Number.EPSILON) * 100) / 100,
+            occurred_on: occurredOn,
+            description: 'Ingreso detectado · ' + item.source_label,
+            counterparty: item.source_label,
+            notes: item.reason,
+            payment_method: 'Transferencia / abono',
+            idempotency_key: idempotencyKey,
+          })
+          .select('id')
+          .single()
+        if (insertError) throw insertError
+        transaction = inserted
+      }
+      const { error: updateError } = await supabase
+        .from('notification_income_candidates')
+        .update({ status: 'posted', matched_transaction_id: transaction.id, account_id: accountId })
+        .eq('user_id', userId)
+        .eq('id', item.id)
+      if (updateError) throw updateError
+      setNotice(`Ingreso de ${formatAmount(item.amount, item.currency_code)} registrado en ${accounts.find((account) => account.id === accountId)?.name || 'la cuenta seleccionada'}.`)
+      await loadCaptures(false)
+    } catch (saveError) {
+      setError(saveError?.message || 'No se pudo registrar este ingreso.')
+    } finally {
+      setSavingReviewId(null)
+    }
+  }
+
+  const ignorePendingIncome = async (item) => {
+    setSavingReviewId(item.id)
+    setError('')
+    setNotice('')
+    try {
+      const { data: authData, error: authError } = await supabase.auth.getUser()
+      if (authError || !authData?.user) throw new Error('Tu sesión ha caducado. Inicia sesión de nuevo.')
+      const { error: updateError } = await supabase
+        .from('notification_income_candidates')
+        .update({ status: 'ignored' })
+        .eq('user_id', authData.user.id)
+        .eq('id', item.id)
+      if (updateError) throw updateError
+      setNotice('Posible ingreso descartado. No se creó ningún movimiento.')
+      await loadCaptures(false)
+    } catch (ignoreError) {
+      setError(ignoreError?.message || 'No se pudo descartar el posible ingreso.')
+    } finally {
+      setSavingReviewId(null)
+    }
+  }
+
   const ignorePendingPurchase = async (item) => {
     setSavingReviewId(item.id)
     setError('')
@@ -556,6 +746,13 @@ export default function CapturasAutomaticas() {
             </button>
             <button
               type="button"
+              onClick={openAppNotifications}
+              className="rounded-lg border border-emerald-700/70 px-4 py-2.5 text-sm font-semibold text-emerald-200 hover:bg-emerald-500/10"
+            >
+              Avisos de Finanzas
+            </button>
+            <button
+              type="button"
               onClick={syncNow}
               disabled={syncing || loading || !permissionEnabled}
               className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
@@ -563,7 +760,7 @@ export default function CapturasAutomaticas() {
               {syncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
               {syncing ? 'Sincronizando…' : 'Sincronizar ahora'}
             </button>
-            <span className="text-xs text-slate-500">{localCaptures.length} capturas guardadas cifradas en este móvil</span>
+            <span className="text-xs text-slate-500">{localCaptures.length} compras y {localIncomeCandidates.length} posibles ingresos guardados cifrados en este móvil</span>
           </div>
         </div>
       ) : (
@@ -805,6 +1002,53 @@ export default function CapturasAutomaticas() {
                 <div className="mt-4 flex flex-wrap justify-end gap-2">
                   <button type="button" onClick={() => ignorePendingPurchase(item)} disabled={savingReviewId === item.id} className="rounded-lg border border-slate-700 px-3 py-2 text-xs font-semibold text-slate-300 hover:bg-slate-800 disabled:opacity-50">Descartar</button>
                   <button type="button" onClick={() => registerPendingPurchase(item)} disabled={savingReviewId === item.id || accounts.length === 0 || categories.length === 0} className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-500 disabled:opacity-50">{savingReviewId === item.id ? 'Guardando…' : 'Registrar gasto'}</button>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold text-white">Posibles ingresos pendientes</h2>
+            <p className="mt-1 text-xs text-slate-400">Los abonos y nóminas se revisan por separado. Nada modifica tu saldo hasta que confirmes el registro.</p>
+          </div>
+          <span className="rounded-full bg-sky-500/10 px-3 py-1.5 text-xs font-semibold text-sky-300">{incomeReviewItems.length} pendientes</span>
+        </div>
+        {incomeReviewItems.length === 0 ? (
+          <p className="py-8 text-center text-sm text-slate-400">No hay posibles ingresos pendientes de revisión.</p>
+        ) : (
+          <div className="mt-4 space-y-3">
+            {incomeReviewItems.map((item) => (
+              <article key={item.id} className="rounded-xl border border-slate-800 bg-slate-950/70 p-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <h3 className="font-semibold text-white">{item.source_label} · Posible ingreso</h3>
+                    <p className="mt-1 text-xs text-slate-500">{formatDate(item.occurred_at)}</p>
+                  </div>
+                  <span className="rounded-full bg-amber-500/10 px-2.5 py-1 text-[11px] font-semibold text-amber-300">Confirmación manual</span>
+                </div>
+                <p className="mt-3 text-2xl font-bold text-sky-300">{item.amount == null ? 'Importe no identificado' : formatAmount(item.amount, item.currency_code)}</p>
+                <p className="mt-2 text-xs text-slate-400">{item.reason}</p>
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <label className="text-xs font-medium text-slate-300">Cuenta donde recibiste el dinero
+                    <FinanceSelect value={incomeAccountSelections[item.id] ?? item.account_id ?? accountMappings.find((mapping) => mapping.source_app === item.source_app)?.account_id ?? ''} onChange={(event) => setIncomeAccountSelections((current) => ({ ...current, [item.id]: event.target.value }))} className="mt-1.5 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-white">
+                      <option value="">Selecciona una cuenta</option>
+                      {accounts.map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}
+                    </FinanceSelect>
+                  </label>
+                  <label className="text-xs font-medium text-slate-300">Categoría del ingreso
+                    <FinanceSelect value={incomeCategorySelections[item.id] || ''} onChange={(event) => setIncomeCategorySelections((current) => ({ ...current, [item.id]: event.target.value }))} className="mt-1.5 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-white">
+                      <option value="">Selecciona una categoría</option>
+                      {incomeCategories.map((category) => <option key={category.name} value={category.name}>{category.name}</option>)}
+                    </FinanceSelect>
+                  </label>
+                </div>
+                <div className="mt-4 flex flex-wrap justify-end gap-2">
+                  <button type="button" onClick={() => ignorePendingIncome(item)} disabled={savingReviewId === item.id} className="rounded-lg border border-slate-700 px-3 py-2 text-xs font-semibold text-slate-300 hover:bg-slate-800 disabled:opacity-50">Descartar</button>
+                  <button type="button" onClick={() => registerPendingIncome(item)} disabled={savingReviewId === item.id || item.amount == null || accounts.length === 0 || incomeCategories.length === 0} className="rounded-lg bg-sky-600 px-3 py-2 text-xs font-semibold text-white hover:bg-sky-500 disabled:opacity-50">{savingReviewId === item.id ? 'Guardando…' : 'Confirmar y registrar ingreso'}</button>
                 </div>
               </article>
             ))}

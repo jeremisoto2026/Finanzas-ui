@@ -11,6 +11,7 @@ export async function getLocalCaptureState() {
       available: false,
       permissionEnabled: false,
       captures: [],
+      incomeCandidates: [],
       syncEnabled: false,
     }
   }
@@ -67,12 +68,12 @@ export function listenForCaptureChanges(callback) {
  * The original notification text is never sent; only normalized purchase
  * fields already extracted by the Android listener are synchronized.
  */
-export async function syncLocalCaptures(captures = []) {
+export async function syncLocalCaptures(captures = [], incomeCandidates = []) {
   if (!isFinanzasAndroid()) {
     throw new Error('La sincronización de capturas está disponible en Finanzas Android.')
   }
 
-  if (!Array.isArray(captures) || captures.length === 0) {
+  if (!Array.isArray(captures) || !Array.isArray(incomeCandidates) || (captures.length === 0 && incomeCandidates.length === 0)) {
     return { ok: true, syncedCaptures: 0, syncedEvents: 0 }
   }
 
@@ -86,7 +87,7 @@ export async function syncLocalCaptures(captures = []) {
   }))
 
   const { data, error } = await supabase.functions.invoke('notification-capture-sync', {
-    body: { captures: normalizedCaptures },
+    body: { captures: normalizedCaptures, incomeCandidates },
   })
 
   if (error) throw error
