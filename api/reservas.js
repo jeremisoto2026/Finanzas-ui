@@ -61,6 +61,7 @@ function mapReservation(row, accounts) {
     accountId: row.account_id,
     accountName: account?.name || 'Cuenta no disponible',
     currencyCode: String(account?.currency_code || 'EUR').trim(),
+    accountIsActive: account?.is_active !== false,
     name: row.name,
     amount: Number(row.amount || 0),
     status: row.status,
@@ -88,7 +89,7 @@ export default async function handler(req, res) {
           .order('reserved_on', { ascending: false })
           .order('created_at', { ascending: false }),
         supabase.from('accounts')
-          .select('id, name, currency_code')
+          .select('id, name, currency_code, is_active')
           .eq('user_id', user.id),
       ])
       if (error) throw error
@@ -160,7 +161,7 @@ export default async function handler(req, res) {
       if (error) throw error
 
       const { data: accounts, error: accountsError } = await supabase.from('accounts')
-        .select('id, name, currency_code').eq('user_id', user.id)
+        .select('id, name, currency_code, is_active').eq('user_id', user.id)
       if (accountsError) throw accountsError
       const accountMap = new Map((accounts || []).map((item) => [item.id, item]))
       return res.status(isUpdate ? 200 : 201).json(mapReservation(data, accountMap))
