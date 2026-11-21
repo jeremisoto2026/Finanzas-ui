@@ -33,7 +33,7 @@ object IncomeNotificationClassifier {
     )
 
     private val ambiguousTransferSignal = Regex(
-        """\b(transferencia\s+recibida|transferencia\s+entrante|incoming\s+transfer|has\s+recibido\s+una?\s+transferencia|hemos\s+recibido\s+una?\s+transferencia)\b""",
+        """\b(transferencia\s+recibida|transferencia\s+entrante|incoming\s+transfer|has\s+recibido\s+(?:una?\s+)?transferencia|hemos\s+recibido\s+(?:una?\s+)?transferencia)\b""",
         RegexOption.IGNORE_CASE
     )
 
