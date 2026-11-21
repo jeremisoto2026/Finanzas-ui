@@ -625,12 +625,112 @@ async function forwardAndroidManagementWrite(parsedUrl, method, init, sourceRequ
     return jsonResponse({ error: error?.message || 'No se pudo conectar con el servicio financiero seguro.' }, 502)
   }
 }
+
+async function handleAndroidReservations(method, init, sourceRequest) {
+  try {
+    const body = method === 'GET' ? {} : await readAndroidJsonBody(init, sourceRequest)
+    const { data: authData, error: authError } = await supabase.auth.getUser()
+    if (authError || !authData?.user) return jsonResponse({ error: 'Tu sesión ha caducado. Inicia sesión de nuevo.' }, 401)
+    const userId = authData.user.id
+
+    if (method === 'GET') {
+      const [{ data: rows, error }, { data: accounts, error: accountsError }] = await Promise.all([
+        supabase.from('reservations').select('id, account_id, name, amount, status, reserved_on, notes')
+          .eq('user_id', userId).order('reserved_on', { ascending: false }).order('created_at', { ascending: false }),
+        supabase.from('accounts').select('id, name, currency_code, is_active').eq('user_id', userId),
+      ])
+      if (error) throw error
+      if (accountsError) throw accountsError
+      const accountMap = new Map((accounts || []).map((account) => [account.id, account]))
+      return jsonResponse((rows || []).map((row) => {
+        const account = accountMap.get(row.account_id)
+        return {
+          id: row.id, accountId: row.account_id, accountName: account?.name || 'Cuenta no disponible',
+          currencyCode: String(account?.currency_code || 'EUR').trim(), accountIsActive: account?.is_active !== false,
+          name: row.name, amount: Number(row.amount || 0), status: row.status,
+          reservedOn: row.reserved_on, notes: row.notes || '',
+        }
+      }))
+    }
+
+    if (method === 'POST' || method === 'PATCH') {
+      const isUpdate = method === 'PATCH'
+      let current = null
+      if (isUpdate) {
+        if (!body.id) return jsonResponse({ error: 'Falta el identificador de la reserva.' }, 400)
+        const { data, error } = await supabase.from('reservations')
+          .select('id, account_id, name, amount, status, reserved_on, notes')
+          .eq('user_id', userId).eq('id', body.id).maybeSingle()
+        if (error) throw error
+        if (!data) return jsonResponse({ error: 'No se encontró esa reserva.' }, 404)
+        if (data.status === 'consumed') return jsonResponse({ error: 'Esta reserva está utilizada y protegida en el historial.' }, 409)
+        current = data
+      }
+      const name = body.name !== undefined ? String(body.name || '').trim() : current?.name
+      const amount = body.amount !== undefined ? Number(body.amount) : Number(current?.amount || 0)
+      const accountId = body.accountId !== undefined ? String(body.accountId || '').trim() : current?.account_id
+      const reservedOn = body.reservedOn !== undefined ? String(body.reservedOn || '').slice(0, 10) : (current?.reserved_on || androidTodayKey())
+      const notes = body.notes !== undefined ? String(body.notes || '').trim() || null : (current?.notes || null)
+      const status = body.status !== undefined ? body.status : (current?.status || 'active')
+      if (!name) return jsonResponse({ error: 'Escribe el concepto de la reserva.' }, 400)
+      if (!Number.isFinite(amount) || amount <= 0 || amount > 999999999999) return jsonResponse({ error: 'El importe debe ser mayor que cero y válido.' }, 400)
+      if (!validDateOnly(reservedOn)) return jsonResponse({ error: 'La fecha de la reserva no es válida.' }, 400)
+      if (!['active', 'released'].includes(status)) return jsonResponse({ error: 'El estado de la reserva no es válido.' }, 400)
+      const { data: account, error: accountError } = await supabase.from('accounts')
+        .select('id, name, currency_code, is_active').eq('user_id', userId).eq('id', accountId).maybeSingle()
+      if (accountError) throw accountError
+      if (!account) return jsonResponse({ error: 'Selecciona una cuenta válida de tu espacio financiero.' }, 400)
+      if (status === 'active' && account.is_active === false) return jsonResponse({ error: 'No puedes reservar dinero en una cuenta desactivada.' }, 409)
+      const { data: savedRow, error: saveError } = await supabase.rpc('save_reservation', {
+        p_reservation_id: isUpdate ? current.id : null, p_account_id: account.id, p_name: name,
+        p_amount: androidMoney(amount), p_status: status, p_reserved_on: reservedOn, p_notes: notes,
+      })
+      if (saveError) {
+        if (String(saveError.message || '').startsWith('Saldo insuficiente:')) return jsonResponse({ error: saveError.message }, 409)
+        if (String(saveError.message || '').includes('No se encontró esa reserva.')) return jsonResponse({ error: 'No se encontró esa reserva.' }, 404)
+        throw saveError
+      }
+      const saved = Array.isArray(savedRow) ? savedRow[0] : savedRow
+      if (!saved) throw new Error('La base de datos no devolvió la reserva guardada.')
+      dashboardSnapshotPromise = null
+      dashboardSnapshotExpiresAt = 0
+      return jsonResponse({
+        id: saved.id, accountId: saved.account_id, accountName: account.name,
+        currencyCode: String(account.currency_code || 'EUR').trim(), accountIsActive: account.is_active !== false,
+        name: saved.name, amount: Number(saved.amount || 0), status: saved.status,
+        reservedOn: saved.reserved_on, notes: saved.notes || '',
+      }, isUpdate ? 200 : 201)
+    }
+
+    if (method === 'DELETE') {
+      if (!body.id) return jsonResponse({ error: 'Falta el identificador de la reserva.' }, 400)
+      const { data, error } = await supabase.from('reservations').delete()
+        .eq('user_id', userId).eq('id', body.id).neq('status', 'consumed').select('id').maybeSingle()
+      if (error) throw error
+      if (!data) {
+        const { data: existing, error: lookupError } = await supabase.from('reservations')
+          .select('id, status').eq('user_id', userId).eq('id', body.id).maybeSingle()
+        if (lookupError) throw lookupError
+        if (existing?.status === 'consumed') return jsonResponse({ error: 'Esta reserva figura como utilizada y se conserva en el historial. No se puede eliminar.' }, 409)
+        return jsonResponse({ error: 'No se encontró esa reserva.' }, 404)
+      }
+      dashboardSnapshotPromise = null
+      dashboardSnapshotExpiresAt = 0
+      return jsonResponse({ success: true, id: body.id })
+    }
+    return jsonResponse({ error: 'Método no permitido.' }, 405)
+  } catch (error) {
+    console.error('No se pudo gestionar la reserva en Android:', error)
+    return jsonResponse({ error: error?.message || 'No se pudo completar la operación de reserva.' }, 400)
+  }
+}
+
 async function fetchAndroidApi(parsedUrl, method, input, init, sourceRequest) {
   if (ANDROID_MANAGEMENT_WRITE_PATHS.has(parsedUrl.pathname) && ['POST', 'PATCH', 'DELETE'].includes(method)) {
     return forwardAndroidManagementWrite(parsedUrl, method, init, sourceRequest)
   }
 
-  if (method === 'GET') {
+  if (parsedUrl.pathname === '/api/compromisos' && parsedUrl.searchParams.get('resource') === 'reservations') {\n    if (method === 'GET' || ['POST', 'PATCH', 'DELETE'].includes(method)) return handleAndroidReservations(method, init, sourceRequest)\n    return jsonResponse({ error: 'Método no permitido.' }, 405)\n  }\n\n  if (method === 'GET') {
     // The expense form requests category names separately from the dashboard snapshot.
     // Read them directly with the signed-in user's JWT and RLS on Android.
     if (parsedUrl.pathname === '/api/gastos' && parsedUrl.searchParams.get('resource') === 'categories') {
