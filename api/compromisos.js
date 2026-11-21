@@ -3,7 +3,6 @@ import { createAuthenticatedClient, findOrCreateCategory, sendApiError } from '.
 
 const allowed = {
   replenishment: ['open', 'partially_settled', 'settled'],
-  reserve: ['reserved', 'released', 'settled'],
   planned_extra: ['open', 'settled', 'released'],
   historical_expense: ['recorded'],
 }
@@ -128,7 +127,6 @@ export default async function handler(req, res) {
       if (body.status !== undefined || req.method === 'POST') {
         const defaultStatus = {
           replenishment: 'open',
-          reserve: 'reserved',
           planned_extra: 'open',
           historical_expense: 'recorded',
         }[kind]
