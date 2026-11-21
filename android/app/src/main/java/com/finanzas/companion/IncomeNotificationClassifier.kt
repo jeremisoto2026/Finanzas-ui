@@ -18,35 +18,35 @@ data class IncomeNoticeClassification(
 
 object IncomeNotificationClassifier {
     private val amountPattern = Regex(
-        """(?<![\p{L}\d])(?:€|EUR)\\s*((?:\\d{1,3}(?:[ .\\u00A0,]\\d{3})+|\\d+)(?:[,.]\\d{1,2})?)|(?<![\p{L}\d])((?:\\d{1,3}(?:[ .\\u00A0,]\\d{3})+|\\d+)(?:[,.]\\d{1,2})?)\\s*(?:€|EUR)(?![\p{L}])""",
+        """(?<![\p{L}\d])(?:€|EUR)\s*((?:\d{1,3}(?:[ .\u00A0,]\d{3})+|\d+)(?:[,.]\d{1,2})?)|(?<![\p{L}\d])((?:\d{1,3}(?:[ .\u00A0,]\d{3})+|\d+)(?:[,.]\d{1,2})?)\s*(?:€|EUR)(?![\p{L}])""",
         RegexOption.IGNORE_CASE
     )
     private val inboundSignal = Regex(
-        """\b(ingres|abono|abonad|recibid|recibiste|recibimos|te\\s+ha[n]?\\s+enviado|enviado\\s+a\\s+tu\\s+cuenta|a\\s+tu\\s+favor|transferencia\\s+entrante|bizum|n[oó]mina|salario|salary|payroll|cashback|reembolso|devoluci[oó]n|reintegro|recompensa|reward|prestaci[oó]n|pensi[oó]n|inter[eé]s|interest|liquidaci[oó]n|payment\\s+received|money\\s+received|credit(?:ed)?|deposit(?:ed)?|refund(?:ed)?|返金)\b""",
+        """\b(ingres|abono|abonad|recibid|recibiste|recibimos|te\s+ha[n]?\s+enviado|enviado\s+a\s+tu\s+cuenta|a\s+tu\s+favor|transferencia\s+entrante|bizum|n[oó]mina|salario|salary|payroll|cashback|reembolso|devoluci[oó]n|reintegro|recompensa|reward|prestaci[oó]n|pensi[oó]n|inter[eé]s|interest|liquidaci[oó]n|payment\s+received|money\s+received|credit(?:ed)?|deposit(?:ed)?|refund(?:ed)?|返金)\b""",
         RegexOption.IGNORE_CASE
     )
     private val strongAutomaticSignal = Regex(
-        """\b(n[oó]mina\\s+(?:recibida|ingresada|abonada)|salary\\s+(?:received|credited)|payroll\\s+credited|abono\\s+confirmado|reembolso\\s+abonado|devoluci[oó]n\\s+abonada)\b""",
+        """\b(n[oó]mina\s+(?:recibida|ingresada|abonada)|salary\s+(?:received|credited)|payroll\s+credited|abono\s+confirmado|reembolso\s+abonado|devoluci[oó]n\s+abonada)\b""",
         RegexOption.IGNORE_CASE
     )
     private val ambiguousTransferSignal = Regex(
-        """\b(transferencia|bizum|te\\s+ha[n]?\\s+enviado|incoming\\s+transfer|payment\\s+received)\b""",
+        """\b(transferencia|bizum|te\s+ha[n]?\s+enviado|incoming\s+transfer|payment\s+received)\b""",
         RegexOption.IGNORE_CASE
     )
     private val ownTransferSignal = Regex(
-        """\b(entre\\s+(?:mis\\s+)?cuentas|traspaso\\s+(?:entre\\s+)?cuentas|cuenta\\s+propia|misma\\s+titularidad|transferencia\\s+interna|own\\s+account|between\\s+(?:my\\s+)?accounts|internal\\s+transfer)\b""",
+        """\b(entre\s+(?:mis\s+)?cuentas|traspaso\s+(?:entre\s+)?cuentas|cuenta\s+propia|misma\s+titularidad|transferencia\s+interna|own\s+account|between\s+(?:my\s+)?accounts|internal\s+transfer)\b""",
         RegexOption.IGNORE_CASE
     )
     private val outgoingSignal = Regex(
-        """\b(pagaste|has\\s+pagado|pago\\s+(?:realizado|enviado|emitido)|compra|cargo|retirada|retiraste|enviaste|has\\s+enviado|transferencia\\s+enviada|bizum\\s+enviado|domiciliaci[oó]n|recibo\\s+pagado|debit(?:ed)?|purchase|card\\s+payment|withdrawal|sent\\s+(?:a\\s+)?payment|money\\s+sent|outgoing\\s+transfer)\b""",
+        """\b(pagaste|has\s+pagado|pago\s+(?:realizado|enviado|emitido)|compra|cargo|retirada|retiraste|enviaste|has\s+enviado|transferencia\s+enviada|bizum\s+enviado|domiciliaci[oó]n|recibo\s+pagado|debit(?:ed)?|purchase|card\s+payment|withdrawal|sent\s+(?:a\s+)?payment|money\s+sent|outgoing\s+transfer)\b""",
         RegexOption.IGNORE_CASE
     )
     private val failedSignal = Regex(
-        """\b(rechazad[oa]|denegad[oa]|cancelad[oa]|fallid[oa]|failed|rejected|declined|cancelled|canceled|no\\s+se\\s+ha\\s+podido)\b""",
+        """\b(rechazad[oa]|denegad[oa]|cancelad[oa]|fallid[oa]|failed|rejected|declined|cancelled|canceled|no\s+se\s+ha\s+podido)\b""",
         RegexOption.IGNORE_CASE
     )
     private val informationalSignal = Regex(
-        """\b(saldo|balance|disponible|available\\s+balance|l[ií]mite|c[oó]digo|verification|security\\s+code|otp|publicidad|promoci[oó]n|newsletter|oferta|descuento|promo(?:tion)?)\b""",
+        """\b(saldo|balance|disponible|available\s+balance|l[ií]mite|c[oó]digo|verification|security\s+code|otp|publicidad|promoci[oó]n|newsletter|oferta|descuento|promo(?:tion)?)\b""",
         RegexOption.IGNORE_CASE
     )
     private val moneyContextSignal = Regex(
@@ -107,7 +107,7 @@ object IncomeNotificationClassifier {
     }
 
     private fun combine(title: String?, text: String?): String =
-        (title.orEmpty() + "\\n" + text.orEmpty()).trim().take(4_000)
+        (title.orEmpty() + "\n" + text.orEmpty()).trim().take(4_000)
 
     private fun ignored(reason: String) = IncomeNoticeClassification(
         IncomeNoticeDecision.IGNORE, reason = reason
@@ -118,7 +118,7 @@ object IncomeNotificationClassifier {
         if (matches.size != 1) return null
         val raw = matches.single().groupValues.drop(1).firstOrNull { it.isNotBlank() }
             ?: return null
-        var normalized = raw.replace(" ", "").replace("\\u00A0", "")
+        var normalized = raw.replace(" ", "").replace("\u00A0", "")
         val comma = normalized.lastIndexOf(',')
         val dot = normalized.lastIndexOf('.')
         normalized = when {
