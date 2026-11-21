@@ -21,8 +21,9 @@ class NotificationCaptureService : NotificationListenerService() {
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
-        // Derive a stable app key from the package. Unknown apps are accepted
-        // as candidate financial sources; the flexible parser filters non-payment alerts.
+        // Resolve the app against the financial-source allowlist before reading any
+        // notification extras (including messaging-style android.messages). Personal
+        // and unknown apps are ignored without inspecting their notification content.
         val appLabel = try {
             val applicationInfo = packageManager.getApplicationInfo(sbn.packageName, 0)
             packageManager.getApplicationLabel(applicationInfo).toString()
