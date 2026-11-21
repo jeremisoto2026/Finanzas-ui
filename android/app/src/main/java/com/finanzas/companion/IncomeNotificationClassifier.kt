@@ -35,7 +35,7 @@ object IncomeNotificationClassifier {
         RegexOption.IGNORE_CASE
     )
 
-    private val ownTransferSignal = Regex(
+    private val ambiguousTransferSignal = Regex(\n        """\\b(transferencia\\s+recibida|transferencia\\s+entrante|incoming\\s+transfer)\\b""",\n        RegexOption.IGNORE_CASE\n    )\n\n    private val ownTransferSignal = Regex(
         """\\b(entre\\s+(?:mis\\s+)?cuentas|traspaso\\s+(?:entre\\s+)?cuentas|cuenta\\s+propia|misma\\s+titularidad|transferencia\\s+interna|own\\s+account|between\\s+(?:my\\s+)?accounts|internal\\s+transfer)\\b""",
         RegexOption.IGNORE_CASE
     )
@@ -71,7 +71,7 @@ object IncomeNotificationClassifier {
             )
         }
 
-        return if (strongAutomaticSignal.containsMatchIn(combined)) {
+        return if (strongAutomaticSignal.containsMatchIn(combined) &&\n            !ambiguousTransferSignal.containsMatchIn(combined)\n        ) {
             IncomeNoticeClassification(
                 IncomeNoticeDecision.AUTO_INCOME,
                 amountCents = amount,
@@ -96,7 +96,7 @@ object IncomeNotificationClassifier {
         if (matches.size != 1) return null
         val raw = matches.single().groupValues.drop(1).firstOrNull { it.isNotBlank() }
             ?: return null
-        var normalized = raw.replace(" ", "").replace("\\u00A0", "")
+        var normalized = raw.replace(" ", "").replace("\u00A0", "")
         val comma = normalized.lastIndexOf(',')
         val dot = normalized.lastIndexOf('.')
         normalized = when {
