@@ -36,6 +36,17 @@ class IncomeNotificationClassifierTest {
     }
 
     @Test
+    fun ownAccountTransfersAreAlsoBlockedFromExpenseParser() {
+        assertEquals(
+            true,
+            IncomeNotificationClassifier.shouldSkipExpense(
+                "Transferencia recibida",
+                "Traspaso de 10,00 EUR entre mis cuentas"
+            )
+        )
+    }
+
+    @Test
     fun ignoresBalanceAndAvailableFundsNotifications() {
         val result = IncomeNotificationClassifier.classify(
             "Saldo actualizado",
