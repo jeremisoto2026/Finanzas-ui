@@ -72,11 +72,11 @@ object IncomeNotificationClassifier {
 
         val amount = extractAmountCents(combined)
         val explicitInbound = inboundSignal.containsMatchIn(combined)
-        // Open-set fallback: an unfamiliar wording from a financial app with
-        // a currency amount and transaction/money context is a review candidate.
-        val broadFinancialCandidate = isFinancialSource &&
-            amount != null &&
-            moneyContextSignal.containsMatchIn(combined)
+        // Open-set fallback: any monetary amount from a recognized financial
+        // notification source is reviewable unless a stronger rule above has
+        // identified it as outgoing, failed, informational or an own-account move.
+        // Do not require a known phrase or a predefined transaction vocabulary.
+        val broadFinancialCandidate = isFinancialSource && amount != null
 
         if (!explicitInbound && !broadFinancialCandidate) {
             return ignored("No hay señales suficientes de una entrada monetaria")
