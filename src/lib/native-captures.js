@@ -50,6 +50,12 @@ export async function openAppNotificationSettings() {
   return LocalCaptures.openAppNotificationSettings()
 }
 
+export async function consumePendingNotificationNavigation() {
+  if (!isFinanzasAndroid()) return null
+  const result = await LocalCaptures.consumePendingNavigation()
+  return result?.navigation || null
+}
+
 export async function clearLocalCaptures() {
   if (!isFinanzasAndroid()) {
     throw new Error('Esta función está disponible en la aplicación Android.')
