@@ -13,6 +13,8 @@ const formatMoney = (amount, currency = 'EUR') => new Intl.NumberFormat('es-ES',
 export default function DineroDisponible() {
   const [accounts, setAccounts] = useState([])
   const [reservations, setReservations] = useState([])
+  const [reservationsLoading, setReservationsLoading] = useState(true)
+  const [reservationsError, setReservationsError] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [editingAccount, setEditingAccount] = useState(null)
@@ -130,10 +132,19 @@ export default function DineroDisponible() {
         const response = await fetch('/api/compromisos?resource=reservations', { cache: 'no-store' })
         if (!response.ok) throw new Error('No se pudieron cargar las reservas activas.')
         const data = await response.json()
-        if (!cancelled) setReservations(Array.isArray(data) ? data : [])
+        if (!Array.isArray(data)) throw new Error('La respuesta de reservas no es válida.')
+        if (!cancelled) {
+          setReservations(data)
+          setReservationsError('')
+        }
       } catch (reservationError) {
         console.error('No se pudieron cargar las reservas:', reservationError)
-        if (!cancelled) setReservations([])
+        if (!cancelled) {
+          setReservations([])
+          setReservationsError('No se pudo verificar el dinero reservado. Vuelve a cargar para consultar el dinero libre.')
+        }
+      } finally {
+        if (!cancelled) setReservationsLoading(false)
       }
     }
     loadReservations()
@@ -260,14 +271,22 @@ export default function DineroDisponible() {
               )}
               <div className="rounded-xl border border-amber-500/20 bg-amber-500/[0.06] p-4">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.13em] text-amber-300/80">Dinero reservado</p>
-                {Object.entries(reservedByCurrency).length ? Object.entries(reservedByCurrency).map(([currency, amount]) => (
+                {reservationsLoading ? (
+                  <p className="mt-2 text-sm text-slate-300">Comprobando reservas…</p>
+                ) : reservationsError ? (
+                  <p className="mt-2 text-sm text-rose-300">No disponible</p>
+                ) : Object.entries(reservedByCurrency).length ? Object.entries(reservedByCurrency).map(([currency, amount]) => (
                   <p key={currency} className="mt-2 text-2xl font-semibold tabular-nums text-white">{formatMoney(amount, currency)}</p>
                 )) : <p className="mt-2 text-2xl font-semibold tabular-nums text-white">{formatMoney(0)}</p>}
-                <p className="mt-1 text-xs text-slate-400">Reservas activas vinculadas a tus cuentas.</p>
+                <p className="mt-1 text-xs text-slate-400">{reservationsError || 'Reservas activas vinculadas a tus cuentas.'}</p>
               </div>
               <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/[0.06] p-4">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.13em] text-emerald-300/80">Dinero libre tras reservas</p>
-                {Object.entries(availableByCurrency).map(([currency, amount]) => (
+                {reservationsLoading ? (
+                  <p className="mt-2 text-sm text-slate-300">Calculando…</p>
+                ) : reservationsError ? (
+                  <p className="mt-2 text-sm text-rose-300">No se puede calcular con seguridad</p>
+                ) : Object.entries(availableByCurrency).map(([currency, amount]) => (
                   <p key={currency} className="mt-2 text-2xl font-semibold tabular-nums text-white">{formatMoney(amount, currency)}</p>
                 ))}
                 <p className="mt-1 text-xs text-slate-400">Saldo bancario menos reservas activas, sin mezclar monedas.</p>
