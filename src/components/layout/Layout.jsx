@@ -1,7 +1,9 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
 import { Home, Receipt, TrendingUp, Settings } from 'lucide-react'
 import Sidebar from './Sidebar'
-import Navbar from './Navbar'\nimport { useSettingsAttention } from '@/hooks/useSettingsAttention'\nimport { consumePendingNotificationNavigation, isFinanzasAndroid } from '@/lib/native-captures'
+import Navbar from './Navbar'
+import { useSettingsAttention } from '@/hooks/useSettingsAttention'
+import { consumePendingNotificationNavigation, isFinanzasAndroid } from '@/lib/native-captures'
 
 const Dashboard = lazy(() => import('@/pages/Dashboard'))
 const Gastos = lazy(() => import('@/pages/Gastos'))
