@@ -1,4 +1,5 @@
 import FinanceSelect from '@/components/ui/FinanceSelect'
+import ReservasPanel from '@/components/ReservasPanel'
 import { useEffect, useMemo, useState } from 'react'
 import { ArrowPathIcon, BanknotesIcon, CheckCircleIcon, PlusIcon, PencilSquareIcon, TrashIcon, XMarkIcon } from '@heroicons/react/24/outline'
 import { sumMoney } from '@/lib/finance-core'
@@ -204,6 +205,7 @@ export default function Compromisos() {
 
   return (
     <div className="mx-auto w-full max-w-7xl space-y-6 text-slate-100">
+      <ReservasPanel />
       {settlement && (
         <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 p-4">
           <form onSubmit={submitSettlement} className="w-full max-w-lg space-y-4 rounded-2xl border border-slate-700 bg-slate-900 p-5 shadow-2xl">
