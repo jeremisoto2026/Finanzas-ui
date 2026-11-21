@@ -687,7 +687,7 @@ export default function CapturasAutomaticas() {
               {syncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
               {syncing ? 'Sincronizando…' : 'Sincronizar ahora'}
             </button>
-            <span className="text-xs text-slate-500">{localCaptures.length} capturas guardadas cifradas en este móvil</span>
+            <span className="text-xs text-slate-500">{localCaptures.length} compras y {localIncomeCandidates.length} posibles ingresos guardados cifrados en este móvil</span>
           </div>
         </div>
       ) : (
