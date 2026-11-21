@@ -11,10 +11,12 @@ object CaptureEvents {
 
 class NotificationCaptureService : NotificationListenerService() {
     private lateinit var captureStore: CaptureStore
+    private lateinit var incomeCaptureStore: IncomeCaptureStore
 
     override fun onCreate() {
         super.onCreate()
         captureStore = CaptureStore(applicationContext)
+        incomeCaptureStore = IncomeCaptureStore(applicationContext)
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
@@ -40,12 +42,32 @@ class NotificationCaptureService : NotificationListenerService() {
         val combinedText = textParts.joinToString("\n")
         if (combinedText.isBlank()) return
 
+        val notificationKey = "${sbn.packageName}:${sbn.key}"
+        val incomeClassification = if (source.isWallet) {
+            IncomeNotificationClassifier.classify(null, null)
+        } else {
+            IncomeNotificationClassifier.classify(title, combinedText)
+        }
+        if (incomeClassification.decision != IncomeNoticeDecision.IGNORE) {
+            val added = incomeCaptureStore.add(
+                source = source,
+                classification = incomeClassification,
+                occurredAtMillis = sbn.postTime,
+                notificationKey = notificationKey
+            )
+            if (added) CaptureSyncScheduler.enqueue(applicationContext)
+            CaptureEvents.onChanged?.invoke()
+            return
+        }
+        // A transfer between the user's own accounts is neither income nor expense.
+        if (IncomeNotificationClassifier.shouldSkipExpense(title, combinedText)) return
+
         val parsed = NotificationParser.parse(
             source = source,
             title = title,
             text = combinedText,
             occurredAtMillis = sbn.postTime,
-            notificationKey = "${sbn.packageName}:${sbn.key}"
+            notificationKey = notificationKey
         ) ?: return
 
         val result = captureStore.add(parsed)

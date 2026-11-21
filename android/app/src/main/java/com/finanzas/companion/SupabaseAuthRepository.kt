@@ -84,6 +84,7 @@ class SupabaseAuthRepository(context: Context) {
             // A shared device must never upload one person's local payment notices
             // to a different signed-in user's financial ledger.
             CaptureStore(appContext).clear()
+            IncomeCaptureStore(appContext).clear()
         }
     }
 

@@ -25,6 +25,9 @@ class LocalCapturesPlugin : Plugin() {
     private val captureStore: CaptureStore by lazy {
         CaptureStore(getContext().applicationContext)
     }
+    private val incomeCaptureStore: IncomeCaptureStore by lazy {
+        IncomeCaptureStore(getContext().applicationContext)
+    }
     private val authRepository: SupabaseAuthRepository by lazy {
         SupabaseAuthRepository(getContext().applicationContext)
     }
@@ -89,10 +92,25 @@ class LocalCapturesPlugin : Plugin() {
                 rows.put(row)
             }
 
+            val incomeRows = JSArray()
+            incomeCaptureStore.readAll().forEach { candidate ->
+                incomeRows.put(JSObject().apply {
+                    put("id", candidate.id)
+                    put("sourceApp", candidate.source.sourceApp)
+                    put("sourceLabel", candidate.source.label)
+                    put("packageName", candidate.source.packageName)
+                    put("amountCents", candidate.amountCents ?: JSONObject.NULL)
+                    put("currencyCode", candidate.currencyCode)
+                    put("occurredAtMillis", candidate.occurredAtMillis)
+                    put("reason", candidate.reason)
+                })
+            }
+
             val result = JSObject().apply {
                 put("available", true)
                 put("permissionEnabled", permissionEnabled)
                 put("captures", rows)
+                put("incomeCandidates", incomeRows)
                 put("syncEnabled", true)
             }
             call.resolve(result)
@@ -220,6 +238,7 @@ class LocalCapturesPlugin : Plugin() {
     fun clearCaptures(call: PluginCall) {
         try {
             captureStore.clear()
+            incomeCaptureStore.clear()
             call.resolve(JSObject().apply { put("success", true) })
         } catch (error: Exception) {
             call.reject("No se pudieron borrar las capturas locales.", error)

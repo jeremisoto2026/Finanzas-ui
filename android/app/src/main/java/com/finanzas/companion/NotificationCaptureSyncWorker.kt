@@ -26,12 +26,14 @@ class NotificationCaptureSyncWorker(
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
         try {
             val captures = CaptureStore(applicationContext).readAll()
-            if (captures.isEmpty()) return@withContext Result.success()
+            val incomeCandidates = IncomeCaptureStore(applicationContext).readAll()
+            if (captures.isEmpty() && incomeCandidates.isEmpty()) return@withContext Result.success()
 
             val token = SupabaseAuthRepository(applicationContext).validAccessTokenForFutureSync()
                 ?: return@withContext Result.success()
 
-            val payload = JSONObject().put("captures", JSONArray().apply {
+            val payload = JSONObject()
+                .put("captures", JSONArray().apply {
                 captures.forEach { capture ->
                     put(JSONObject()
                         .put("id", capture.id)
@@ -52,8 +54,20 @@ class NotificationCaptureSyncWorker(
                             }
                         })
                         .put("isPaired", capture.isPaired))
-                }
-            })
+                }})
+                .put("incomeCandidates", JSONArray().apply {
+                    incomeCandidates.forEach { candidate ->
+                        put(JSONObject()
+                            .put("id", candidate.id)
+                            .put("sourceApp", candidate.source.sourceApp)
+                            .put("packageName", candidate.source.packageName)
+                            .put("sourceLabel", candidate.source.label)
+                            .put("amountCents", candidate.amountCents ?: JSONObject.NULL)
+                            .put("currencyCode", candidate.currencyCode)
+                            .put("occurredAtMillis", candidate.occurredAtMillis)
+                            .put("reason", candidate.reason))
+                    }
+                })
 
             val connection = (URL(BuildConfig.SUPABASE_URL.trimEnd('/') +
                 "/functions/v1/notification-capture-sync").openConnection() as HttpURLConnection).apply {
