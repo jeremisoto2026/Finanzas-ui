@@ -62,6 +62,7 @@ export default function Ajustes({ onNavigate, attentionCounts = {} }) {
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             {section.items.map((item) => {
               const Icon = item.icon
+              const pendingCount = Number(attentionCounts[item.page] || 0)
               return (
                 <button
                   key={item.page}
