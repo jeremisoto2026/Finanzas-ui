@@ -43,7 +43,11 @@ class NotificationCaptureService : NotificationListenerService() {
         if (combinedText.isBlank()) return
 
         val notificationKey = "${sbn.packageName}:${sbn.key}"
-        val incomeClassification = IncomeNotificationClassifier.classify(title, combinedText)
+        val incomeClassification = if (source.isWallet) {
+            IncomeNotificationClassifier.classify(null, null)
+        } else {
+            IncomeNotificationClassifier.classify(title, combinedText)
+        }
         if (incomeClassification.decision != IncomeNoticeDecision.IGNORE) {
             val added = incomeCaptureStore.add(
                 source = source,
