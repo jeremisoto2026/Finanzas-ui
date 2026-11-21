@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, Loader2, RefreshCw, XCircle } from 'lucide-react'
+import { ArrowLeftRight, Loader2, RefreshCw, XCircle } from 'lucide-react'
+import { useConfirmationDialog } from '@/components/ui/ConfirmationDialog'
 
 function todayKey() {
   return new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Madrid', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
@@ -9,6 +10,7 @@ function money(value, currency) {
 }
 
 export default function Transferencias() {
+  const confirm = useConfirmationDialog()
   const [accounts, setAccounts] = useState([])
   const [transfers, setTransfers] = useState([])
   const [fromAccountId, setFromAccountId] = useState('')
@@ -75,7 +77,13 @@ export default function Transferencias() {
   }
 
   async function cancelTransfer(transfer) {
-    if (!window.confirm('¿Anular esta transferencia? Se anularán conjuntamente sus dos movimientos y se restaurarán los saldos.')) return
+    const approved = await confirm({
+      title: '¿Anular esta transferencia?',
+      description: `Se anularán conjuntamente los dos movimientos de ${money(transfer.amount, transfer.currencyCode)} entre ${transfer.fromAccount} y ${transfer.toAccount}. Los saldos de ambas cuentas se restaurarán automáticamente. Esta acción no se puede deshacer.`,
+      confirmLabel: 'Anular transferencia',
+      cancelLabel: 'Cancelar',
+    })
+    if (!approved) return
     setBusyId(transfer.id); setError(''); setNotice('')
     try {
       const response = await fetch('/api/cuentas?resource=transfers', {
