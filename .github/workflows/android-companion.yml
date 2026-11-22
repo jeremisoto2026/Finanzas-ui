@@ -6,6 +6,7 @@ on:
       - feat/finance-core-hardening
       - feat/finanzas-apk-capacitor
       - feat/finanzas-cuentas-dinamicas-edicion
+      - feat/fase5-alertas-inteligentes
     paths:
       - "android/**"
       - "src/**"
