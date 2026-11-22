@@ -1,7 +1,9 @@
-import { lazy, Suspense, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { Home, Receipt, TrendingUp, Settings } from 'lucide-react'
 import Sidebar from './Sidebar'
 import Navbar from './Navbar'
+import { useSettingsAttention } from '@/hooks/useSettingsAttention'
+import { consumePendingNotificationNavigation, isFinanzasAndroid } from '@/lib/native-captures'
 
 const Dashboard = lazy(() => import('@/pages/Dashboard'))
 const Gastos = lazy(() => import('@/pages/Gastos'))
@@ -23,11 +25,11 @@ const primaryItems = [
   { name: 'Ajustes', label: 'Ajustes', icon: Settings },
 ]
 
-function PageContent({ activePage, onNavigate }) {
+function PageContent({ activePage, onNavigate, attentionCounts }) {
   if (activePage === 'Dashboard') return <Dashboard />
   if (activePage === 'Gastos') return <Gastos />
   if (activePage === 'Ingresos') return <Ingresos />
-  if (activePage === 'Ajustes') return <Ajustes onNavigate={onNavigate} />
+  if (activePage === 'Ajustes') return <Ajustes onNavigate={onNavigate} attentionCounts={attentionCounts} />
   if (activePage === 'Recordatorios') return <Recordatorios />
   if (activePage === 'Automatizaciones') return <Automatizaciones onNavigate={onNavigate} />
   if (activePage === 'Compras pendientes') return <CapturasAutomaticas />
@@ -56,11 +58,53 @@ function LoadingView() {
 
 export default function Layout({ onSignOut }) {
   const [activePage, setActivePage] = useState('Dashboard')
+  const { counts: attentionCounts, total: attentionTotal } = useSettingsAttention()
 
   const cambiarPagina = (page) => {
     setActivePage(page)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
+  useEffect(() => {
+    if (!isFinanzasAndroid()) return undefined
+    let active = true
+    let reading = false
+
+    const consumeRoute = async () => {
+      if (reading || !active) return
+      reading = true
+      try {
+        const payload = await consumePendingNotificationNavigation()
+        if (!active || !payload?.route) return
+        if (payload.route === 'income-review') {
+          cambiarPagina('Compras pendientes')
+        } else if (payload.route === 'expenses') {
+          cambiarPagina('Gastos')
+          window.__finanzasPendingExpenseFocus = payload
+          window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
+            window.dispatchEvent(new CustomEvent('finanzas:focus-expense', { detail: payload }))
+          }))
+        }
+        window.dispatchEvent(new Event('finanzas:attention-refresh'))
+      } catch (error) {
+        console.warn('No se pudo abrir el destino de la notificación:', error?.message || error)
+      } finally {
+        reading = false
+      }
+    }
+
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') void consumeRoute()
+    }
+    void consumeRoute()
+    window.addEventListener('focus', consumeRoute)
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      active = false
+      window.removeEventListener('focus', consumeRoute)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
+  }, [])
+
 
   const abrirNuevoMovimiento = async (tipo = 'expense') => {
     const esIngreso = tipo === 'income'
@@ -81,14 +125,14 @@ export default function Layout({ onSignOut }) {
 
   return (
     <div className="app-shell min-h-screen text-slate-100 lg:flex">
-      <Sidebar activePage={activePage} setActivePage={cambiarPagina} />
+      <Sidebar activePage={activePage} setActivePage={cambiarPagina} attentionCount={attentionTotal} />
 
       <div className="min-w-0 flex-1">
         <Navbar activePage={activePage} onAdd={abrirNuevoMovimiento} onSignOut={onSignOut} />
 
         <main className="app-main mx-auto min-w-0 w-full max-w-[1760px] px-3 pb-28 pt-5 sm:px-5 md:px-7 md:pt-7 lg:px-8 lg:pb-10 2xl:px-10">
           <Suspense fallback={<LoadingView />}>
-            <PageContent activePage={activePage} onNavigate={cambiarPagina} />
+            <PageContent activePage={activePage} onNavigate={cambiarPagina} attentionCounts={attentionCounts} />
           </Suspense>
         </main>
       </div>
@@ -114,7 +158,10 @@ export default function Layout({ onSignOut }) {
               onClick={() => cambiarPagina(item.name)}
               className={'mobile-nav-item ' + (active ? 'is-active' : '')}
             >
-              <Icon className="h-5 w-5" strokeWidth={active ? 2.4 : 1.8} />
+              <span className="relative inline-flex">
+                <Icon className="h-5 w-5" strokeWidth={active ? 2.4 : 1.8} />
+                {item.name === 'Ajustes' && attentionTotal > 0 && <span className="absolute -right-2 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[9px] font-bold leading-none text-white">{attentionTotal > 99 ? '99+' : attentionTotal}</span>}
+              </span>
               <span>{item.label}</span>
             </button>
           )

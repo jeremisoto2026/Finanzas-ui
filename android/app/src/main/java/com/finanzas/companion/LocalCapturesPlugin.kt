@@ -217,6 +217,18 @@ class LocalCapturesPlugin : Plugin() {
     }
 
     @PluginMethod
+    fun consumePendingNavigation(call: PluginCall) {
+        try {
+            val payload = NotificationNavigationStore.consume(getContext())
+            call.resolve(JSObject().apply {
+                put("navigation", payload ?: JSONObject.NULL)
+            })
+        } catch (error: Exception) {
+            call.reject("No se pudo recuperar la navegación de la notificación.", error)
+        }
+    }
+
+    @PluginMethod
     fun showRegisteredExpenses(call: PluginCall) {
         try {
             val expenses = call.getArray("expenses")

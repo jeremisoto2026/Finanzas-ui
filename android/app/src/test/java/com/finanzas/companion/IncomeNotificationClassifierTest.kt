@@ -114,7 +114,7 @@ class IncomeNotificationClassifierTest {
     }
 
     @Test
-    fun unfamiliarPositiveBankMovementIsCapturedForReview() {
+    fun unfamiliarPositiveBankMovementWithoutInboundWordingIsIgnored() {
         val result = IncomeNotificationClassifier.classify(
             "BBVA", "Movimiento a tu favor: 42,50 EUR", isFinancialSource = true
         )
@@ -149,4 +149,44 @@ class IncomeNotificationClassifierTest {
         )
         assertEquals(IncomeNoticeDecision.IGNORE, result.decision)
     }
+    @Test
+    fun bbvaAcceptedBizumPaymentIsOutgoingNeverIncome() {
+        val result = IncomeNotificationClassifier.classify(
+            "Pago aceptado ✅",
+            "Aceptado el pago de 8,67 EUR en PAGO DE IMPUESTOS AEAT con Bizum"
+        )
+        assertEquals(IncomeNoticeDecision.IGNORE, result.decision)
+        assertNull(result.amountCents)
+    }
+
+    @Test
+    fun outgoingBizumAndSentTransferAreNeverIncome() {
+        val bizum = IncomeNotificationClassifier.classify(
+            "Bizum", "Has enviado un Bizum de 18,00 EUR"
+        )
+        val transfer = IncomeNotificationClassifier.classify(
+            "Transferencia", "Transferencia enviada de 75,00 EUR"
+        )
+        assertEquals(IncomeNoticeDecision.IGNORE, bizum.decision)
+        assertEquals(IncomeNoticeDecision.IGNORE, transfer.decision)
+    }
+
+    @Test
+    fun receivedBizumRemainsManualIncomeReview() {
+        val result = IncomeNotificationClassifier.classify(
+            "Bizum recibido", "Has recibido un Bizum de 18,00 EUR"
+        )
+        assertEquals(IncomeNoticeDecision.NEEDS_REVIEW, result.decision)
+        assertEquals(1800L, result.amountCents)
+    }
+
+    @Test
+    fun genericBizumWithoutDirectionIsNotIncome() {
+        val result = IncomeNotificationClassifier.classify(
+            "Bizum", "Operación Bizum de 18,00 EUR"
+        )
+        assertEquals(IncomeNoticeDecision.IGNORE, result.decision)
+        assertNull(result.amountCents)
+    }
+
 }

@@ -55,6 +55,7 @@ export default function TablaGastos() {
   const [editingGastoId, setEditingGastoId] = useState(null);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState('');
+  const [focusedExpense, setFocusedExpense] = useState(null);
   const [nuevoGasto, setNuevoGasto] = useState({
     concepto: '',
     monto: '',
@@ -157,6 +158,36 @@ export default function TablaGastos() {
     window.addEventListener('finanzas:open-new-expense', handleQuickCreate)
     return () => window.removeEventListener('finanzas:open-new-expense', handleQuickCreate)
   }, [categoriasDisponibles])
+  useEffect(() => {
+    const applyFocus = (detail = {}) => {
+      setFocusedExpense({
+        merchant: String(detail.merchant || '').trim().toLocaleLowerCase('es'),
+        amountCents: Number(detail.amountCents || 0),
+      })
+      window.__finanzasPendingExpenseFocus = null
+    }
+    const handleFocusExpense = (event) => applyFocus(event.detail || {})
+    window.addEventListener('finanzas:focus-expense', handleFocusExpense)
+    if (window.__finanzasPendingExpenseFocus) applyFocus(window.__finanzasPendingExpenseFocus)
+    return () => window.removeEventListener('finanzas:focus-expense', handleFocusExpense)
+  }, [])
+
+  useEffect(() => {
+    if (!focusedExpense?.merchant || !focusedExpense.amountCents || !gastosMensuales.length) return
+    const match = gastosMensuales.find((expense) => {
+      const merchant = String(expense.concepto || '').trim().toLocaleLowerCase('es')
+      const amount = Math.round(Number(expense.monto || 0) * 100)
+      return merchant === focusedExpense.merchant && amount === focusedExpense.amountCents
+    })
+    if (!match) return
+    const month = monthKeyFromDate(match.fecha)
+    if (month) setFiltroMes(month)
+    window.setTimeout(() => {
+      const row = document.querySelector('[data-finanzas-expense-focus="true"]')
+      row?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }, 180)
+  }, [focusedExpense, gastosMensuales])
+
 
   const editarGasto = (gasto) => {
     setEditingGastoId(gasto.id)
@@ -689,7 +720,11 @@ export default function TablaGastos() {
                       }
                       
                       return (
-                        <tr key={gasto.id} className="hover:bg-slate-800/50 transition-colors">
+                        <tr
+                          key={gasto.id}
+                          data-finanzas-expense-focus={focusedExpense && String(gasto.concepto || '').trim().toLocaleLowerCase('es') === focusedExpense.merchant && Math.round(Number(gasto.monto || 0) * 100) === focusedExpense.amountCents ? 'true' : undefined}
+                          className={focusedExpense && String(gasto.concepto || '').trim().toLocaleLowerCase('es') === focusedExpense.merchant && Math.round(Number(gasto.monto || 0) * 100) === focusedExpense.amountCents ? 'bg-emerald-500/10 ring-1 ring-inset ring-emerald-400/50' : 'hover:bg-slate-800/50 transition-colors'}
+                        >
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-300">
                             {gasto.fecha}
                           </td>

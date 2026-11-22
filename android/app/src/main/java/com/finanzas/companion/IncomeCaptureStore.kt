@@ -34,7 +34,7 @@ class IncomeCaptureStore(context: Context) {
             item.source.sourceApp == source.sourceApp &&
                 ((!notificationKey.isNullOrBlank() && item.notificationKey == notificationKey) ||
                     (item.amountCents == classification.amountCents &&
-                        kotlin.math.abs(item.occurredAtMillis - occurredAtMillis) <= 2_000L))
+                        kotlin.math.abs(item.occurredAtMillis - occurredAtMillis) <= DUPLICATE_WINDOW_MS))
         }
         if (duplicate) return false
 
@@ -105,5 +105,7 @@ class IncomeCaptureStore(context: Context) {
     companion object {
         private const val KEY = "income_candidates"
         private const val MAX_LOCAL_CANDIDATES = 100
+        // Covers Android reposts that arrive with a refreshed notification key/post time.
+        private const val DUPLICATE_WINDOW_MS = 2 * 60 * 1000L
     }
 }

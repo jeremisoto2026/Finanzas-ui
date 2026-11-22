@@ -1,6 +1,7 @@
 package com.finanzas.companion
 
 import android.app.Notification
+import android.os.Bundle
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 
@@ -20,15 +21,26 @@ class NotificationCaptureService : NotificationListenerService() {
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
-        // Derive a stable app key from the package. Unknown apps are accepted
-        // as candidate financial sources; the flexible parser filters non-payment alerts.
+        // Resolve the app against the financial-source allowlist before reading any
+        // notification extras (including messaging-style android.messages). Personal
+        // and unknown apps are ignored without inspecting their notification content.
         val appLabel = try {
             val applicationInfo = packageManager.getApplicationInfo(sbn.packageName, 0)
             packageManager.getApplicationLabel(applicationInfo).toString()
         } catch (_: Exception) {
             sbn.packageName.substringAfterLast('.')
         }
-        val source = NotificationSource.fromPackage(sbn.packageName, appLabel) ?: return
+        val knownSource = NotificationSource.fromPackage(sbn.packageName, appLabel)
+        val manuallyAuthorized = BankAppAuthorizationStore(applicationContext)
+            .authorizedPackages().contains(sbn.packageName)
+        val source = knownSource ?: if (manuallyAuthorized) {
+            NotificationSource(
+                sourceApp = "android:${sbn.packageName}",
+                packageName = sbn.packageName,
+                label = appLabel.take(100).ifBlank { sbn.packageName.substringAfterLast('.') },
+                isBank = true
+            )
+        } else return
         val notification = sbn.notification ?: return
         val extras = notification.extras ?: return
 
@@ -39,13 +51,23 @@ class NotificationCaptureService : NotificationListenerService() {
             extras.getCharSequence(Notification.EXTRA_SUMMARY_TEXT)?.toString(),
             extras.getCharSequence(Notification.EXTRA_SUB_TEXT)?.toString(),
             extras.getCharSequence(Notification.EXTRA_TITLE_BIG)?.toString(),
-            extras.getCharSequence(Notification.EXTRA_INFO_TEXT)?.toString()
+            extras.getCharSequence(Notification.EXTRA_INFO_TEXT)?.toString(),
+            extras.getCharSequence(Notification.EXTRA_CONVERSATION_TITLE)?.toString(),
+            notification.tickerText?.toString()
         ).filterNot { it.isNullOrBlank() }.distinct()
 
+        // Messaging-style notifications (and some bank app versions) keep the
+        // actual transaction text in android.messages instead of EXTRA_TEXT.
+        val messageLines = extras.getParcelableArray("android.messages")
+            ?.mapNotNull { item ->
+                (item as? Bundle)?.getCharSequence("text")?.toString()
+                    ?.takeIf(String::isNotBlank)
+            }
+            .orEmpty()
         val textLines = extras.getCharSequenceArray(Notification.EXTRA_TEXT_LINES)
             ?.mapNotNull { it?.toString()?.takeIf(String::isNotBlank) }
             .orEmpty()
-        val combinedText = (textParts + textLines).distinct().joinToString("\n")
+        val combinedText = (textParts + messageLines + textLines).distinct().joinToString("\n")
         if (title.isNullOrBlank() && combinedText.isBlank()) return
 
         val notificationKey = "${sbn.packageName}:${sbn.key}"

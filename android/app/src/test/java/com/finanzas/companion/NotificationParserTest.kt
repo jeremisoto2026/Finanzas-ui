@@ -8,6 +8,24 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class NotificationParserTest {
+
+    @Test
+    fun bbvaAcceptedBizumTaxPaymentRoutesToExpenseParserNotIncomeReview() {
+        val title = "Pago aceptado ✅"
+        val text = "Aceptado el pago de 8,67 EUR en PAGO DE IMPUESTOS AEAT con Bizum"
+        val income = IncomeNotificationClassifier.classify(title, text)
+        val expense = NotificationParser.parse(
+            source = NotificationSource.BBVA,
+            title = title,
+            text = text,
+            occurredAtMillis = 1794958920000L
+        )
+
+        assertEquals(IncomeNoticeDecision.IGNORE, income.decision)
+        assertNotNull(expense)
+        assertEquals(867L, expense?.amountCents)
+    }
+
     private val revolutText =
         "Has pagado 2,50 € en Supermercado Altet\n⚒️\n⚠️ Saldo del Pocket EUR: 0,34 €"
 
@@ -59,7 +77,15 @@ class NotificationParserTest {
     }
 
     @Test
-    fun recognizesUnknownBankPackagesWithoutHardcodedProviderList() {
+    fun ignoresUnknownAndPersonalAppsBeforeNotificationParsing() {
+        assertNull(NotificationSource.fromPackage("com.example.game", "Juego"))
+        assertNull(NotificationSource.fromPackage("org.telegram.messenger", "Telegram"))
+        assertNull(NotificationSource.fromPackage("com.whatsapp", "WhatsApp"))
+        assertNotNull(NotificationSource.fromPackage("es.example.mobile", "Banco Ejemplo"))
+    }
+
+    @Test
+    fun recognizesBankPackagesByFinancialAppLabel() {
         val source = NotificationSource.fromPackage(
             "es.caixabank.mobile.android",
             "CaixaBank"

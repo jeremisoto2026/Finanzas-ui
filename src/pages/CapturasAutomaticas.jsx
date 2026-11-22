@@ -20,6 +20,8 @@ import {
   openNotificationAccessSettings,
   openAppNotificationSettings,
   syncLocalCaptures,
+  getBankAppAuthorizationState,
+  saveBankAppAuthorizations,
 } from '@/lib/native-captures'
 import { supabase } from '@/lib/supabase'
 import { DEFAULT_INCOME_CATEGORIES } from '@/lib/category-catalog'
@@ -29,6 +31,23 @@ const SOURCE_LABELS = {
   revolut: 'Revolut',
   bbva: 'BBVA',
   google_wallet: 'Google Wallet',
+}
+
+const KNOWN_FINANCIAL_APPS = {
+  'com.bbva.bbvacontigo': { type: 'Banco', name: 'BBVA', confidence: 'alta' },
+  'es.lacaixa.mobile.android.newwapicon': { type: 'Banco', name: 'CaixaBank', confidence: 'alta' },
+  'com.santander.app': { type: 'Banco', name: 'Santander', confidence: 'alta' },
+  'com.bankinter.launcher': { type: 'Banco', name: 'Bankinter', confidence: 'alta' },
+  'es.ingdirect.android': { type: 'Banco', name: 'ING', confidence: 'alta' },
+  'com.revolut.revolut': { type: 'Banco y pagos', name: 'Revolut', confidence: 'alta' },
+  'de.number26.android': { type: 'Banco', name: 'N26', confidence: 'alta' },
+  'com.paypal.android.p2pmobile': { type: 'Pagos', name: 'PayPal', confidence: 'alta' },
+  'com.transferwise.android': { type: 'Pagos', name: 'Wise', confidence: 'alta' },
+}
+
+function suggestFinancialApp(app, catalog = KNOWN_FINANCIAL_APPS) {
+  const packageName = String(app?.packageName || '').toLowerCase()
+  return catalog[packageName] || null
 }
 
 const formatAmount = (amount, currencyCode = 'EUR') => new Intl.NumberFormat('es-ES', {
@@ -85,6 +104,12 @@ export default function CapturasAutomaticas() {
   const [remoteEvents, setRemoteEvents] = useState([])
   const [incomeReviewItems, setIncomeReviewItems] = useState([])
   const [localIncomeCandidates, setLocalIncomeCandidates] = useState([])
+  const [bankApps, setBankApps] = useState([])
+  const [authorizedBankPackages, setAuthorizedBankPackages] = useState([])
+  const [savingBankApps, setSavingBankApps] = useState(false)
+  const [bankAppsFilter, setBankAppsFilter] = useState('')
+  const [financialAppsCatalog, setFinancialAppsCatalog] = useState(KNOWN_FINANCIAL_APPS)
+  const [catalogStatus, setCatalogStatus] = useState('local')
   const [accounts, setAccounts] = useState([])
   const [accountMappings, setAccountMappings] = useState([])
   const [categories, setCategories] = useState([])
@@ -104,6 +129,34 @@ export default function CapturasAutomaticas() {
   const [syncing, setSyncing] = useState(false)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
+
+  useEffect(() => {
+    let active = true
+    const catalogUrl = 'https://raw.githubusercontent.com/jeremisoto2026/Finanzas-ui/feat/notificaciones-directas-badges-ajustes/public/financial-apps-catalog.json'
+    fetch(catalogUrl, { cache: 'no-cache' })
+      .then((response) => {
+        if (!response.ok) throw new Error('No se pudo actualizar el catálogo')
+        return response.json()
+      })
+      .then((payload) => {
+        if (!Array.isArray(payload?.apps)) throw new Error('Catálogo financiero no válido')
+        const nextCatalog = Object.fromEntries(payload.apps
+          .filter((entry) => typeof entry?.packageName === 'string' && entry.packageName.trim())
+          .map((entry) => [entry.packageName.toLowerCase(), {
+            type: entry.type || 'Servicio financiero',
+            name: entry.name || null,
+            confidence: 'alta',
+          }]))
+        if (active && Object.keys(nextCatalog).length > 0) {
+          setFinancialAppsCatalog(nextCatalog)
+          setCatalogStatus('online')
+        }
+      })
+      .catch(() => {
+        if (active) setCatalogStatus('local')
+      })
+    return () => { active = false }
+  }, [])
 
   const sourceLabelMap = useMemo(() => {
     const labels = { ...SOURCE_LABELS }
@@ -174,10 +227,15 @@ export default function CapturasAutomaticas() {
         setPermissionEnabled(Boolean(localState.permissionEnabled))
         setLocalCaptures(Array.isArray(localState.captures) ? localState.captures : [])
         setLocalIncomeCandidates(Array.isArray(localState.incomeCandidates) ? localState.incomeCandidates : [])
+        const authorizationState = await getBankAppAuthorizationState()
+        setBankApps(Array.isArray(authorizationState.apps) ? authorizationState.apps : [])
+        setAuthorizedBankPackages(Array.isArray(authorizationState.authorizedPackages) ? authorizationState.authorizedPackages : [])
       } else {
         setPermissionEnabled(false)
         setLocalCaptures([])
         setLocalIncomeCandidates([])
+        setBankApps([])
+        setAuthorizedBankPackages([])
       }
 
       const { data: authData, error: authError } = await supabase.auth.getUser()
@@ -720,7 +778,47 @@ export default function CapturasAutomaticas() {
       {notice && <p role="status" className="rounded-xl border border-emerald-800/60 bg-emerald-950/30 p-3 text-sm text-emerald-200">{notice}</p>}
 
       {isNative ? (
+        <>
         <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
+          <div className="flex items-start gap-3">
+            <Smartphone className="mt-0.5 h-5 w-5 shrink-0 text-sky-300" />
+            <div className="min-w-0 flex-1">
+              <h2 className="text-lg font-semibold text-white">Aplicaciones autorizadas para detectar movimientos</h2>
+              <p className="mt-1 text-xs leading-relaxed text-slate-400">Selecciona las aplicaciones cuyas notificaciones puede analizar Finanzas para detectar gastos e ingresos. Las demás seguirán ignoradas. Los gastos identificados se registran automáticamente; los posibles ingresos siempre requieren confirmación manual. La selección se guarda cifrada en este móvil.</p>
+              <input type="search" value={bankAppsFilter} onChange={(event) => setBankAppsFilter(event.target.value)} placeholder="Buscar aplicación instalada…" className="mt-3 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm text-white placeholder:text-slate-500" />
+              <div className="mt-3 rounded-lg border border-sky-900/60 bg-sky-950/20 p-3">
+                <p className="text-xs font-semibold text-sky-200">{bankApps.filter((app) => suggestFinancialApp(app, financialAppsCatalog)).length} aplicaciones financieras reconocidas</p>
+                <p className="mt-1 text-[11px] leading-relaxed text-slate-400">{catalogStatus === 'online' ? 'Catálogo financiero actualizado desde Internet.' : 'Usando el catálogo financiero guardado en la aplicación; se actualizará cuando haya conexión.'} La comparación se realiza en este móvil: solo se descarga el catálogo público y nunca se envía la lista de aplicaciones instaladas. Solo aparecen entidades y servicios financieros reconocidos. Las casillas siguen bajo tu control.</p>
+              </div>
+              <div className="mt-3 max-h-80 space-y-2 overflow-y-auto">
+                {[...bankApps].filter((app) => {
+                  const recognized = suggestFinancialApp(app, financialAppsCatalog)
+                  const previouslyAuthorized = authorizedBankPackages.includes(app.packageName)
+                  return (recognized || previouslyAuthorized) &&
+                    (app.label + " " + app.packageName).toLocaleLowerCase("es").includes(bankAppsFilter.toLocaleLowerCase("es"))
+                }).sort((a, b) => Number(Boolean(suggestFinancialApp(b, financialAppsCatalog))) - Number(Boolean(suggestFinancialApp(a, financialAppsCatalog))) || a.label.localeCompare(b.label, "es")).map((app) => {
+                  const suggestion = suggestFinancialApp(app, financialAppsCatalog)
+                  return (
+                    <label key={app.packageName} className={"flex cursor-pointer items-center justify-between gap-3 rounded-lg border px-3 py-2.5 " + (suggestion ? "border-sky-900/70 bg-sky-950/20" : "border-slate-800 bg-slate-950/60")}>
+                      <span className="flex min-w-0 items-center gap-3">
+                        {app.iconDataUrl ? <img src={app.iconDataUrl} alt="" loading="lazy" className="h-10 w-10 shrink-0 rounded-xl bg-slate-800 object-contain p-0.5" /> : <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-800 text-slate-400"><Smartphone className="h-5 w-5" /></span>}
+                        <span className="min-w-0"><span className="block truncate text-sm font-medium text-white">{app.label}</span><span className="block truncate text-[10px] text-slate-500">{app.packageName}</span>{suggestion ? <span className="mt-1 inline-flex rounded-full bg-sky-500/10 px-2 py-0.5 text-[10px] font-medium text-sky-200">{suggestion.type} · catálogo</span> : authorizedBankPackages.includes(app.packageName) ? <span className="mt-1 inline-flex rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-200">Autorizada · fuera del catálogo</span> : null}</span>
+                      </span>
+                      <input type="checkbox" checked={authorizedBankPackages.includes(app.packageName)} onChange={(event) => setAuthorizedBankPackages((current) => event.target.checked ? [...new Set([...current, app.packageName])] : current.filter((item) => item !== app.packageName))} className="h-4 w-4 shrink-0 accent-sky-500" />
+                    </label>
+                  )
+                })}
+                {bankApps.length === 0 && <p className="py-4 text-center text-xs text-slate-500">No se encontraron aplicaciones visibles con icono de inicio.</p>}
+              </div>
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                <span className="text-xs text-slate-400">{authorizedBankPackages.length} aplicaciones autorizadas</span>
+                <button type="button" disabled={savingBankApps} onClick={async () => { setSavingBankApps(true); setError(""); try { const saved = await saveBankAppAuthorizations(authorizedBankPackages); setAuthorizedBankPackages(saved.authorizedPackages || authorizedBankPackages); setNotice("Aplicaciones autorizadas guardadas en este móvil."); } catch (saveError) { setError(saveError?.message || "No se pudieron guardar las autorizaciones."); } finally { setSavingBankApps(false); } }} className="rounded-lg bg-sky-600 px-3 py-2 text-xs font-semibold text-white hover:bg-sky-500 disabled:opacity-50">{savingBankApps ? "Guardando…" : "Guardar autorizaciones"}</button>
+              </div>
+              <p className="mt-2 text-[10px] leading-relaxed text-slate-500">Android solo muestra aquí las aplicaciones visibles para esta app, normalmente las que tienen un icono de inicio. Algunas aplicaciones ocultas por el sistema pueden no aparecer.</p>
+            </div>
+          </div>
+        </div>
+      <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <div className="rounded-xl bg-emerald-500/10 p-3 text-emerald-300">
@@ -728,7 +826,7 @@ export default function CapturasAutomaticas() {
               </div>
               <div>
                 <h2 className="font-semibold text-white">Acceso a notificaciones</h2>
-                <p className="mt-1 text-xs text-slate-400">Finanzas procesa avisos compatibles de Revolut, BBVA y Google Wallet. Las demás aplicaciones se ignoran.</p>
+                <p className="mt-1 text-xs text-slate-400">Finanzas analiza las aplicaciones bancarias autorizadas y Google Wallet. Los gastos reconocidos se registran automáticamente; los ingresos quedan pendientes de tu confirmación.</p>
               </div>
             </div>
             <span className={'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold ' + (permissionEnabled ? 'bg-emerald-500/10 text-emerald-300' : 'bg-amber-500/10 text-amber-300')}>
@@ -763,6 +861,7 @@ export default function CapturasAutomaticas() {
             <span className="text-xs text-slate-500">{localCaptures.length} compras y {localIncomeCandidates.length} posibles ingresos guardados cifrados en este móvil</span>
           </div>
         </div>
+        </>
       ) : (
         <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
           <div className="flex items-start gap-3">

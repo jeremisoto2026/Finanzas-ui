@@ -1,12 +1,8 @@
 package com.finanzas.companion
 
 /**
- * Broad, conservative candidate detector.
- *
- * It does not rely on a closed vocabulary: for known financial notification
- * sources, a monetary movement that is not clearly an outgoing payment,
- * failed operation, balance/status alert or marketing message is surfaced
- * for manual review even when the wording is unfamiliar.
+ * Conservative direction-first classifier for bank notifications.
+ * Outgoing-payment language always wins over generic terms such as "Bizum".
  */
 enum class IncomeNoticeDecision { IGNORE, NEEDS_REVIEW, AUTO_INCOME }
 
@@ -21,8 +17,9 @@ object IncomeNotificationClassifier {
         """(?<![\p{L}\d])(?:€|EUR)\s*((?:\d{1,3}(?:[ .\u00A0,]\d{3})+|\d+)(?:[,.]\d{1,2})?)|(?<![\p{L}\d])((?:\d{1,3}(?:[ .\u00A0,]\d{3})+|\d+)(?:[,.]\d{1,2})?)\s*(?:€|EUR)(?![\p{L}])""",
         RegexOption.IGNORE_CASE
     )
+    // "Bizum" alone describes a channel, not the direction of money.
     private val inboundSignal = Regex(
-        """\b(ingres\w*|abono|abonad|recibid\w*|recibiste|recibimos|te\s+ha[n]?\s+enviado|enviado\s+a\s+tu\s+cuenta|a\s+tu\s+favor|transferencia\s+entrante|bizum|n[oó]mina|salario|salary|payroll|cashback|reembolso|devoluci[oó]n|reintegro|recompensa|reward|prestaci[oó]n|pensi[oó]n|inter[eé]s|interest|liquidaci[oó]n|payment\s+received|money\s+received|credit(?:ed)?|deposit(?:ed)?|refund(?:ed)?|返金)\b""",
+        """\b(ingres\w*|abono|abonad\w*|recibid\w*|recibiste|recibimos|te\s+ha[n]?\s+enviado|enviado\s+a\s+tu\s+cuenta|a\s+tu\s+favor|transferencia\s+entrante|bizum\s+recibid\w*|n[oó]mina|salario|salary|payroll|cashback|reembolso|devoluci[oó]n|reintegro|recompensa|reward|prestaci[oó]n|pensi[oó]n|inter[eé]s|interest|liquidaci[oó]n|payment\s+received|money\s+received|credit(?:ed)?|deposit(?:ed)?|refund(?:ed)?|返金)\b""",
         RegexOption.IGNORE_CASE
     )
     private val strongAutomaticSignal = Regex(
@@ -38,7 +35,7 @@ object IncomeNotificationClassifier {
         RegexOption.IGNORE_CASE
     )
     private val outgoingSignal = Regex(
-        """\b(pagaste|has\s+pagado|pago\s+(?:realizado|enviado|emitido)|compra|cargo|retirada|retiraste|enviaste|has\s+enviado|transferencia\s+enviada|bizum\s+enviado|domiciliaci[oó]n|recibo\s+pagado|debit(?:ed)?|purchase|card\s+payment|withdrawal|sent\s+(?:a\s+)?payment|money\s+sent|outgoing\s+transfer)\b""",
+        """\b(pago\s+aceptado|aceptado\s+el\s+pago|pago\s+(?:realizado|enviado|emitido|con\s+tarjeta)|pago\s+(?:aceptado|de)|has\s+pagado|pagaste|ha[s]?\s+realizado\s+(?:un\s+)?(?:pago|compra)|compra(?:s)?(?:\s+(?:realizada|realizadas|con\s+tarjeta))?|cargo(?:s)?(?:\s+(?:realizado|en\s+tu\s+cuenta))?|se\s+ha\s+cargado|tarjeta\s+(?:utilizada|usada)|retirada(?:s)?|retiraste|enviaste|has\s+enviado|transferencia\s+enviada|bizum\s+enviado|domiciliaci[oó]n|recibo\s+pagado|debit(?:ed)?|purchase(?:s)?(?:\s+at)?|card\s+(?:payment|purchase|used)|you\s+paid|you\s+spent|spent\s+at|withdrawal|cash\s+withdrawal|payment\s+at|sent\s+(?:a\s+)?payment|money\s+sent|outgoing\s+transfer)\b""",
         RegexOption.IGNORE_CASE
     )
     private val failedSignal = Regex(
@@ -47,10 +44,6 @@ object IncomeNotificationClassifier {
     )
     private val informationalSignal = Regex(
         """\b(saldo|balance|disponible|available\s+balance|l[ií]mite|c[oó]digo|verification|security\s+code|otp|publicidad|promoci[oó]n|newsletter|oferta|descuento|promo(?:tion)?)\b""",
-        RegexOption.IGNORE_CASE
-    )
-    private val moneyContextSignal = Regex(
-        """\b(movimiento|operaci[oó]n|transacci[oó]n|cuenta|account|dinero|money|importe|amount|euros?|eur|abono|cr[eé]dito|credit|transfer|bizum|pago|payment|recib|ingres|reembolso|refund|devoluci[oó]n|cashback|n[oó]mina|salary|payroll|dep[oó]sito|deposit)\b""",
         RegexOption.IGNORE_CASE
     )
 
@@ -65,6 +58,9 @@ object IncomeNotificationClassifier {
         if (combined.isBlank()) return ignored("Notificación vacía")
         if (failedSignal.containsMatchIn(combined)) return ignored("Operación fallida o cancelada")
         if (ownTransferSignal.containsMatchIn(combined)) return ignored("Transferencia entre cuentas propias")
+
+        // Direction is resolved before amount or generic financial-channel words.
+        // This prevents "Pago aceptado ... con Bizum" becoming an income candidate.
         if (outgoingSignal.containsMatchIn(combined)) return ignored("Movimiento de dinero saliente")
         if (informationalSignal.containsMatchIn(combined) &&
             !inboundSignal.containsMatchIn(combined)
@@ -72,13 +68,9 @@ object IncomeNotificationClassifier {
 
         val amount = extractAmountCents(combined)
         val explicitInbound = inboundSignal.containsMatchIn(combined)
-        // Open-set fallback: an unfamiliar wording from a financial app with
-        // a currency amount and transaction/money context is a review candidate.
-        val broadFinancialCandidate = isFinancialSource &&
-            amount != null &&
-            moneyContextSignal.containsMatchIn(combined)
-
-        if (!explicitInbound && !broadFinancialCandidate) {
+        // An amount from a bank app is not enough to infer an incoming movement.
+        // Only explicit inbound wording can enter the income-review queue.
+        if (!explicitInbound) {
             return ignored("No hay señales suficientes de una entrada monetaria")
         }
         if (amount == null) {
