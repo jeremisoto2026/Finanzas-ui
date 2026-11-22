@@ -1,9 +1,16 @@
 import { Capacitor } from '@capacitor/core'
 import { LocalNotifications } from '@capacitor/local-notifications'
+import { localDateInputValue } from '@/lib/finance-core'
+import {
+  buildBudgetThresholdAlerts,
+  buildOverdueInstallmentAlerts,
+  buildUpcomingCommitmentSummary,
+} from '@/lib/smart-alerts'
 import {
   buildLocalReminderSchedule,
   NATIVE_REMINDER_ID_END,
   NATIVE_REMINDER_ID_START,
+  buildSmartLocalNotifications,
 } from '@/lib/reminder-schedule'
 
 export const DEFAULT_REMINDER_PREFERENCES = Object.freeze({
@@ -12,6 +19,11 @@ export const DEFAULT_REMINDER_PREFERENCES = Object.freeze({
   reminder_days_before: 3,
   reminder_hour: 9,
   same_day_enabled: false,
+  budget_alerts_enabled: true,
+  overdue_installments_enabled: true,
+  balance_alerts_enabled: true,
+  commitment_summary_enabled: true,
+  commitment_summary_days: 7,
   timezone: 'Europe/Madrid',
 })
 
@@ -24,9 +36,11 @@ export function hasNativeReminderPlugin() {
 }
 
 export async function getNativeReminderData(supabase, userId) {
-  const [preferencesResult, fixedResult, installmentsResult] = await Promise.all([
+  const today = localDateInputValue(new Date())
+  const monthStart = today.slice(0, 7) + '-01'
+  const [preferencesResult, fixedResult, installmentsResult, budgetsResult, transactionsResult, balancesResult, reservationsResult] = await Promise.all([
     supabase.from('notification_preferences')
-      .select('fixed_payments_enabled, installments_enabled, reminder_days_before, reminder_hour, same_day_enabled, timezone')
+      .select('fixed_payments_enabled, installments_enabled, reminder_days_before, reminder_hour, same_day_enabled, timezone, budget_alerts_enabled, overdue_installments_enabled, balance_alerts_enabled, commitment_summary_enabled, commitment_summary_days')
       .eq('user_id', userId)
       .maybeSingle(),
     supabase.from('fixed_payments')
@@ -38,16 +52,82 @@ export async function getNativeReminderData(supabase, userId) {
       .eq('user_id', userId)
       .eq('status', 'scheduled')
       .eq('installment_plans.status', 'active'),
+    supabase.from('budgets')
+      .select('id, category_id, period_start, planned_amount, categories(name)')
+      .eq('user_id', userId)
+      .gte('period_start', monthStart),
+    supabase.from('transactions')
+      .select('id, category_id, kind, status, amount, occurred_on')
+      .eq('user_id', userId)
+      .eq('status', 'posted')
+      .eq('kind', 'expense')
+      .gte('occurred_on', monthStart)
+      .lte('occurred_on', today),
+    supabase.from('account_balances')
+      .select('account_id, currency_code, current_balance')
+      .eq('user_id', userId),
+    supabase.from('reservations')
+      .select('account_id, amount, status')
+      .eq('user_id', userId)
+      .eq('status', 'active'),
   ])
 
-  for (const result of [preferencesResult, fixedResult, installmentsResult]) {
+  for (const result of [preferencesResult, fixedResult, installmentsResult, budgetsResult, transactionsResult, balancesResult, reservationsResult]) {
     if (result.error) throw result.error
   }
 
-  return {
-    preferences: { ...DEFAULT_REMINDER_PREFERENCES, ...(preferencesResult.data || {}) },
+  const preferences = { ...DEFAULT_REMINDER_PREFERENCES, ...(preferencesResult.data || {}) }
+  const budgets = (budgetsResult.data || []).map((budget) => ({
+    ...budget,
+    category_name: Array.isArray(budget.categories) ? budget.categories[0]?.name : budget.categories?.name,
+  }))
+  const installments = (installmentsResult.data || []).map((item) => {
+    const plan = Array.isArray(item.installment_plans) ? item.installment_plans[0] : item.installment_plans
+    return { ...item, plan_name: plan?.name }
+  })
+
+  const balances = balancesResult.data || []
+  const reservations = reservationsResult.data || []
+  const eurBalanceCents = Math.round(balances.filter((item) => item.currency_code === 'EUR')
+    .reduce((sum, item) => sum + Number(item.current_balance || 0), 0) * 100)
+  const eurReservedCents = Math.round(reservations.reduce((sum, item) => {
+    if (!item.account_id) return sum
+    const account = balances.find((balance) => balance.account_id === item.account_id)
+    return account?.currency_code === 'EUR' ? sum + Number(item.amount || 0) * 100 : sum
+  }, 0))
+  const upcoming = buildUpcomingCommitmentSummary({
     fixedPayments: fixedResult.data || [],
-    installments: installmentsResult.data || [],
+    installments,
+    today,
+    daysAhead: Number(preferences.commitment_summary_days || 7),
+  })
+  const upcomingEurCents = Math.round(upcoming.reduce((sum, item) => {
+    const source = item.kind === 'fixed_payment'
+      ? (fixedResult.data || []).find((payment) => payment.id === item.id)
+      : installments.find((installment) => installment.id === item.id)
+    const currency = source?.currency_code || 'EUR'
+    return currency === 'EUR' ? sum + Number(item.amount || 0) * 100 : sum
+  }, 0))
+  const freeEurCents = eurBalanceCents - eurReservedCents
+  const uncoveredEurCents = Math.max(0, upcomingEurCents - eurReservedCents)
+
+  return {
+    preferences,
+    fixedPayments: fixedResult.data || [],
+    installments,
+    smartAlerts: {
+      today,
+      budgetAlerts: preferences.budget_alerts_enabled
+        ? buildBudgetThresholdAlerts({ budgets, transactions: transactionsResult.data || [] })
+        : [],
+      overdueAlerts: preferences.overdue_installments_enabled
+        ? buildOverdueInstallmentAlerts({ installments, today })
+        : [],
+      commitmentSummary: preferences.commitment_summary_enabled ? upcoming : [],
+      insufficientBalance: preferences.balance_alerts_enabled && uncoveredEurCents > freeEurCents
+        ? { freeEurCents, upcomingEurCents, uncoveredEurCents }
+        : null,
+    },
   }
 }
 
@@ -60,7 +140,6 @@ export async function requestNativeReminderPermission() {
   }
   return permission
 }
-
 
 export async function cancelNativeReminders() {
   if (!isFinanzasAndroid()) return
@@ -82,8 +161,8 @@ export async function syncNativeReminders(data) {
 
   await LocalNotifications.createChannel({
     id: 'finanzas-reminders',
-    name: 'Recordatorios financieros',
-    description: 'Avisos de pagos fijos y cuotas pendientes',
+    name: 'Avisos inteligentes de Finanzas',
+    description: 'Pagos, cuotas, presupuestos y saldo disponible',
     importance: 4,
     vibration: true,
   })
@@ -94,9 +173,16 @@ export async function syncNativeReminders(data) {
     .map((item) => ({ id: item.id }))
   if (owned.length) await LocalNotifications.cancel({ notifications: owned })
 
-  const notifications = buildLocalReminderSchedule(data)
+  const scheduled = buildLocalReminderSchedule(data)
+  const smart = buildSmartLocalNotifications(data.smartAlerts || {})
+  const notifications = [...scheduled, ...smart.notifications]
   if (notifications.length) {
     await LocalNotifications.schedule({ notifications })
+    if (smart.keys.length && typeof localStorage !== 'undefined') {
+      const previous = JSON.parse(localStorage.getItem('finanzas.smart-alert-keys.v1') || '[]')
+      const merged = [...new Set([...previous, ...smart.keys])].slice(-1500)
+      localStorage.setItem('finanzas.smart-alert-keys.v1', JSON.stringify(merged))
+    }
   }
 
   return { scheduled: notifications.length, permission: permission.display }
