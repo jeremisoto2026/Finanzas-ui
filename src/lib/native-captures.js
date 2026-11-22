@@ -105,3 +105,14 @@ export async function syncLocalCaptures(captures = [], incomeCandidates = []) {
   }
   return data
 }
+
+
+export async function getBankAppAuthorizationState() {
+  if (!isFinanzasAndroid()) return { apps: [], authorizedPackages: [] }
+  return registerPlugin('BankAppAuthorization').getApps()
+}
+
+export async function saveBankAppAuthorizations(packages = []) {
+  if (!isFinanzasAndroid()) throw new Error('Disponible en Finanzas Android.')
+  return registerPlugin('BankAppAuthorization').setAuthorizedPackages({ packages })
+}
