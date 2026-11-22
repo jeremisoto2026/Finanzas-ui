@@ -33,6 +33,33 @@ const SOURCE_LABELS = {
   google_wallet: 'Google Wallet',
 }
 
+const KNOWN_FINANCIAL_APPS = {
+  'com.bbva.bbvacontigo': { type: 'Banco', name: 'BBVA', confidence: 'alta' },
+  'es.lacaixa.mobile.android.newwapicon': { type: 'Banco', name: 'CaixaBank', confidence: 'alta' },
+  'com.santander.app': { type: 'Banco', name: 'Santander', confidence: 'alta' },
+  'com.bankinter.launcher': { type: 'Banco', name: 'Bankinter', confidence: 'alta' },
+  'es.ingdirect.android': { type: 'Banco', name: 'ING', confidence: 'alta' },
+  'com.revolut.revolut': { type: 'Banco y pagos', name: 'Revolut', confidence: 'alta' },
+  'de.number26.android': { type: 'Banco', name: 'N26', confidence: 'alta' },
+  'com.paypal.android.p2pmobile': { type: 'Pagos', name: 'PayPal', confidence: 'alta' },
+  'com.transferwise.android': { type: 'Pagos', name: 'Wise', confidence: 'alta' },
+}
+
+function suggestFinancialApp(app) {
+  const packageName = String(app?.packageName || '').toLowerCase()
+  const label = String(app?.label || '').toLocaleLowerCase('es')
+  if (KNOWN_FINANCIAL_APPS[packageName]) return KNOWN_FINANCIAL_APPS[packageName]
+  if (/caixabank|banco|bank(?!\w)|banca|banking|bizum/.test(label) ||
+      /(?:^|\.)(?:bank|banco|banking)(?:\.|$)/.test(packageName)) {
+    return { type: 'Posible banco', name: null, confidence: 'orientativa' }
+  }
+  if (/revolut|paypal|pay\s?pal|wallet|pagos|payments|wise|transferwise/.test(label) ||
+      /revolut|paypal|wallet|payments|transferwise/.test(packageName)) {
+    return { type: 'Posible app de pagos', name: null, confidence: 'orientativa' }
+  }
+  return null
+}
+
 const formatAmount = (amount, currencyCode = 'EUR') => new Intl.NumberFormat('es-ES', {
   style: 'currency',
   currency: currencyCode || 'EUR',
@@ -739,13 +766,23 @@ export default function CapturasAutomaticas() {
               <h2 className="text-lg font-semibold text-white">Aplicaciones autorizadas para detectar movimientos</h2>
               <p className="mt-1 text-xs leading-relaxed text-slate-400">Selecciona las aplicaciones cuyas notificaciones puede analizar Finanzas para detectar gastos e ingresos. Las demás seguirán ignoradas. Los gastos identificados se registran automáticamente; los posibles ingresos siempre requieren confirmación manual. La selección se guarda cifrada en este móvil.</p>
               <input type="search" value={bankAppsFilter} onChange={(event) => setBankAppsFilter(event.target.value)} placeholder="Buscar aplicación instalada…" className="mt-3 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm text-white placeholder:text-slate-500" />
-              <div className="mt-3 max-h-64 space-y-2 overflow-y-auto">
-                {bankApps.filter((app) => (app.label + " " + app.packageName).toLocaleLowerCase("es").includes(bankAppsFilter.toLocaleLowerCase("es"))).map((app) => (
-                  <label key={app.packageName} className="flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-slate-800 bg-slate-950/60 px-3 py-2.5">
-                    <span className="min-w-0"><span className="block truncate text-sm font-medium text-white">{app.label}</span><span className="block truncate text-[10px] text-slate-500">{app.packageName}</span></span>
-                    <input type="checkbox" checked={authorizedBankPackages.includes(app.packageName)} onChange={(event) => setAuthorizedBankPackages((current) => event.target.checked ? [...new Set([...current, app.packageName])] : current.filter((item) => item !== app.packageName))} className="h-4 w-4 shrink-0 accent-sky-500" />
-                  </label>
-                ))}
+              <div className="mt-3 rounded-lg border border-sky-900/60 bg-sky-950/20 p-3">
+                <p className="text-xs font-semibold text-sky-200">{bankApps.filter(suggestFinancialApp).length} posibles aplicaciones bancarias o de pagos detectadas</p>
+                <p className="mt-1 text-[11px] leading-relaxed text-slate-400">Finanzas compara nombres y paquetes con una lista local de entidades conocidas y señales habituales. Las coincidencias son sugerencias, no una verificación oficial: revisa el nombre antes de autorizar. No se consulta ningún servidor ni se envía esta lista fuera del móvil.</p>
+              </div>
+              <div className="mt-3 max-h-80 space-y-2 overflow-y-auto">
+                {[...bankApps].filter((app) => (app.label + " " + app.packageName).toLocaleLowerCase("es").includes(bankAppsFilter.toLocaleLowerCase("es"))).sort((a, b) => Number(Boolean(suggestFinancialApp(b))) - Number(Boolean(suggestFinancialApp(a))) || a.label.localeCompare(b.label, "es")).map((app) => {
+                  const suggestion = suggestFinancialApp(app)
+                  return (
+                    <label key={app.packageName} className={"flex cursor-pointer items-center justify-between gap-3 rounded-lg border px-3 py-2.5 " + (suggestion ? "border-sky-900/70 bg-sky-950/20" : "border-slate-800 bg-slate-950/60")}>
+                      <span className="flex min-w-0 items-center gap-3">
+                        {app.iconDataUrl ? <img src={app.iconDataUrl} alt="" loading="lazy" className="h-10 w-10 shrink-0 rounded-xl bg-slate-800 object-contain p-0.5" /> : <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-800 text-slate-400"><Smartphone className="h-5 w-5" /></span>}
+                        <span className="min-w-0"><span className="block truncate text-sm font-medium text-white">{app.label}</span><span className="block truncate text-[10px] text-slate-500">{app.packageName}</span>{suggestion && <span className="mt-1 inline-flex rounded-full bg-sky-500/10 px-2 py-0.5 text-[10px] font-medium text-sky-200">{suggestion.type}{suggestion.confidence === "alta" ? " · catálogo" : " · revisar"}</span>}</span>
+                      </span>
+                      <input type="checkbox" checked={authorizedBankPackages.includes(app.packageName)} onChange={(event) => setAuthorizedBankPackages((current) => event.target.checked ? [...new Set([...current, app.packageName])] : current.filter((item) => item !== app.packageName))} className="h-4 w-4 shrink-0 accent-sky-500" />
+                    </label>
+                  )
+                })}
                 {bankApps.length === 0 && <p className="py-4 text-center text-xs text-slate-500">No se encontraron aplicaciones visibles con icono de inicio.</p>}
               </div>
               <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
