@@ -162,7 +162,6 @@ export default function Layout({ onSignOut }) {
             'Transferencias',
             'Deudas',
             'Compromisos',
-            'Calendario',
           ].includes(activePage))
           return (
             <button
