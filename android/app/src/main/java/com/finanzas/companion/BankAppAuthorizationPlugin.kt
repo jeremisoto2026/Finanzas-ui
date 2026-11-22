@@ -2,6 +2,10 @@ package com.finanzas.companion
 
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.util.Base64
+import java.io.ByteArrayOutputStream
 import android.os.Build
 import com.getcapacitor.JSArray
 import com.getcapacitor.JSObject
@@ -32,9 +36,25 @@ class BankAppAuthorizationPlugin : Plugin() {
                 val label = pm.getApplicationLabel(app)?.toString()?.trim().orEmpty()
                 if (label.isBlank()) null else Triple(app.packageName, label, app.packageName in authorized)
             }.distinctBy { it.first }.sortedBy { it.second.lowercase(java.util.Locale.ROOT) }
-                .forEach { (pkg, label, enabled) -> rows.put(JSObject().apply {
-                    put("packageName", pkg); put("label", label); put("authorized", enabled)
-                }) }
+                .forEach { (pkg, label, enabled) ->
+                    val iconDataUrl = runCatching {
+                        val drawable = pm.getApplicationIcon(pkg)
+                        val size = 96
+                        drawable.setBounds(0, 0, size, size)
+                        val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+                        drawable.draw(Canvas(bitmap))
+                        val output = ByteArrayOutputStream()
+                        bitmap.compress(Bitmap.CompressFormat.PNG, 100, output)
+                        bitmap.recycle()
+                        "data:image/png;base64," + Base64.encodeToString(output.toByteArray(), Base64.NO_WRAP)
+                    }.getOrNull()
+                    rows.put(JSObject().apply {
+                        put("packageName", pkg)
+                        put("label", label)
+                        put("authorized", enabled)
+                        if (iconDataUrl != null) put("iconDataUrl", iconDataUrl)
+                    })
+                }
             call.resolve(JSObject().apply {
                 put("apps", rows)
                 put("authorizedPackages", JSArray().apply { authorized.sorted().forEach(::put) })
