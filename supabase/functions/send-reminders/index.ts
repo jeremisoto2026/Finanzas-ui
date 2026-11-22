@@ -23,7 +23,7 @@ let firebaseAccessToken: { value: string; expiresAt: number } | null = null
 function base64Url(bytes: Uint8Array) {
   let binary = ''
   for (const byte of bytes) binary += String.fromCharCode(byte)
-  return btoa(binary).replace(/=/g, '').replace(/\\+/g, '-').replace(/\\//g, '_')
+  return btoa(binary).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_')
 }
 
 function base64UrlText(value: string) {
@@ -31,7 +31,7 @@ function base64UrlText(value: string) {
 }
 
 function pemToBytes(pem: string) {
-  const base64 = pem.replace(/-----BEGIN PRIVATE KEY-----/g, '').replace(/-----END PRIVATE KEY-----/g, '').replace(/\\s/g, '')
+  const base64 = pem.replace(/-----BEGIN PRIVATE KEY-----/g, '').replace(/-----END PRIVATE KEY-----/g, '').replace(/\s/g, '')
   const binary = atob(base64)
   return Uint8Array.from(binary, (character) => character.charCodeAt(0))
 }
