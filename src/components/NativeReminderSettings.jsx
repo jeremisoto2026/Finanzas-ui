@@ -204,7 +204,7 @@ export default function NativeReminderSettings() {
       <header className="space-y-2">
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-400">Centro de avisos</p>
         <h1 className="finance-page-title">Recordatorios</h1>
-        <p className="finance-muted">Configura avisos de pagos fijos y cuotas directamente en este móvil.</p>
+        <p className="finance-muted">Configura recordatorios y alertas inteligentes directamente en este móvil.</p>
       </header>
 
       {error && <div role="alert" className="rounded-xl border border-rose-800/60 bg-rose-950/30 p-4 text-sm text-rose-200">{error}</div>}
@@ -292,6 +292,36 @@ export default function NativeReminderSettings() {
             <p className="mt-1 text-xs leading-5 text-slate-400">Compras financiadas y vencimientos todavía no pagados.</p>
           </div>
           <Switch checked={preferences.installments_enabled} disabled={loading || saving} label="Recordatorios de cuotas" onChange={(value) => savePreferences({ installments_enabled: value })} />
+        </div>
+
+        <div className="space-y-3 rounded-xl border border-emerald-900/50 bg-emerald-950/10 p-4">
+          <div>
+            <p className="text-sm font-semibold text-emerald-200">Alertas inteligentes</p>
+            <p className="mt-1 text-xs leading-5 text-slate-400">Se calculan con tus movimientos registrados, presupuestos, cuotas y saldo de las cuentas. No modifican tus datos ni registran operaciones.</p>
+          </div>
+          <div className="flex items-center justify-between gap-4 rounded-lg bg-slate-800/45 p-3">
+            <div><p className="text-sm font-medium text-slate-100">Límites de presupuesto</p><p className="mt-1 text-xs text-slate-400">Avisos al alcanzar el 50 %, 80 % y 100 %.</p></div>
+            <Switch checked={preferences.budget_alerts_enabled} disabled={loading || saving} label="Alertas de presupuesto" onChange={(value) => savePreferences({ budget_alerts_enabled: value })} />
+          </div>
+          <div className="flex items-center justify-between gap-4 rounded-lg bg-slate-800/45 p-3">
+            <div><p className="text-sm font-medium text-slate-100">Cuotas vencidas</p><p className="mt-1 text-xs text-slate-400">Detecta cuotas que siguen pendientes después de su fecha.</p></div>
+            <Switch checked={preferences.overdue_installments_enabled} disabled={loading || saving} label="Alertas de cuotas vencidas" onChange={(value) => savePreferences({ overdue_installments_enabled: value })} />
+          </div>
+          <div className="flex items-center justify-between gap-4 rounded-lg bg-slate-800/45 p-3">
+            <div><p className="text-sm font-medium text-slate-100">Saldo insuficiente</p><p className="mt-1 text-xs text-slate-400">Compara compromisos en EUR con el saldo libre tras reservas.</p></div>
+            <Switch checked={preferences.balance_alerts_enabled} disabled={loading || saving} label="Alertas de saldo insuficiente" onChange={(value) => savePreferences({ balance_alerts_enabled: value })} />
+          </div>
+          <div className="flex items-center justify-between gap-4 rounded-lg bg-slate-800/45 p-3">
+            <div><p className="text-sm font-medium text-slate-100">Resumen de compromisos</p><p className="mt-1 text-xs text-slate-400">Un aviso diario con los próximos pagos y cuotas.</p></div>
+            <Switch checked={preferences.commitment_summary_enabled} disabled={loading || saving} label="Resumen de compromisos" onChange={(value) => savePreferences({ commitment_summary_enabled: value })} />
+          </div>
+          <label className="block rounded-lg bg-slate-800/45 p-3">
+            <span className="block text-sm font-medium text-slate-100">Antelación del resumen</span>
+            <span className="mt-1 block text-xs text-slate-400">Días que se incluyen en el resumen de compromisos.</span>
+            <FinanceSelect value={preferences.commitment_summary_days} disabled={loading || saving} onChange={(event) => savePreferences({ commitment_summary_days: Number(event.target.value) })} className="mt-3 min-h-11 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 text-sm text-white">
+              {[3, 7, 14, 30].map((days) => <option key={days} value={days}>{days} días</option>)}
+            </FinanceSelect>
+          </label>
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2">
