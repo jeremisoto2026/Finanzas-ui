@@ -9,6 +9,7 @@ import Layout from '@/components/layout/Layout'
 import LandingPage from '@/components/auth/LandingPage'
 import NotificationCaptureSync from '@/components/NotificationCaptureSync'
 import NativeReminderSync from '@/components/NativeReminderSync'
+import FcmPushSync from '@/components/FcmPushSync'
 import FirstLoginPermissions from '@/components/FirstLoginPermissions'
 import FirstLoginWebSetup from '@/components/FirstLoginWebSetup'
 
@@ -60,7 +61,16 @@ export function AuthProvider({ children }) {
         options: { redirectTo: window.location.origin },
       })
     },
-    signOut: () => supabase.auth.signOut(),
+    signOut: async () => {
+      if (Capacitor.getPlatform() === 'android') {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) {
+          const { error } = await supabase.from('fcm_push_tokens').delete().eq('user_id', user.id)
+          if (error) console.warn('No se pudo retirar el token FCM al cerrar sesión:', error.message)
+        }
+      }
+      return supabase.auth.signOut()
+    },
   }), [session, loading])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
@@ -160,6 +170,7 @@ function AuthenticatedFinanceApp() {
     <GastosProvider>
       <NotificationCaptureSync />
       <NativeReminderSync />
+      <FcmPushSync userId={user.id} />
       <FirstLoginPermissions userId={user.id} />
       <FirstLoginWebSetup userId={user.id} />
       <div className="relative">
