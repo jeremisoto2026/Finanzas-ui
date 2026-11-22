@@ -170,8 +170,11 @@ export async function syncNativeReminders(data) {
   const pending = await LocalNotifications.getPending()
   const owned = (pending.notifications || [])
     .filter((item) => item.id >= NATIVE_REMINDER_ID_START && item.id < NATIVE_REMINDER_ID_END)
+  // Keep smart alerts already queued; a quick second sync must not cancel them.
+  const replaceable = owned
+    .filter((item) => ['fixed_payment', 'installment'].includes(item.extra?.sourceType))
     .map((item) => ({ id: item.id }))
-  if (owned.length) await LocalNotifications.cancel({ notifications: owned })
+  if (replaceable.length) await LocalNotifications.cancel({ notifications: replaceable })
 
   const scheduled = buildLocalReminderSchedule(data)
   let notifiedKeys = []
