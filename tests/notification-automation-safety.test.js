@@ -167,3 +167,19 @@ test('el aviso llega tanto desde la sincronización en segundo plano como desde 
   assert.match(plugin, /ExpenseRegisteredNotifier\.show\(getContext\(\)\.applicationContext, expense\)/)
   assert.match(nativeCaptures, /LocalCaptures\.showRegisteredExpenses\(\{ expenses: data\.registeredExpenses \}\)/)
 })
+
+ 
+test('el selector muestra iconos originales y sugiere bancos sin autorizar automáticamente', () => {
+  const plugin = read('android/app/src/main/java/com/finanzas/companion/BankAppAuthorizationPlugin.kt')
+  const screen = read('src/pages/CapturasAutomaticas.jsx')
+  assert.match(plugin, /pm\.getApplicationIcon\(pkg\)/)
+  assert.match(plugin, /data:image\/png;base64,/)
+  assert.match(plugin, /iconDataUrl/)
+  assert.match(screen, /KNOWN_FINANCIAL_APPS/)
+  assert.match(screen, /com\.bbva\.bbvacontigo/)
+  assert.match(screen, /es\.lacaixa\.mobile\.android\.newwapicon/)
+  assert.match(screen, /function suggestFinancialApp/)
+  assert.match(screen, /iconDataUrl/)
+  assert.match(screen, /sugerencias, no una verificación oficial/)
+  assert.match(screen, /checked=\{authorizedBankPackages\.includes\(app\.packageName\)\}/)
+})
