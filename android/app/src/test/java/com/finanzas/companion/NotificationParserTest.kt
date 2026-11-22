@@ -8,6 +8,24 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class NotificationParserTest {
+
+    @Test
+    fun bbvaAcceptedBizumTaxPaymentRoutesToExpenseParserNotIncomeReview() {
+        val title = "Pago aceptado ✅"
+        val text = "Aceptado el pago de 8,67 EUR en PAGO DE IMPUESTOS AEAT con Bizum"
+        val income = IncomeNotificationClassifier.classify(title, text)
+        val expense = NotificationParser.parse(
+            source = NotificationSource.BBVA,
+            title = title,
+            text = text,
+            occurredAtMillis = 1794958920000L
+        )
+
+        assertEquals(IncomeNoticeDecision.IGNORE, income.decision)
+        assertNotNull(expense)
+        assertEquals(867L, expense?.amountCents)
+    }
+
     private val revolutText =
         "Has pagado 2,50 € en Supermercado Altet\n⚒️\n⚠️ Saldo del Pocket EUR: 0,34 €"
 
