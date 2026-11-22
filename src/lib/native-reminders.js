@@ -32,7 +32,9 @@ export function isFinanzasAndroid() {
 }
 
 export function hasNativeReminderPlugin() {
-  return isFinanzasAndroid() && Capacitor.isPluginAvailable('LocalNotifications')
+  // Capacitor's JS availability probe can run before Bridge plugin discovery finishes.
+  // The Android module is linked at build time; let the real native call report any integration error.
+  return isFinanzasAndroid()
 }
 
 export async function getNativeReminderData(supabase, userId) {
