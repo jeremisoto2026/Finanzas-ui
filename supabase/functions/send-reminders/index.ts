@@ -248,7 +248,8 @@ Deno.serve(async (request) => {
         const balance = eurAccounts.reduce((sum, row) => sum + Number(row.current_balance || 0), 0)
         const reserved = activeReservations.filter((row) => row.user_id === userId && eurAccountIds.has(row.account_id)).reduce((sum, row) => sum + Number(row.amount || 0), 0)
         const free = balance - reserved
-        if (free < upcomingEur) candidates.push({ user_id: userId, reminder_key: 'insufficient-balance:' + local.date, source_type: 'insufficient_balance', source_id: null, title: 'Saldo libre insuficiente', body: 'Tienes ' + free.toFixed(2) + ' € libres y compromisos próximos por ' + upcomingEur.toFixed(2) + ' €.', due_on: local.date, amount: Number(upcomingEur.toFixed(2)), currency_code: 'EUR', metadata: { free_balance: Number(free.toFixed(2)), upcoming_commitments: Number(upcomingEur.toFixed(2)), horizon_days: horizon } })
+        const uncoveredCommitments = Math.max(0, upcomingEur - reserved)
+        if (free < uncoveredCommitments) candidates.push({ user_id: userId, reminder_key: 'insufficient-balance:' + local.date, source_type: 'insufficient_balance', source_id: null, title: 'Saldo libre insuficiente', body: 'Tienes ' + free.toFixed(2) + ' € libres y compromisos sin cubrir por ' + uncoveredCommitments.toFixed(2) + ' €.', due_on: local.date, amount: Number(uncoveredCommitments.toFixed(2)), currency_code: 'EUR', metadata: { free_balance: Number(free.toFixed(2)), upcoming_commitments: Number(upcomingEur.toFixed(2)), reserved_coverage: Number(reserved.toFixed(2)), uncovered_commitments: Number(uncoveredCommitments.toFixed(2)), horizon_days: horizon } })
       }
     }
 
