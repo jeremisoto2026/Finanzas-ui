@@ -68,10 +68,9 @@ object IncomeNotificationClassifier {
 
         val amount = extractAmountCents(combined)
         val explicitInbound = inboundSignal.containsMatchIn(combined)
-        val broadFinancialCandidate = isFinancialSource && amount != null
-
-        // Unknown monetary notices are not presumed to be income.
-        if (!explicitInbound && !broadFinancialCandidate) {
+        // An amount from a bank app is not enough to infer an incoming movement.
+        // Only explicit inbound wording can enter the income-review queue.
+        if (!explicitInbound) {
             return ignored("No hay señales suficientes de una entrada monetaria")
         }
         if (amount == null) {
