@@ -1,6 +1,7 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+    id("com.google.gms.google-services")
 }
 
 val previewKeystorePath = providers.environmentVariable("FINANZAS_PREVIEW_KEYSTORE_PATH").orNull
