@@ -41,13 +41,13 @@ data class NotificationSource(
         // brands or labels that explicitly identify themselves as a bank; never treat
         // every third-party app as financial. The package is retained as the stable ID.
         private val BANK_APP_LABEL = Regex(
-            """(?ix)\\b(
+            """(?ix)\b(
                 banco|banca|bank|banking|caixa|caixabank|santander|sabadell|bankinter|bbva|
                 revolut|ing|openbank|n26|wise|bunq|abanca|unicaja|iber caja|ibercaja|
-                kutxabank|cajamar|caja\\s+rural|cajasur|laboral\\s+kutxa|imagin|evo|
-                myinvestor|pibank|deutsche\\s+bank|targobank|mediolanum|b100|nickel|
-                cetelem|cofidis|trade\\s+republic|paypal
-            )\\b"""
+                kutxabank|cajamar|caja\s+rural|cajasur|laboral\s+kutxa|imagin|evo|
+                myinvestor|pibank|deutsche\s+bank|targobank|mediolanum|b100|nickel|
+                cetelem|cofidis|trade\s+republic|paypal
+            )\b"""
         )
 
         fun fromPackage(packageName: String, applicationLabel: String? = null): NotificationSource? {
@@ -70,7 +70,7 @@ data class NotificationSource(
             if (!PACKAGE_PATTERN.matches(normalizedPackage)) return null
 
             val label = applicationLabel
-                ?.replace(Regex("\\s+"), " ")
+                ?.replace(Regex("\s+"), " ")
                 ?.trim()
                 ?.takeIf { it.isNotBlank() }
                 ?.take(100)
@@ -259,14 +259,14 @@ object NotificationParser {
         return value
             .uppercase(Locale.ROOT)
             .replace(
-                Regex("\\b(?:COMPRA|TARJETA|PAGO|PAGADO|PAYMENT|CONTACTLESS|TPV|POS|REVOLUT|GOOGLE|WALLET)\\b"),
+                Regex("\b(?:COMPRA|TARJETA|PAGO|PAGADO|PAYMENT|CONTACTLESS|TPV|POS|REVOLUT|GOOGLE|WALLET)\b"),
                 " "
             )
             .replace(Regex("(?<=\\p{L})-(?=\\p{L})"), "")
             .replace(Regex("[^\\p{L}\\p{N}]+"), " ")
-            .replace(Regex("\\b\\d{2,}\\b"), " ")
+            .replace(Regex("\b\\d{2,}\b"), " ")
             .trim()
-            .replace(Regex("\\s+"), " ")
+            .replace(Regex("\s+"), " ")
     }
 
     private fun extractMerchant(
