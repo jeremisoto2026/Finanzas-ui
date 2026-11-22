@@ -54,7 +54,9 @@ test('Android identifica el origen por paquete y empareja por importe, comercio 
   assert.match(parser, /com\.google\.android\.apps\.walletnfcrel/)
   assert.match(parser, /sourceApp = "android:\$normalizedPackage"/)
   assert.match(parser, /transactionSignal/)
-  assert.match(service, /NotificationSource\.fromPackage\(sbn\.packageName, appLabel\) \?: return/)
+  assert.match(service, /NotificationSource\.fromPackage\(sbn\.packageName, appLabel\)/)
+  assert.match(service, /BankAppAuthorizationStore\(applicationContext\)/)
+  assert.match(service, /authorizedPackages\(\)\.contains\(sbn\.packageName\)/)
   assert.match(service, /sbn\.key/)
   assert.match(parser, /normalizedCombined = combined\.replace/)
   assert.match(store, /item\.merchantKey == payment\.merchantKey/)
@@ -63,6 +65,20 @@ test('Android identifica el origen por paquete y empareja por importe, comercio 
   assert.match(store, /PAIR_WINDOW_MS = 3 \* 60 \* 1000L/)
   assert.match(store, /possiblePairIndexes\.size == 1/)
   assert.doesNotMatch(parser + store, /cardLast4|cardEnding/)
+})
+
+test('las apps instaladas requieren autorización explícita y la lista se cifra localmente', () => {
+  const store = read('android/app/src/main/java/com/finanzas/companion/BankAppAuthorizationStore.kt')
+  const picker = read('android/app/src/main/java/com/finanzas/companion/BankAppAuthorizationPlugin.kt')
+  const manifest = read('android/app/src/main/AndroidManifest.xml')
+  const screen = read('src/pages/CapturasAutomaticas.jsx')
+  assert.match(store, /EncryptedPreferences/)
+  assert.match(store, /authorized_packages/)
+  assert.match(picker, /CATEGORY_LAUNCHER/)
+  assert.match(picker, /setAuthorizedPackages/)
+  assert.match(manifest, /android.intent.category.LAUNCHER/)
+  assert.match(screen, /Aplicaciones autorizadas para detectar ingresos/)
+  assert.match(screen, /Guardar autorizaciones/)
 })
 
 test('el flujo nativo no persiste ni sincroniza datos de tarjetas', () => {
