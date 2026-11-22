@@ -62,3 +62,25 @@ test('does not recreate reminders whose local reminder time has already passed',
   })
   assert.equal(schedule.length, 0)
 })
+
+import { buildSmartLocalNotifications } from '../src/lib/reminder-schedule.js'
+
+test('builds smart alerts once per stable key and daily summary', () => {
+  const data = {
+    today: '2026-11-22',
+    budgetAlerts: [{ reminder_key: 'budget:b1:2026-11:80', source_type: 'budget_threshold', source_id: 'b1', title: 'Presupuesto al 80%', body: 'Alimentación: 80 € de 100 €.' }],
+    overdueAlerts: [{ reminder_key: 'overdue-installment:i1:2026-11-20', source_type: 'overdue_installment', source_id: 'i1', title: 'Cuota vencida', body: 'Móvil: 40 €.' }],
+    commitmentSummary: [{ title: 'Teléfono' }, { title: 'Alquiler' }],
+    insufficientBalance: { freeEurCents: 5000, upcomingEurCents: 9000 },
+  }
+  const first = buildSmartLocalNotifications(data, { now: new Date('2026-11-22T10:00:00Z') })
+  assert.equal(first.notifications.length, 4)
+  assert.equal(new Set(first.notifications.map((item) => item.id)).size, 4)
+  assert.ok(first.notifications.every((item) => item.schedule.at.toISOString() === '2026-11-22T10:00:12.000Z'))
+
+  const second = buildSmartLocalNotifications(data, {
+    now: new Date('2026-11-22T11:00:00Z'),
+    notifiedKeys: first.keys,
+  })
+  assert.equal(second.notifications.length, 0)
+})
