@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
-import { Home, Receipt, TrendingUp, Settings } from 'lucide-react'
+import { Home, Receipt, TrendingUp, Settings, CalendarDays } from 'lucide-react'
 import Sidebar from './Sidebar'
 import Navbar from './Navbar'
 import { useSettingsAttention } from '@/hooks/useSettingsAttention'
@@ -17,12 +17,14 @@ const Recordatorios = lazy(() => import('@/pages/Recordatorios'))
 const Ajustes = lazy(() => import('@/pages/Ajustes'))
 const Cuentas = lazy(() => import('@/pages/Cuentas'))
 const Transferencias = lazy(() => import('@/pages/Transferencias'))
+const CalendarioFinanciero = lazy(() => import('@/pages/CalendarioFinanciero'))
 
 const primaryItems = [
   { name: 'Dashboard', label: 'Inicio', icon: Home },
   { name: 'Gastos', label: 'Gastos', icon: Receipt },
   { name: 'Ingresos', label: 'Ingresos', icon: TrendingUp },
   { name: 'Ajustes', label: 'Ajustes', icon: Settings },
+  { name: 'Calendario', label: 'Calendario', icon: CalendarDays },
 ]
 
 function PageContent({ activePage, onNavigate, attentionCounts }) {
@@ -36,6 +38,7 @@ function PageContent({ activePage, onNavigate, attentionCounts }) {
   if (activePage === 'Gestión financiera') return <Configuracion />
   if (activePage === 'Cuentas') return <Cuentas />
   if (activePage === 'Transferencias') return <Transferencias />
+  if (activePage === 'Calendario') return <CalendarioFinanciero />
   if (activePage === 'Deudas') return <Deudas />
   if (activePage === 'Compromisos') return <Compromisos />
   return <Dashboard />
@@ -159,6 +162,7 @@ export default function Layout({ onSignOut }) {
             'Transferencias',
             'Deudas',
             'Compromisos',
+            'Calendario',
           ].includes(activePage))
           return (
             <button
