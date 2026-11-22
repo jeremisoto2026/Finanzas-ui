@@ -114,12 +114,12 @@ class IncomeNotificationClassifierTest {
     }
 
     @Test
-    fun unfamiliarPositiveBankMovementIsCapturedForReview() {
+    fun unfamiliarPositiveBankMovementWithoutInboundWordingIsIgnored() {
         val result = IncomeNotificationClassifier.classify(
             "BBVA", "Movimiento a tu favor: 42,50 EUR", isFinancialSource = true
         )
-        assertEquals(IncomeNoticeDecision.NEEDS_REVIEW, result.decision)
-        assertEquals(4250L, result.amountCents)
+        assertEquals(IncomeNoticeDecision.IGNORE, result.decision)
+        assertNull(result.amountCents)
     }
 
     @Test
@@ -185,8 +185,8 @@ class IncomeNotificationClassifierTest {
         val result = IncomeNotificationClassifier.classify(
             "Bizum", "Operación Bizum de 18,00 EUR"
         )
-        assertEquals(IncomeNoticeDecision.NEEDS_REVIEW, result.decision) // conservative bank-source fallback
-        assertEquals(1800L, result.amountCents)
+        assertEquals(IncomeNoticeDecision.IGNORE, result.decision)
+        assertNull(result.amountCents)
     }
 
 }
