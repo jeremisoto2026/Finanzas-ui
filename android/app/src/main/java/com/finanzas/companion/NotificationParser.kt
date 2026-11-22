@@ -139,7 +139,7 @@ object NotificationParser {
     )
 
     private val transactionSignal = Regex(
-        """\b(pago|pagado|pagada|compra|compraste|cargo|cargado|cargada|cobro|debit|debited|debitado|debitada|purchase|paid|payment|charge|charged|card|tarjeta|aceptado|aceptada|autorizado|autorizada|approved|settled|transaction|transacci[oó]n|operaci[oó]n|gasto|withdrawal|contactless|contactless|transferencia)\b""",
+        """\b(pago|pagado|pagada|pagaste|compra|compraste|cargo|cargado|cargada|cobro|debit|debited|debitado|debitada|purchase|paid|payment|charge|charged|card|tarjeta|utilizada|usada|aceptado|aceptada|autorizado|autorizada|approved|settled|transaction|transacci[oó]n|operaci[oó]n|gasto|withdrawal|contactless|transferencia|spent|you\s+paid)\b""",
         RegexOption.IGNORE_CASE
     )
 
