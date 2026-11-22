@@ -118,6 +118,8 @@ export default function CapturasAutomaticas() {
   const [authorizedBankPackages, setAuthorizedBankPackages] = useState([])
   const [savingBankApps, setSavingBankApps] = useState(false)
   const [bankAppsFilter, setBankAppsFilter] = useState('')
+  const [financialAppsCatalog, setFinancialAppsCatalog] = useState(KNOWN_FINANCIAL_APPS)
+  const [catalogStatus, setCatalogStatus] = useState('local')
   const [accounts, setAccounts] = useState([])
   const [accountMappings, setAccountMappings] = useState([])
   const [categories, setCategories] = useState([])
@@ -137,6 +139,34 @@ export default function CapturasAutomaticas() {
   const [syncing, setSyncing] = useState(false)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
+
+  useEffect(() => {
+    let active = true
+    const catalogUrl = 'https://raw.githubusercontent.com/jeremisoto2026/Finanzas-ui/feat/notificaciones-directas-badges-ajustes/public/financial-apps-catalog.json'
+    fetch(catalogUrl, { cache: 'no-cache' })
+      .then((response) => {
+        if (!response.ok) throw new Error('No se pudo actualizar el catálogo')
+        return response.json()
+      })
+      .then((payload) => {
+        if (!Array.isArray(payload?.apps)) throw new Error('Catálogo financiero no válido')
+        const nextCatalog = Object.fromEntries(payload.apps
+          .filter((entry) => typeof entry?.packageName === 'string' && entry.packageName.trim())
+          .map((entry) => [entry.packageName.toLowerCase(), {
+            type: entry.type || 'Servicio financiero',
+            name: entry.name || null,
+            confidence: 'alta',
+          }]))
+        if (active && Object.keys(nextCatalog).length > 0) {
+          setFinancialAppsCatalog(nextCatalog)
+          setCatalogStatus('online')
+        }
+      })
+      .catch(() => {
+        if (active) setCatalogStatus('local')
+      })
+    return () => { active = false }
+  }, [])
 
   const sourceLabelMap = useMemo(() => {
     const labels = { ...SOURCE_LABELS }
@@ -767,17 +797,22 @@ export default function CapturasAutomaticas() {
               <p className="mt-1 text-xs leading-relaxed text-slate-400">Selecciona las aplicaciones cuyas notificaciones puede analizar Finanzas para detectar gastos e ingresos. Las demás seguirán ignoradas. Los gastos identificados se registran automáticamente; los posibles ingresos siempre requieren confirmación manual. La selección se guarda cifrada en este móvil.</p>
               <input type="search" value={bankAppsFilter} onChange={(event) => setBankAppsFilter(event.target.value)} placeholder="Buscar aplicación instalada…" className="mt-3 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm text-white placeholder:text-slate-500" />
               <div className="mt-3 rounded-lg border border-sky-900/60 bg-sky-950/20 p-3">
-                <p className="text-xs font-semibold text-sky-200">{bankApps.filter(suggestFinancialApp).length} posibles aplicaciones bancarias o de pagos detectadas</p>
-                <p className="mt-1 text-[11px] leading-relaxed text-slate-400">Finanzas compara nombres y paquetes con una lista local de entidades conocidas y señales habituales. Las coincidencias son sugerencias, no una verificación oficial: revisa el nombre antes de autorizar. No se consulta ningún servidor ni se envía esta lista fuera del móvil.</p>
+                <p className="text-xs font-semibold text-sky-200">{bankApps.filter((app) => suggestFinancialApp(app, financialAppsCatalog)).length} aplicaciones financieras reconocidas</p>
+                <p className="mt-1 text-[11px] leading-relaxed text-slate-400">{catalogStatus === 'online' ? 'Catálogo financiero actualizado desde Internet.' : 'Usando el catálogo financiero guardado en la aplicación; se actualizará cuando haya conexión.'} La comparación se realiza en este móvil: solo se descarga el catálogo público y nunca se envía la lista de aplicaciones instaladas. Solo aparecen entidades y servicios financieros reconocidos. Las casillas siguen bajo tu control.</p>
               </div>
               <div className="mt-3 max-h-80 space-y-2 overflow-y-auto">
-                {[...bankApps].filter((app) => (app.label + " " + app.packageName).toLocaleLowerCase("es").includes(bankAppsFilter.toLocaleLowerCase("es"))).sort((a, b) => Number(Boolean(suggestFinancialApp(b))) - Number(Boolean(suggestFinancialApp(a))) || a.label.localeCompare(b.label, "es")).map((app) => {
-                  const suggestion = suggestFinancialApp(app)
+                {[...bankApps].filter((app) => {
+                  const recognized = suggestFinancialApp(app, financialAppsCatalog)
+                  const previouslyAuthorized = authorizedBankPackages.includes(app.packageName)
+                  return (recognized || previouslyAuthorized) &&
+                    (app.label + " " + app.packageName).toLocaleLowerCase("es").includes(bankAppsFilter.toLocaleLowerCase("es"))
+                }).sort((a, b) => Number(Boolean(suggestFinancialApp(b, financialAppsCatalog))) - Number(Boolean(suggestFinancialApp(a, financialAppsCatalog))) || a.label.localeCompare(b.label, "es")).map((app) => {
+                  const suggestion = suggestFinancialApp(app, financialAppsCatalog)
                   return (
                     <label key={app.packageName} className={"flex cursor-pointer items-center justify-between gap-3 rounded-lg border px-3 py-2.5 " + (suggestion ? "border-sky-900/70 bg-sky-950/20" : "border-slate-800 bg-slate-950/60")}>
                       <span className="flex min-w-0 items-center gap-3">
                         {app.iconDataUrl ? <img src={app.iconDataUrl} alt="" loading="lazy" className="h-10 w-10 shrink-0 rounded-xl bg-slate-800 object-contain p-0.5" /> : <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-800 text-slate-400"><Smartphone className="h-5 w-5" /></span>}
-                        <span className="min-w-0"><span className="block truncate text-sm font-medium text-white">{app.label}</span><span className="block truncate text-[10px] text-slate-500">{app.packageName}</span>{suggestion && <span className="mt-1 inline-flex rounded-full bg-sky-500/10 px-2 py-0.5 text-[10px] font-medium text-sky-200">{suggestion.type}{suggestion.confidence === "alta" ? " · catálogo" : " · revisar"}</span>}</span>
+                        <span className="min-w-0"><span className="block truncate text-sm font-medium text-white">{app.label}</span><span className="block truncate text-[10px] text-slate-500">{app.packageName}</span>{suggestion ? <span className="mt-1 inline-flex rounded-full bg-sky-500/10 px-2 py-0.5 text-[10px] font-medium text-sky-200">{suggestion.type} · catálogo</span> : authorizedBankPackages.includes(app.packageName) ? <span className="mt-1 inline-flex rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-200">Autorizada · fuera del catálogo</span> : null}</span>
                       </span>
                       <input type="checkbox" checked={authorizedBankPackages.includes(app.packageName)} onChange={(event) => setAuthorizedBankPackages((current) => event.target.checked ? [...new Set([...current, app.packageName])] : current.filter((item) => item !== app.packageName))} className="h-4 w-4 shrink-0 accent-sky-500" />
                     </label>
