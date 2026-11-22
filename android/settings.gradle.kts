@@ -26,3 +26,6 @@ project(":capacitor-android").projectDir = file("../node_modules/@capacitor/andr
 
 include(":capacitor-local-notifications")
 project(":capacitor-local-notifications").projectDir = file("../node_modules/@capacitor/local-notifications/android")
+
+include(":capacitor-push-notifications")
+project(":capacitor-push-notifications").projectDir = file("../node_modules/@capacitor/push-notifications/android")
