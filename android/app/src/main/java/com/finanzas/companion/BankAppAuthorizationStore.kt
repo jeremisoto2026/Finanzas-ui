@@ -27,6 +27,6 @@ class BankAppAuthorizationStore(context: Context) {
 
     companion object {
         private const val KEY = "authorized_packages"
-        private val PACKAGE_PATTERN = Regex("^[A-Za-z][A-Za-z0-9_]*(\\\\.[A-Za-z0-9_]+)+$")
+        private val PACKAGE_PATTERN = Regex("^[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z0-9_]+)+$")
     }
 }
