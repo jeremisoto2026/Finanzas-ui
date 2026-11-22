@@ -80,7 +80,7 @@ test('las apps autorizadas registran gastos salientes y mantienen los ingresos e
   assert.ok(classifier.indexOf('if (outgoingSignal.containsMatchIn(combined))') < classifier.indexOf('val amount = extractAmountCents(combined)'))
   assert.match(parser, /transactionSignal/)
   assert.match(service, /incomeClassification.decision != IncomeNoticeDecision.IGNORE/)
-  assert.match(service, /NotificationParser.parse\\(/)
+  assert.match(service, /NotificationParser\.parse\(/)
   assert.match(screen, /detectar gastos e ingresos/)
   assert.match(screen, /Los gastos identificados se registran automáticamente/)
   assert.match(screen, /los posibles ingresos siempre requieren confirmación manual/)
