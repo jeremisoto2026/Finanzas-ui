@@ -17,6 +17,119 @@ const supabase = createClient(supabaseUrl, serviceRoleKey, {
 })
 const webpush = (webpushModule as unknown as { default?: typeof webpushModule }).default ?? webpushModule
 
+const firebaseServiceAccountRaw = Deno.env.get('FIREBASE_SERVICE_ACCOUNT_JSON')
+let firebaseAccessToken: { value: string; expiresAt: number } | null = null
+
+function base64Url(bytes: Uint8Array) {
+  let binary = ''
+  for (const byte of bytes) binary += String.fromCharCode(byte)
+  return btoa(binary).replace(/=/g, '').replace(/\\+/g, '-').replace(/\\//g, '_')
+}
+
+function base64UrlText(value: string) {
+  return base64Url(new TextEncoder().encode(value))
+}
+
+function pemToBytes(pem: string) {
+  const base64 = pem.replace(/-----BEGIN PRIVATE KEY-----/g, '').replace(/-----END PRIVATE KEY-----/g, '').replace(/\\s/g, '')
+  const binary = atob(base64)
+  return Uint8Array.from(binary, (character) => character.charCodeAt(0))
+}
+
+async function getFirebaseAccessToken() {
+  if (!firebaseServiceAccountRaw) throw new Error('Falta el secreto FIREBASE_SERVICE_ACCOUNT_JSON en Preview.')
+  if (firebaseAccessToken && firebaseAccessToken.expiresAt > Date.now() + 60_000) return firebaseAccessToken.value
+
+  const account = JSON.parse(firebaseServiceAccountRaw) as {
+    project_id: string
+    client_email: string
+    private_key: string
+    token_uri?: string
+  }
+  if (!account.project_id || !account.client_email || !account.private_key) {
+    throw new Error('La credencial de Firebase no contiene project_id, client_email y private_key.')
+  }
+
+  const now = Math.floor(Date.now() / 1000)
+  const unsigned = base64UrlText(JSON.stringify({ alg: 'RS256', typ: 'JWT' })) + '.' +
+    base64UrlText(JSON.stringify({
+      iss: account.client_email,
+      scope: 'https://www.googleapis.com/auth/firebase.messaging',
+      aud: account.token_uri || 'https://oauth2.googleapis.com/token',
+      iat: now,
+      exp: now + 3600,
+    }))
+  const signingKey = await crypto.subtle.importKey(
+    'pkcs8',
+    pemToBytes(account.private_key),
+    { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
+    false,
+    ['sign'],
+  )
+  const signature = new Uint8Array(await crypto.subtle.sign(
+    'RSASSA-PKCS1-v1_5',
+    signingKey,
+    new TextEncoder().encode(unsigned),
+  ))
+  const assertion = unsigned + '.' + base64Url(signature)
+  const response = await fetch(account.token_uri || 'https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+      assertion,
+    }),
+  })
+  const tokenBody = await response.json()
+  if (!response.ok || !tokenBody.access_token) {
+    throw new Error('Google OAuth no pudo emitir un token FCM: ' + JSON.stringify(tokenBody).slice(0, 500))
+  }
+  firebaseAccessToken = {
+    value: tokenBody.access_token,
+    expiresAt: Date.now() + Number(tokenBody.expires_in || 3600) * 1000,
+  }
+  return firebaseAccessToken.value
+}
+
+async function sendFirebaseNotification(
+  projectId: string,
+  deviceToken: string,
+  notification: { id: string; title: string; body: string; reminder_key: string },
+) {
+  const accessToken = await getFirebaseAccessToken()
+  const response = await fetch(
+    'https://fcm.googleapis.com/v1/projects/' + encodeURIComponent(projectId) + '/messages:send',
+    {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer ' + accessToken,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        message: {
+          token: deviceToken,
+          notification: { title: notification.title, body: notification.body },
+          data: {
+            notificationId: notification.id,
+            reminderKey: notification.reminder_key,
+            url: '/',
+          },
+          android: { priority: 'HIGH' },
+        },
+      }),
+    },
+  )
+  const responseBody = await response.json().catch(() => ({}))
+  if (!response.ok) {
+    const errorCode = responseBody?.error?.details?.find?.((detail: { errorCode?: string }) => detail.errorCode)?.errorCode || ''
+    const error = new Error('FCM HTTP ' + response.status + ': ' + JSON.stringify(responseBody).slice(0, 700))
+    ;(error as Error & { statusCode?: number; fcmErrorCode?: string }).statusCode = response.status
+    ;(error as Error & { statusCode?: number; fcmErrorCode?: string }).fcmErrorCode = errorCode
+    throw error
+  }
+  return responseBody
+}
+
 const DEFAULTS = {
   fixed_payments_enabled: true,
   installments_enabled: true,
@@ -288,28 +401,52 @@ Deno.serve(async (request) => {
     let withoutDevice = 0
 
     if ((pending || []).length > 0) {
-      webpush.setVapidDetails(
-        'https://finanzas-ui-seven.vercel.app',
-        config.vapid_public_key,
-        config.vapid_private_key,
-      )
+      const canUseWebPush = Boolean(config.vapid_public_key && config.vapid_private_key)
+      let subscriptions: Array<{ id: string; user_id: string; endpoint: string; p256dh: string; auth: string }> = []
+      if (canUseWebPush) {
+        webpush.setVapidDetails(
+          'https://finanzas-ui-seven.vercel.app',
+          config.vapid_public_key,
+          config.vapid_private_key,
+        )
+        const { data, error } = await supabase
+          .from('push_subscriptions')
+          .select('id, user_id, endpoint, p256dh, auth')
+          .in('user_id', userIdsPending)
+        if (error) throw error
+        subscriptions = data || []
+      }
 
-      const { data: subscriptions, error: subscriptionsError } = await supabase
-        .from('push_subscriptions')
-        .select('id, user_id, endpoint, p256dh, auth')
+      const { data: fcmRows, error: fcmError } = await supabase
+        .from('fcm_push_tokens')
+        .select('id, user_id, token')
         .in('user_id', userIdsPending)
-      if (subscriptionsError) throw subscriptionsError
+      if (fcmError) throw fcmError
 
       const subscriptionsByUser = new Map<string, typeof subscriptions>()
-      for (const subscription of subscriptions || []) {
+      for (const subscription of subscriptions) {
         const list = subscriptionsByUser.get(subscription.user_id) || []
         list.push(subscription)
         subscriptionsByUser.set(subscription.user_id, list)
       }
+      const fcmTokensByUser = new Map<string, typeof fcmRows>()
+      for (const tokenRow of fcmRows || []) {
+        const list = fcmTokensByUser.get(tokenRow.user_id) || []
+        list.push(tokenRow)
+        fcmTokensByUser.set(tokenRow.user_id, list)
+      }
+
+      let firebaseProjectId: string | null = null
+      if ((fcmRows || []).length > 0) {
+        if (!firebaseServiceAccountRaw) throw new Error('Hay dispositivos Android registrados, pero falta FIREBASE_SERVICE_ACCOUNT_JSON.')
+        firebaseProjectId = (JSON.parse(firebaseServiceAccountRaw) as { project_id?: string }).project_id || null
+        if (!firebaseProjectId) throw new Error('La credencial Firebase no contiene project_id.')
+      }
 
       for (const notification of pending || []) {
         const deviceSubscriptions = subscriptionsByUser.get(notification.user_id) || []
-        if (deviceSubscriptions.length === 0) {
+        const deviceTokens = fcmTokensByUser.get(notification.user_id) || []
+        if (deviceSubscriptions.length === 0 && deviceTokens.length === 0) {
           withoutDevice += 1
           continue
         }
@@ -342,18 +479,34 @@ Deno.serve(async (request) => {
           }
         }
 
+        for (const device of deviceTokens) {
+          try {
+            await sendFirebaseNotification(firebaseProjectId!, device.token, notification)
+            delivered = true
+          } catch (pushError) {
+            const statusCode = Number((pushError as { statusCode?: number })?.statusCode || 0)
+            const fcmErrorCode = String((pushError as { fcmErrorCode?: string })?.fcmErrorCode || '')
+            errors.push(pushError instanceof Error ? pushError.message : String(pushError))
+            if (statusCode === 404 || fcmErrorCode === 'UNREGISTERED') {
+              await supabase.from('fcm_push_tokens').delete().eq('id', device.id)
+            }
+          }
+        }
+
         if (delivered) {
           const { error: updateError } = await supabase.from('notifications')
             .update({ push_status: 'sent', sent_at: new Date().toISOString(), last_error: null })
             .eq('id', notification.id)
           if (updateError) throw updateError
           sent += 1
-        } else {
+        } else if (errors.length > 0) {
           const { error: updateError } = await supabase.from('notifications')
             .update({ push_status: 'failed', last_error: errors.slice(0, 3).join(' | ').slice(0, 1000) || 'No se pudo entregar el aviso.' })
             .eq('id', notification.id)
           if (updateError) throw updateError
           failed += 1
+        } else {
+          withoutDevice += 1
         }
       }
     }
