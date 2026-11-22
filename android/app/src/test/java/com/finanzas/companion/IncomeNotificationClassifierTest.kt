@@ -118,8 +118,8 @@ class IncomeNotificationClassifierTest {
         val result = IncomeNotificationClassifier.classify(
             "BBVA", "Movimiento a tu favor: 42,50 EUR", isFinancialSource = true
         )
-        assertEquals(IncomeNoticeDecision.IGNORE, result.decision)
-        assertNull(result.amountCents)
+        assertEquals(IncomeNoticeDecision.NEEDS_REVIEW, result.decision)
+        assertEquals(4250L, result.amountCents)
     }
 
     @Test
