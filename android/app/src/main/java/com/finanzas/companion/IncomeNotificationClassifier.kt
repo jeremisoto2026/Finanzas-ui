@@ -35,7 +35,7 @@ object IncomeNotificationClassifier {
         RegexOption.IGNORE_CASE
     )
     private val outgoingSignal = Regex(
-        """\b(pago\s+aceptado|aceptado\s+el\s+pago|pago\s+(?:de|realizado|enviado|emitido|con\s+tarjeta)|has\s+pagado|pagaste|ha[s]?\s+realizado\s+(?:un\s+)?(?:pago|compra)|compra(?:s)?(?:\s+(?:realizada|realizadas|con\s+tarjeta))?|cargo(?:s)?(?:\s+(?:realizado|en\s+tu\s+cuenta))?|se\s+ha\s+cargado|tarjeta\s+(?:utilizada|usada)|retirada(?:s)?|retiraste|enviaste|has\s+enviado|transferencia\s+enviada|bizum\s+enviado|domiciliaci[oó]n|recibo\s+pagado|debit(?:ed)?|purchase(?:s)?(?:\s+at)?|card\s+(?:payment|purchase|used)|you\s+paid|you\s+spent|spent\s+at|withdrawal|cash\s+withdrawal|payment\s+at|sent\s+(?:a\s+)?payment|money\s+sent|outgoing\s+transfer)\b""",
+        """\b(pago\s+aceptado|aceptado\s+el\s+pago|pago\s+(?:realizado|enviado|emitido|con\s+tarjeta)|pago\s+(?:aceptado|de)|has\s+pagado|pagaste|ha[s]?\s+realizado\s+(?:un\s+)?(?:pago|compra)|compra(?:s)?(?:\s+(?:realizada|realizadas|con\s+tarjeta))?|cargo(?:s)?(?:\s+(?:realizado|en\s+tu\s+cuenta))?|se\s+ha\s+cargado|tarjeta\s+(?:utilizada|usada)|retirada(?:s)?|retiraste|enviaste|has\s+enviado|transferencia\s+enviada|bizum\s+enviado|domiciliaci[oó]n|recibo\s+pagado|debit(?:ed)?|purchase(?:s)?(?:\s+at)?|card\s+(?:payment|purchase|used)|you\s+paid|you\s+spent|spent\s+at|withdrawal|cash\s+withdrawal|payment\s+at|sent\s+(?:a\s+)?payment|money\s+sent|outgoing\s+transfer)\b""",
         RegexOption.IGNORE_CASE
     )
     private val failedSignal = Regex(
