@@ -77,6 +77,16 @@ export default function Layout({ onSignOut }) {
         if (!active || !payload?.route) return
         if (payload.route === 'income-review') {
           cambiarPagina('Compras pendientes')
+        } else if (payload.route === 'budgets') {
+          cambiarPagina('Gestión financiera')
+        } else if (payload.route === 'incomes') {
+          cambiarPagina('Ingresos')
+        } else if (payload.route === 'commitments') {
+          cambiarPagina('Compromisos')
+        } else if (payload.route === 'accounts') {
+          cambiarPagina('Cuentas')
+        } else if (payload.route === 'reminders') {
+          cambiarPagina('Recordatorios')
         } else if (payload.route === 'expenses') {
           cambiarPagina('Gastos')
           window.__finanzasPendingExpenseFocus = payload
