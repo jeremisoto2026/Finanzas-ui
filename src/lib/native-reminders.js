@@ -7,10 +7,8 @@ import {
   buildUpcomingCommitmentSummary,
 } from '@/lib/smart-alerts'
 import {
-  buildLocalReminderSchedule,
   NATIVE_REMINDER_ID_END,
   NATIVE_REMINDER_ID_START,
-  buildSmartLocalNotifications,
 } from '@/lib/reminder-schedule'
 
 export const DEFAULT_REMINDER_PREFERENCES = Object.freeze({
@@ -152,7 +150,7 @@ export async function cancelNativeReminders() {
   if (owned.length) await LocalNotifications.cancel({ notifications: owned })
 }
 
-export async function syncNativeReminders(data) {
+export async function syncNativeReminders() {
   if (!isFinanzasAndroid()) return { scheduled: 0, permission: 'unsupported' }
   if (!hasNativeReminderPlugin()) throw new Error('El módulo nativo de notificaciones no está integrado en esta APK.')
 
@@ -161,38 +159,8 @@ export async function syncNativeReminders(data) {
     return { scheduled: 0, permission: permission.display || 'prompt' }
   }
 
-  await LocalNotifications.createChannel({
-    id: 'finanzas-reminders',
-    name: 'Avisos inteligentes de Finanzas',
-    description: 'Pagos, cuotas, presupuestos y saldo disponible',
-    importance: 4,
-    vibration: true,
-  })
-
-  const pending = await LocalNotifications.getPending()
-  const owned = (pending.notifications || [])
-    .filter((item) => item.id >= NATIVE_REMINDER_ID_START && item.id < NATIVE_REMINDER_ID_END)
-  // Keep smart alerts already queued; a quick second sync must not cancel them.
-  const replaceable = owned
-    .filter((item) => ['fixed_payment', 'installment'].includes(item.extra?.sourceType))
-    .map((item) => ({ id: item.id }))
-  if (replaceable.length) await LocalNotifications.cancel({ notifications: replaceable })
-
-  const scheduled = buildLocalReminderSchedule(data)
-  let notifiedKeys = []
-  if (typeof localStorage !== 'undefined') {
-    try { notifiedKeys = JSON.parse(localStorage.getItem('finanzas.smart-alert-keys.v1') || '[]') } catch { notifiedKeys = [] }
-  }
-  const smart = buildSmartLocalNotifications(data.smartAlerts || {}, { notifiedKeys })
-  const notifications = [...scheduled, ...smart.notifications]
-  if (notifications.length) {
-    await LocalNotifications.schedule({ notifications })
-    if (smart.keys.length && typeof localStorage !== 'undefined') {
-      const previous = JSON.parse(localStorage.getItem('finanzas.smart-alert-keys.v1') || '[]')
-      const merged = [...new Set([...previous, ...smart.keys])].slice(-1500)
-      localStorage.setItem('finanzas.smart-alert-keys.v1', JSON.stringify(merged))
-    }
-  }
-
-  return { scheduled: notifications.length, permission: permission.display }
+  // FCM is now the single delivery channel for reminders and smart alerts.
+  // Clear legacy local schedules so the same alert is not shown again on app resume.
+  await cancelNativeReminders()
+  return { scheduled: 0, permission: permission.display }
 }
