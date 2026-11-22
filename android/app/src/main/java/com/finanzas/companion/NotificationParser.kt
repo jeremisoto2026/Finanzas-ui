@@ -70,7 +70,7 @@ data class NotificationSource(
             if (!PACKAGE_PATTERN.matches(normalizedPackage)) return null
 
             val label = applicationLabel
-                ?.replace(Regex("\s+"), " ")
+                ?.replace(Regex("\\s+"), " ")
                 ?.trim()
                 ?.takeIf { it.isNotBlank() }
                 ?.take(100)
@@ -259,14 +259,14 @@ object NotificationParser {
         return value
             .uppercase(Locale.ROOT)
             .replace(
-                Regex("\b(?:COMPRA|TARJETA|PAGO|PAGADO|PAYMENT|CONTACTLESS|TPV|POS|REVOLUT|GOOGLE|WALLET)\b"),
+                Regex("""\b(?:COMPRA|TARJETA|PAGO|PAGADO|PAYMENT|CONTACTLESS|TPV|POS|REVOLUT|GOOGLE|WALLET)\b"""),
                 " "
             )
             .replace(Regex("(?<=\\p{L})-(?=\\p{L})"), "")
             .replace(Regex("[^\\p{L}\\p{N}]+"), " ")
-            .replace(Regex("\b\\d{2,}\b"), " ")
+            .replace(Regex("""\b\d{2,}\b"""), " ")
             .trim()
-            .replace(Regex("\s+"), " ")
+            .replace(Regex("\\s+"), " ")
     }
 
     private fun extractMerchant(
