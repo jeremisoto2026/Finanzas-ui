@@ -10,6 +10,7 @@ class MainActivity : BridgeActivity() {
         NotificationNavigationStore.save(this, intent)
         WindowCompat.setDecorFitsSystemWindows(window, false)
         registerPlugin(LocalCapturesPlugin::class.java)
+        registerPlugin(BankAppAuthorizationPlugin::class.java)
         super.onCreate(savedInstanceState)
         WindowCompat.getInsetsController(window, window.decorView).apply {
             isAppearanceLightStatusBars = false
