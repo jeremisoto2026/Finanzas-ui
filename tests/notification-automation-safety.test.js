@@ -74,9 +74,9 @@ test('las apps autorizadas registran gastos salientes y mantienen los ingresos e
   const screen = read('src/pages/CapturasAutomaticas.jsx')
 
   assert.match(classifier, /private val outgoingSignal = Regex/)
-  assert.match(classifier, /pago\\s+\\(\?:realizado\|enviado\|emitido\|con\\s+tarjeta\)/)
+  assert.ok(classifier.includes(String.raw`pago\s+(?:realizado|enviado|emitido|con\s+tarjeta)`))
   assert.match(classifier, /compra/)
-  assert.match(classifier, /card\\s+\\(\?:payment\|purchase\|used\)/)
+  assert.ok(classifier.includes(String.raw`card\s+(?:payment|purchase|used)`))
   assert.ok(classifier.indexOf('if (outgoingSignal.containsMatchIn(combined))') < classifier.indexOf('val amount = extractAmountCents(combined)'))
   assert.match(parser, /transactionSignal/)
   assert.match(service, /incomeClassification.decision != IncomeNoticeDecision.IGNORE/)
@@ -97,7 +97,7 @@ test('las apps instaladas requieren autorización explícita y la lista se cifra
   assert.match(picker, /CATEGORY_LAUNCHER/)
   assert.match(picker, /setAuthorizedPackages/)
   assert.match(manifest, /android.intent.category.LAUNCHER/)
-  assert.match(screen, /Aplicaciones autorizadas para detectar ingresos/)
+  assert.match(screen, /Aplicaciones autorizadas para detectar movimientos/)
   assert.match(screen, /Guardar autorizaciones/)
 })
 
