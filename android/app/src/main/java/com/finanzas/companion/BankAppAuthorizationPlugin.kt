@@ -12,11 +12,11 @@ import com.getcapacitor.annotation.CapacitorPlugin
 
 @CapacitorPlugin(name = "BankAppAuthorization")
 class BankAppAuthorizationPlugin : Plugin() {
-    private val store by lazy { BankAppAuthorizationStore(context.applicationContext) }
+    private val store by lazy { BankAppAuthorizationStore(getContext().applicationContext) }
 
     @PluginMethod fun getApps(call: PluginCall) {
         try {
-            val pm = context.packageManager
+            val pm = getContext().packageManager
             val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
             val resolved = if (Build.VERSION.SDK_INT >= 33) {
                 pm.queryIntentActivities(intent, PackageManager.ResolveInfoFlags.of(0))
@@ -28,7 +28,7 @@ class BankAppAuthorizationPlugin : Plugin() {
             val rows = JSArray()
             resolved.mapNotNull { item ->
                 val app = item.activityInfo?.applicationInfo ?: return@mapNotNull null
-                if (app.packageName == context.packageName) return@mapNotNull null
+                if (app.packageName == getContext().packageName) return@mapNotNull null
                 val label = pm.getApplicationLabel(app)?.toString()?.trim().orEmpty()
                 if (label.isBlank()) null else Triple(app.packageName, label, app.packageName in authorized)
             }.distinctBy { it.first }.sortedBy { it.second.lowercase(java.util.Locale.ROOT) }
