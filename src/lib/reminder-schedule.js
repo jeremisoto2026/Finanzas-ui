@@ -164,3 +164,56 @@ export function buildLocalReminderSchedule({
     .sort((a, b) => a.schedule.at.getTime() - b.schedule.at.getTime())
     .slice(0, 100)
 }
+
+
+/**
+ * Smart alerts are delivered locally shortly after a successful sync.
+ * Their stable keys are persisted by the caller so reopening the app does
+ * not repeatedly notify for the same threshold, overdue installment or day.
+ */
+export function buildSmartLocalNotifications(smartAlerts = {}, { now = new Date(), notifiedKeys = [] } = {}) {
+  const notified = new Set(notifiedKeys)
+  const notifications = []
+  const keys = []
+  const at = new Date(now.getTime() + 12_000)
+  const add = (key, title, body, sourceType, sourceId = null) => {
+    if (!key || notified.has(key)) return
+    notifications.push({
+      id: stableNotificationId(key),
+      title,
+      body,
+      schedule: { at, allowWhileIdle: true },
+      channelId: 'finanzas-reminders',
+      smallIcon: 'ic_stat_finanzas',
+      iconColor: '#18B887',
+      isExactNotification: false,
+      extra: { sourceType, sourceId, reminderKey: key },
+    })
+    keys.push(key)
+  }
+
+  for (const alert of smartAlerts.budgetAlerts || []) {
+    add(alert.reminder_key, alert.title, alert.body, alert.source_type, alert.source_id)
+  }
+  for (const alert of smartAlerts.overdueAlerts || []) {
+    add(alert.reminder_key, alert.title, alert.body, alert.source_type, alert.source_id)
+  }
+
+  const today = String(smartAlerts.today || '').slice(0, 10)
+  const summary = smartAlerts.commitmentSummary || []
+  if (today && summary.length) {
+    const summaryKey = 'commitment-summary:' + today
+    const preview = summary.slice(0, 3).map((item) => item.title).join(', ')
+    const remainder = summary.length > 3 ? ' y ' + (summary.length - 3) + ' más' : ''
+    add(summaryKey, 'Compromisos próximos', summary.length + ' pagos o cuotas en los próximos días: ' + preview + remainder + '.', 'commitment_summary')
+  }
+
+  const balance = smartAlerts.insufficientBalance
+  if (today && balance) {
+    const free = (Number(balance.freeEurCents || 0) / 100).toFixed(2)
+    const upcoming = (Number(balance.upcomingEurCents || 0) / 100).toFixed(2)
+    add('insufficient-balance:' + today, 'Saldo posiblemente insuficiente', 'Saldo libre estimado: ' + free + ' €. Compromisos próximos en EUR: ' + upcoming + ' €. Revisa tus cuentas y reservas.', 'insufficient_balance')
+  }
+
+  return { notifications, keys }
+}
