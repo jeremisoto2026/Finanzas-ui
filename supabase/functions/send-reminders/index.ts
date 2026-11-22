@@ -101,7 +101,7 @@ Deno.serve(async (request) => {
     const now = new Date()
     const { data: preferencesRows, error: preferencesError } = await supabase
       .from('notification_preferences')
-      .select('user_id, fixed_payments_enabled, installments_enabled, reminder_days_before, reminder_hour, same_day_enabled, timezone')
+      .select('user_id, fixed_payments_enabled, installments_enabled, reminder_days_before, reminder_hour, same_day_enabled, timezone, budget_alerts_enabled, overdue_installments_enabled, balance_alerts_enabled, commitment_summary_enabled, commitment_summary_days')
     if (preferencesError) throw preferencesError
 
     const preferences = new Map((preferencesRows || []).map((row) => [
@@ -117,7 +117,7 @@ Deno.serve(async (request) => {
       .eq('notification_enabled', true)
       .not('next_due_on', 'is', null)
       .gte('next_due_on', addDays(utcToday, -1))
-      .lte('next_due_on', addDays(utcToday, 8))
+      .lte('next_due_on', addDays(utcToday, 31))
     if (fixedError) throw fixedError
 
     const { data: installments, error: installmentsError } = await supabase
