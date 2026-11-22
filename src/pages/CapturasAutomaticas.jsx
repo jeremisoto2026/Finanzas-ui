@@ -20,6 +20,8 @@ import {
   openNotificationAccessSettings,
   openAppNotificationSettings,
   syncLocalCaptures,
+  getBankAppAuthorizationState,
+  saveBankAppAuthorizations,
 } from '@/lib/native-captures'
 import { supabase } from '@/lib/supabase'
 import { DEFAULT_INCOME_CATEGORIES } from '@/lib/category-catalog'
@@ -85,6 +87,10 @@ export default function CapturasAutomaticas() {
   const [remoteEvents, setRemoteEvents] = useState([])
   const [incomeReviewItems, setIncomeReviewItems] = useState([])
   const [localIncomeCandidates, setLocalIncomeCandidates] = useState([])
+  const [bankApps, setBankApps] = useState([])
+  const [authorizedBankPackages, setAuthorizedBankPackages] = useState([])
+  const [savingBankApps, setSavingBankApps] = useState(false)
+  const [bankAppsFilter, setBankAppsFilter] = useState('')
   const [accounts, setAccounts] = useState([])
   const [accountMappings, setAccountMappings] = useState([])
   const [categories, setCategories] = useState([])
@@ -174,10 +180,15 @@ export default function CapturasAutomaticas() {
         setPermissionEnabled(Boolean(localState.permissionEnabled))
         setLocalCaptures(Array.isArray(localState.captures) ? localState.captures : [])
         setLocalIncomeCandidates(Array.isArray(localState.incomeCandidates) ? localState.incomeCandidates : [])
+        const authorizationState = await getBankAppAuthorizationState()
+        setBankApps(Array.isArray(authorizationState.apps) ? authorizationState.apps : [])
+        setAuthorizedBankPackages(Array.isArray(authorizationState.authorizedPackages) ? authorizationState.authorizedPackages : [])
       } else {
         setPermissionEnabled(false)
         setLocalCaptures([])
         setLocalIncomeCandidates([])
+        setBankApps([])
+        setAuthorizedBankPackages([])
       }
 
       const { data: authData, error: authError } = await supabase.auth.getUser()
@@ -720,7 +731,33 @@ export default function CapturasAutomaticas() {
       {notice && <p role="status" className="rounded-xl border border-emerald-800/60 bg-emerald-950/30 p-3 text-sm text-emerald-200">{notice}</p>}
 
       {isNative ? (
+        {isNative && (
         <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
+          <div className="flex items-start gap-3">
+            <Smartphone className="mt-0.5 h-5 w-5 shrink-0 text-sky-300" />
+            <div className="min-w-0 flex-1">
+              <h2 className="text-lg font-semibold text-white">Aplicaciones autorizadas para detectar ingresos</h2>
+              <p className="mt-1 text-xs leading-relaxed text-slate-400">Selecciona las aplicaciones cuyas notificaciones puede analizar Finanzas. Las demás seguirán ignoradas. La selección se guarda cifrada en este móvil y cada posible ingreso seguirá requiriendo confirmación manual.</p>
+              <input type="search" value={bankAppsFilter} onChange={(event) => setBankAppsFilter(event.target.value)} placeholder="Buscar aplicación instalada…" className="mt-3 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm text-white placeholder:text-slate-500" />
+              <div className="mt-3 max-h-64 space-y-2 overflow-y-auto">
+                {bankApps.filter((app) => (app.label + " " + app.packageName).toLocaleLowerCase("es").includes(bankAppsFilter.toLocaleLowerCase("es"))).map((app) => (
+                  <label key={app.packageName} className="flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-slate-800 bg-slate-950/60 px-3 py-2.5">
+                    <span className="min-w-0"><span className="block truncate text-sm font-medium text-white">{app.label}</span><span className="block truncate text-[10px] text-slate-500">{app.packageName}</span></span>
+                    <input type="checkbox" checked={authorizedBankPackages.includes(app.packageName)} onChange={(event) => setAuthorizedBankPackages((current) => event.target.checked ? [...new Set([...current, app.packageName])] : current.filter((item) => item !== app.packageName))} className="h-4 w-4 shrink-0 accent-sky-500" />
+                  </label>
+                ))}
+                {bankApps.length === 0 && <p className="py-4 text-center text-xs text-slate-500">No se encontraron aplicaciones visibles con icono de inicio.</p>}
+              </div>
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                <span className="text-xs text-slate-400">{authorizedBankPackages.length} aplicaciones autorizadas</span>
+                <button type="button" disabled={savingBankApps} onClick={async () => { setSavingBankApps(true); setError(""); try { const saved = await saveBankAppAuthorizations(authorizedBankPackages); setAuthorizedBankPackages(saved.authorizedPackages || authorizedBankPackages); setNotice("Aplicaciones autorizadas guardadas en este móvil."); } catch (saveError) { setError(saveError?.message || "No se pudieron guardar las autorizaciones."); } finally { setSavingBankApps(false); } }} className="rounded-lg bg-sky-600 px-3 py-2 text-xs font-semibold text-white hover:bg-sky-500 disabled:opacity-50">{savingBankApps ? "Guardando…" : "Guardar autorizaciones"}</button>
+              </div>
+              <p className="mt-2 text-[10px] leading-relaxed text-slate-500">Android solo muestra aquí las aplicaciones visibles para esta app, normalmente las que tienen un icono de inicio. Algunas aplicaciones ocultas por el sistema pueden no aparecer.</p>
+            </div>
+          </div>
+        </div>
+      )}
+      <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <div className="rounded-xl bg-emerald-500/10 p-3 text-emerald-300">
