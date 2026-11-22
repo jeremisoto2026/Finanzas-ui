@@ -731,13 +731,13 @@ export default function CapturasAutomaticas() {
       {notice && <p role="status" className="rounded-xl border border-emerald-800/60 bg-emerald-950/30 p-3 text-sm text-emerald-200">{notice}</p>}
 
       {isNative ? (
-        {isNative && (
+        <>
         <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
           <div className="flex items-start gap-3">
             <Smartphone className="mt-0.5 h-5 w-5 shrink-0 text-sky-300" />
             <div className="min-w-0 flex-1">
-              <h2 className="text-lg font-semibold text-white">Aplicaciones autorizadas para detectar ingresos</h2>
-              <p className="mt-1 text-xs leading-relaxed text-slate-400">Selecciona las aplicaciones cuyas notificaciones puede analizar Finanzas. Las demás seguirán ignoradas. La selección se guarda cifrada en este móvil y cada posible ingreso seguirá requiriendo confirmación manual.</p>
+              <h2 className="text-lg font-semibold text-white">Aplicaciones autorizadas para detectar movimientos</h2>
+              <p className="mt-1 text-xs leading-relaxed text-slate-400">Selecciona las aplicaciones cuyas notificaciones puede analizar Finanzas para detectar gastos e ingresos. Las demás seguirán ignoradas. Los gastos identificados se registran automáticamente; los posibles ingresos siempre requieren confirmación manual. La selección se guarda cifrada en este móvil.</p>
               <input type="search" value={bankAppsFilter} onChange={(event) => setBankAppsFilter(event.target.value)} placeholder="Buscar aplicación instalada…" className="mt-3 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm text-white placeholder:text-slate-500" />
               <div className="mt-3 max-h-64 space-y-2 overflow-y-auto">
                 {bankApps.filter((app) => (app.label + " " + app.packageName).toLocaleLowerCase("es").includes(bankAppsFilter.toLocaleLowerCase("es"))).map((app) => (
@@ -756,7 +756,6 @@ export default function CapturasAutomaticas() {
             </div>
           </div>
         </div>
-      )}
       <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-3">
@@ -765,7 +764,7 @@ export default function CapturasAutomaticas() {
               </div>
               <div>
                 <h2 className="font-semibold text-white">Acceso a notificaciones</h2>
-                <p className="mt-1 text-xs text-slate-400">Finanzas procesa avisos compatibles de Revolut, BBVA y Google Wallet. Las demás aplicaciones se ignoran.</p>
+                <p className="mt-1 text-xs text-slate-400">Finanzas analiza las aplicaciones bancarias autorizadas y Google Wallet. Los gastos reconocidos se registran automáticamente; los ingresos quedan pendientes de tu confirmación.</p>
               </div>
             </div>
             <span className={'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold ' + (permissionEnabled ? 'bg-emerald-500/10 text-emerald-300' : 'bg-amber-500/10 text-amber-300')}>
@@ -800,6 +799,7 @@ export default function CapturasAutomaticas() {
             <span className="text-xs text-slate-500">{localCaptures.length} compras y {localIncomeCandidates.length} posibles ingresos guardados cifrados en este móvil</span>
           </div>
         </div>
+        </>
       ) : (
         <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
           <div className="flex items-start gap-3">
