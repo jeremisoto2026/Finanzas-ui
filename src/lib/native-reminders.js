@@ -174,7 +174,11 @@ export async function syncNativeReminders(data) {
   if (owned.length) await LocalNotifications.cancel({ notifications: owned })
 
   const scheduled = buildLocalReminderSchedule(data)
-  const smart = buildSmartLocalNotifications(data.smartAlerts || {})
+  let notifiedKeys = []
+  if (typeof localStorage !== 'undefined') {
+    try { notifiedKeys = JSON.parse(localStorage.getItem('finanzas.smart-alert-keys.v1') || '[]') } catch { notifiedKeys = [] }
+  }
+  const smart = buildSmartLocalNotifications(data.smartAlerts || {}, { notifiedKeys })
   const notifications = [...scheduled, ...smart.notifications]
   if (notifications.length) {
     await LocalNotifications.schedule({ notifications })
