@@ -67,6 +67,26 @@ test('Android identifica el origen por paquete y empareja por importe, comercio 
   assert.doesNotMatch(parser + store, /cardLast4|cardEnding/)
 })
 
+test('las apps autorizadas registran gastos salientes y mantienen los ingresos en revisión', () => {
+  const classifier = read('android/app/src/main/java/com/finanzas/companion/IncomeNotificationClassifier.kt')
+  const parser = read('android/app/src/main/java/com/finanzas/companion/NotificationParser.kt')
+  const service = read('android/app/src/main/java/com/finanzas/companion/NotificationCaptureService.kt')
+  const screen = read('src/pages/CapturasAutomaticas.jsx')
+
+  assert.match(classifier, /private val outgoingSignal = Regex/)
+  assert.match(classifier, /pago\\s+\\(\?:realizado\|enviado\|emitido\|con\\s+tarjeta\)/)
+  assert.match(classifier, /compra/)
+  assert.match(classifier, /card\\s+\\(\?:payment\|purchase\|used\)/)
+  assert.ok(classifier.indexOf('if (outgoingSignal.containsMatchIn(combined))') < classifier.indexOf('val amount = extractAmountCents(combined)'))
+  assert.match(parser, /transactionSignal/)
+  assert.match(service, /incomeClassification.decision != IncomeNoticeDecision.IGNORE/)
+  assert.match(service, /NotificationParser.parse\\(/)
+  assert.match(screen, /detectar gastos e ingresos/)
+  assert.match(screen, /Los gastos identificados se registran automáticamente/)
+  assert.match(screen, /los posibles ingresos siempre requieren confirmación manual/)
+  assert.match(screen, /<>/)
+})
+
 test('las apps instaladas requieren autorización explícita y la lista se cifra localmente', () => {
   const store = read('android/app/src/main/java/com/finanzas/companion/BankAppAuthorizationStore.kt')
   const picker = read('android/app/src/main/java/com/finanzas/companion/BankAppAuthorizationPlugin.kt')
