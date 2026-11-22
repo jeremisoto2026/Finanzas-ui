@@ -94,7 +94,7 @@ async function getFirebaseAccessToken() {
 async function sendFirebaseNotification(
   projectId: string,
   deviceToken: string,
-  notification: { id: string; title: string; body: string; reminder_key: string },
+  notification: { id: string; title: string; body: string; reminder_key: string; source_type: string },
 ) {
   const accessToken = await getFirebaseAccessToken()
   const response = await fetch(
@@ -112,6 +112,12 @@ async function sendFirebaseNotification(
           data: {
             notificationId: notification.id,
             reminderKey: notification.reminder_key,
+            finanzas_route: notification.source_type === 'budget_threshold' ? 'budgets'
+              : ['fixed_payment', 'installment', 'overdue_installment', 'commitment_summary'].includes(notification.source_type) ? 'commitments'
+              : notification.source_type === 'insufficient_balance' ? 'accounts'
+              : notification.source_type === 'expense_registered' ? 'expenses'
+              : notification.source_type === 'income_registered' ? 'incomes'
+              : 'reminders',
             url: '/',
           },
           android: { priority: 'HIGH' },
@@ -388,7 +394,7 @@ Deno.serve(async (request) => {
     if (expireError) throw expireError
 
     const { data: pending, error: pendingError } = await supabase.from('notifications')
-      .select('id, user_id, reminder_key, title, body, due_on, amount, currency_code')
+      .select('id, user_id, reminder_key, source_type, title, body, due_on, amount, currency_code')
       .in('push_status', ['pending', 'failed'])
       .gte('created_at', pendingSince)
       .order('created_at', { ascending: true })
