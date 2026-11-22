@@ -135,8 +135,8 @@ Deno.serve(async (request) => {
     const [budgetsResult, transactionsResult, balancesResult, reservationsResult] = await Promise.all([
       supabase.from('budgets').select('id, user_id, category_id, period_start, planned_amount, categories(name)').eq('period_start', monthStart),
       supabase.from('transactions').select('user_id, category_id, amount').eq('status', 'posted').eq('kind', 'expense').gte('occurred_on', monthStart).lte('occurred_on', monthLastDay),
-      supabase.from('account_balances').select('user_id, currency_code, current_balance'),
-      supabase.from('reservations').select('user_id, amount').eq('status', 'active'),
+      supabase.from('account_balances').select('account_id, user_id, currency_code, current_balance'),
+      supabase.from('reservations').select('user_id, account_id, amount').eq('status', 'active'),
     ])
     if (budgetsResult.error) throw budgetsResult.error
     if (transactionsResult.error) throw transactionsResult.error
@@ -229,16 +229,26 @@ Deno.serve(async (request) => {
       const horizon = Math.max(1, Math.min(31, Number(preference.commitment_summary_days || 7)))
       const upcomingFixed = (fixedPayments || []).filter((row) => row.user_id === userId && preference.fixed_payments_enabled && daysBetween(local.date, row.next_due_on) >= 0 && daysBetween(local.date, row.next_due_on) <= horizon)
       const upcomingInstallments = (installments || []).filter((row) => row.user_id === userId && preference.installments_enabled && row.due_on >= local.date && daysBetween(local.date, row.due_on) <= horizon)
-      const upcomingTotal = [...upcomingFixed, ...upcomingInstallments].reduce((sum, row) => sum + Number(row.amount || 0), 0)
-      const summaryParts = [...upcomingFixed.map((row) => ({ name: row.name || 'Pago fijo', due_on: row.next_due_on, amount: Number(row.amount) })), ...upcomingInstallments.map((row) => ({ name: row.installment_plans?.name || 'Cuota', due_on: row.due_on, amount: Number(row.amount) }))].sort((a, b) => a.due_on.localeCompare(b.due_on))
+      const summaryParts = [
+        ...upcomingFixed.map((row) => ({ name: row.name || 'Pago fijo', due_on: row.next_due_on, amount: Number(row.amount), currency_code: String(row.currency_code || 'EUR').trim() })),
+        ...upcomingInstallments.map((row) => ({ name: row.installment_plans?.name || 'Cuota', due_on: row.due_on, amount: Number(row.amount), currency_code: 'EUR' })),
+      ].sort((a, b) => a.due_on.localeCompare(b.due_on))
+      const totalsByCurrency = summaryParts.reduce((totals, item) => {
+        totals[item.currency_code] = (totals[item.currency_code] || 0) + item.amount
+        return totals
+      }, {} as Record<string, number>)
+      const summaryText = Object.entries(totalsByCurrency).map(([currency, total]) => total.toFixed(2) + ' ' + currency).join(' · ')
+      const upcomingEur = Number(totalsByCurrency.EUR || 0)
       if (preference.commitment_summary_enabled && summaryParts.length) {
-        candidates.push({ user_id: userId, reminder_key: 'commitments-summary:' + local.date + ':' + horizon, source_type: 'commitment_summary', source_id: null, title: 'Compromisos de los próximos ' + horizon + ' días', body: summaryParts.length + ' pagos pendientes por un total de ' + upcomingTotal.toFixed(2) + ' €.', due_on: local.date, amount: Number(upcomingTotal.toFixed(2)), currency_code: 'EUR', metadata: { horizon_days: horizon, commitments: summaryParts } })
+        candidates.push({ user_id: userId, reminder_key: 'commitments-summary:' + local.date + ':' + horizon, source_type: 'commitment_summary', source_id: null, title: 'Compromisos de los próximos ' + horizon + ' días', body: summaryParts.length + ' pagos pendientes: ' + summaryText + '.', due_on: local.date, amount: upcomingEur, currency_code: 'EUR', metadata: { horizon_days: horizon, commitments: summaryParts, totals_by_currency: totalsByCurrency } })
       }
-      if (preference.balance_alerts_enabled && upcomingTotal > 0) {
-        const balance = accountBalances.filter((row) => row.user_id === userId && String(row.currency_code || 'EUR').trim() === 'EUR').reduce((sum, row) => sum + Number(row.current_balance || 0), 0)
-        const reserved = activeReservations.filter((row) => row.user_id === userId).reduce((sum, row) => sum + Number(row.amount || 0), 0)
+      if (preference.balance_alerts_enabled && upcomingEur > 0) {
+        const eurAccounts = accountBalances.filter((row) => row.user_id === userId && String(row.currency_code || 'EUR').trim() === 'EUR')
+        const eurAccountIds = new Set(eurAccounts.map((row) => row.account_id))
+        const balance = eurAccounts.reduce((sum, row) => sum + Number(row.current_balance || 0), 0)
+        const reserved = activeReservations.filter((row) => row.user_id === userId && eurAccountIds.has(row.account_id)).reduce((sum, row) => sum + Number(row.amount || 0), 0)
         const free = balance - reserved
-        if (free < upcomingTotal) candidates.push({ user_id: userId, reminder_key: 'insufficient-balance:' + local.date, source_type: 'insufficient_balance', source_id: null, title: 'Saldo libre insuficiente', body: 'Tienes ' + free.toFixed(2) + ' € libres y compromisos próximos por ' + upcomingTotal.toFixed(2) + ' €.', due_on: local.date, amount: Number(upcomingTotal.toFixed(2)), currency_code: 'EUR', metadata: { free_balance: Number(free.toFixed(2)), upcoming_commitments: Number(upcomingTotal.toFixed(2)), horizon_days: horizon } })
+        if (free < upcomingEur) candidates.push({ user_id: userId, reminder_key: 'insufficient-balance:' + local.date, source_type: 'insufficient_balance', source_id: null, title: 'Saldo libre insuficiente', body: 'Tienes ' + free.toFixed(2) + ' € libres y compromisos próximos por ' + upcomingEur.toFixed(2) + ' €.', due_on: local.date, amount: Number(upcomingEur.toFixed(2)), currency_code: 'EUR', metadata: { free_balance: Number(free.toFixed(2)), upcoming_commitments: Number(upcomingEur.toFixed(2)), horizon_days: horizon } })
       }
     }
 
