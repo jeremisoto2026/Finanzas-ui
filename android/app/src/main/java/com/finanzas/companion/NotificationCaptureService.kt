@@ -30,7 +30,17 @@ class NotificationCaptureService : NotificationListenerService() {
         } catch (_: Exception) {
             sbn.packageName.substringAfterLast('.')
         }
-        val source = NotificationSource.fromPackage(sbn.packageName, appLabel) ?: return
+        val knownSource = NotificationSource.fromPackage(sbn.packageName, appLabel)
+        val manuallyAuthorized = BankAppAuthorizationStore(applicationContext)
+            .authorizedPackages().contains(sbn.packageName)
+        val source = knownSource ?: if (manuallyAuthorized) {
+            NotificationSource(
+                sourceApp = "android:${sbn.packageName}",
+                packageName = sbn.packageName,
+                label = appLabel.take(100).ifBlank { sbn.packageName.substringAfterLast('.') },
+                isBank = true
+            )
+        } else return
         val notification = sbn.notification ?: return
         val extras = notification.extras ?: return
 
