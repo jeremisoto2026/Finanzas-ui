@@ -45,19 +45,9 @@ const KNOWN_FINANCIAL_APPS = {
   'com.transferwise.android': { type: 'Pagos', name: 'Wise', confidence: 'alta' },
 }
 
-function suggestFinancialApp(app) {
+function suggestFinancialApp(app, catalog = KNOWN_FINANCIAL_APPS) {
   const packageName = String(app?.packageName || '').toLowerCase()
-  const label = String(app?.label || '').toLocaleLowerCase('es')
-  if (KNOWN_FINANCIAL_APPS[packageName]) return KNOWN_FINANCIAL_APPS[packageName]
-  if (/caixabank|banco|bank(?!\w)|banca|banking|bizum/.test(label) ||
-      /(?:^|\.)(?:bank|banco|banking)(?:\.|$)/.test(packageName)) {
-    return { type: 'Posible banco', name: null, confidence: 'orientativa' }
-  }
-  if (/revolut|paypal|pay\s?pal|wallet|pagos|payments|wise|transferwise/.test(label) ||
-      /revolut|paypal|wallet|payments|transferwise/.test(packageName)) {
-    return { type: 'Posible app de pagos', name: null, confidence: 'orientativa' }
-  }
-  return null
+  return catalog[packageName] || null
 }
 
 const formatAmount = (amount, currencyCode = 'EUR') => new Intl.NumberFormat('es-ES', {
