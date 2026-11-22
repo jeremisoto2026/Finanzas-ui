@@ -91,7 +91,7 @@
     bottom: 0;
     left: 0;
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 0.25rem;
     padding: 0.55rem 0.65rem calc(var(--finance-safe-area-bottom) + 0.55rem);
     border-top: 1px solid rgba(51, 65, 85, 0.7);
@@ -112,10 +112,17 @@
     border: 1px solid transparent;
     border-radius: 0.95rem;
     color: #94a3b8;
-    font-size: 0.65rem;
+    font-size: 0.58rem;
     font-weight: 600;
     line-height: 1;
+    white-space: nowrap;
     transition: color 150ms ease, background-color 150ms ease, border-color 150ms ease;
+  }
+
+  .mobile-nav-item > span:last-child {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: clip;
   }
 
   .mobile-nav-item.is-active {
