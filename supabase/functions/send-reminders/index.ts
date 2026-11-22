@@ -24,6 +24,11 @@ const DEFAULTS = {
   reminder_hour: 9,
   same_day_enabled: false,
   timezone: 'Europe/Madrid',
+  budget_alerts_enabled: true,
+  overdue_installments_enabled: true,
+  balance_alerts_enabled: true,
+  commitment_summary_enabled: true,
+  commitment_summary_days: 7,
 }
 
 function localDateTime(now: Date, timezone: string) {
@@ -66,13 +71,14 @@ function safeEqual(left: string, right: string) {
 type Candidate = {
   user_id: string
   reminder_key: string
-  source_type: 'fixed_payment' | 'installment'
-  source_id: string
+  source_type: 'fixed_payment' | 'installment' | 'budget_threshold' | 'overdue_installment' | 'insufficient_balance' | 'commitment_summary'
+  source_id: string | null
   title: string
   body: string
   due_on: string
   amount: number
   currency_code: string
+  metadata?: Record<string, unknown>
 }
 
 Deno.serve(async (request) => {
@@ -119,14 +125,33 @@ Deno.serve(async (request) => {
       .select('id, user_id, installment_number, amount, due_on, status, installment_plans!inner(name, status)')
       .eq('status', 'scheduled')
       .eq('installment_plans.status', 'active')
-      .gte('due_on', addDays(utcToday, -1))
-      .lte('due_on', addDays(utcToday, 8))
+      .gte('due_on', addDays(utcToday, -365))
+      .lte('due_on', addDays(utcToday, 31))
     if (installmentsError) throw installmentsError
+
+    const monthStart = localDateTime(now, 'Europe/Madrid').date.slice(0, 7) + '-01'
+    const monthEnd = addDays(monthStart, 32).slice(0, 7) + '-01'
+    const monthLastDay = addDays(monthEnd, -1)
+    const [budgetsResult, transactionsResult, balancesResult, reservationsResult] = await Promise.all([
+      supabase.from('budgets').select('id, user_id, category_id, period_start, planned_amount, categories(name)').eq('period_start', monthStart),
+      supabase.from('transactions').select('user_id, category_id, amount').eq('status', 'posted').eq('kind', 'expense').gte('occurred_on', monthStart).lte('occurred_on', monthLastDay),
+      supabase.from('account_balances').select('user_id, currency_code, current_balance'),
+      supabase.from('reservations').select('user_id, amount').eq('status', 'active'),
+    ])
+    if (budgetsResult.error) throw budgetsResult.error
+    if (transactionsResult.error) throw transactionsResult.error
+    if (balancesResult.error) throw balancesResult.error
+    if (reservationsResult.error) throw reservationsResult.error
+    const budgets = budgetsResult.data || []
+    const monthTransactions = transactionsResult.data || []
+    const accountBalances = balancesResult.data || []
+    const activeReservations = reservationsResult.data || []
 
     const candidates: Candidate[] = []
     const userIds = new Set([
       ...(fixedPayments || []).map((row) => row.user_id),
       ...(installments || []).map((row) => row.user_id),
+      ...budgets.map((row) => row.user_id),
     ])
 
     for (const userId of userIds) {
@@ -183,12 +208,44 @@ Deno.serve(async (request) => {
           })
         }
       }
+      if (preference.budget_alerts_enabled) {
+        for (const budget of budgets.filter((row) => row.user_id === userId)) {
+          const spent = monthTransactions.filter((row) => row.user_id === userId && row.category_id === budget.category_id).reduce((sum, row) => sum + Number(row.amount || 0), 0)
+          const limit = Number(budget.planned_amount || 0)
+          if (limit <= 0) continue
+          for (const threshold of [50, 80, 100]) {
+            if (spent + 0.000001 < limit * threshold / 100) continue
+            candidates.push({ user_id: userId, reminder_key: 'budget:' + budget.id + ':' + monthStart.slice(0, 7) + ':' + threshold, source_type: 'budget_threshold', source_id: budget.id, title: 'Presupuesto al ' + threshold + '%', body: (budget.categories?.name || 'Una categoría') + ': has utilizado ' + spent.toFixed(2) + ' € de ' + limit.toFixed(2) + ' €.', due_on: local.date, amount: Number(spent.toFixed(2)), currency_code: 'EUR', metadata: { threshold, spent: Number(spent.toFixed(2)), budget: limit, period: monthStart.slice(0, 7) } })
+          }
+        }
+      }
+
+      if (preference.overdue_installments_enabled) {
+        for (const installment of (installments || []).filter((row) => row.user_id === userId && row.due_on < local.date)) {
+          candidates.push({ user_id: userId, reminder_key: 'overdue-installment:' + installment.id + ':' + installment.due_on, source_type: 'overdue_installment', source_id: installment.id, title: 'Cuota vencida: ' + (installment.installment_plans?.name || 'Compra a cuotas'), body: 'La cuota ' + installment.installment_number + ' de ' + Number(installment.amount).toFixed(2) + ' € venció el ' + installment.due_on + ' y sigue pendiente.', due_on: installment.due_on, amount: Number(installment.amount), currency_code: 'EUR' })
+        }
+      }
+
+      const horizon = Math.max(1, Math.min(31, Number(preference.commitment_summary_days || 7)))
+      const upcomingFixed = (fixedPayments || []).filter((row) => row.user_id === userId && preference.fixed_payments_enabled && daysBetween(local.date, row.next_due_on) >= 0 && daysBetween(local.date, row.next_due_on) <= horizon)
+      const upcomingInstallments = (installments || []).filter((row) => row.user_id === userId && preference.installments_enabled && row.due_on >= local.date && daysBetween(local.date, row.due_on) <= horizon)
+      const upcomingTotal = [...upcomingFixed, ...upcomingInstallments].reduce((sum, row) => sum + Number(row.amount || 0), 0)
+      const summaryParts = [...upcomingFixed.map((row) => ({ name: row.name || 'Pago fijo', due_on: row.next_due_on, amount: Number(row.amount) })), ...upcomingInstallments.map((row) => ({ name: row.installment_plans?.name || 'Cuota', due_on: row.due_on, amount: Number(row.amount) }))].sort((a, b) => a.due_on.localeCompare(b.due_on))
+      if (preference.commitment_summary_enabled && summaryParts.length) {
+        candidates.push({ user_id: userId, reminder_key: 'commitments-summary:' + local.date + ':' + horizon, source_type: 'commitment_summary', source_id: null, title: 'Compromisos de los próximos ' + horizon + ' días', body: summaryParts.length + ' pagos pendientes por un total de ' + upcomingTotal.toFixed(2) + ' €.', due_on: local.date, amount: Number(upcomingTotal.toFixed(2)), currency_code: 'EUR', metadata: { horizon_days: horizon, commitments: summaryParts } })
+      }
+      if (preference.balance_alerts_enabled && upcomingTotal > 0) {
+        const balance = accountBalances.filter((row) => row.user_id === userId && String(row.currency_code || 'EUR').trim() === 'EUR').reduce((sum, row) => sum + Number(row.current_balance || 0), 0)
+        const reserved = activeReservations.filter((row) => row.user_id === userId).reduce((sum, row) => sum + Number(row.amount || 0), 0)
+        const free = balance - reserved
+        if (free < upcomingTotal) candidates.push({ user_id: userId, reminder_key: 'insufficient-balance:' + local.date, source_type: 'insufficient_balance', source_id: null, title: 'Saldo libre insuficiente', body: 'Tienes ' + free.toFixed(2) + ' € libres y compromisos próximos por ' + upcomingTotal.toFixed(2) + ' €.', due_on: local.date, amount: Number(upcomingTotal.toFixed(2)), currency_code: 'EUR', metadata: { free_balance: Number(free.toFixed(2)), upcoming_commitments: Number(upcomingTotal.toFixed(2)), horizon_days: horizon } })
+      }
     }
 
     let created = 0
     for (const candidate of candidates) {
       const { data, error } = await supabase.from('notifications')
-        .insert({ ...candidate, push_status: 'pending' })
+        .insert({ ...candidate, metadata: candidate.metadata || {}, push_status: 'pending' })
         .select('id')
         .maybeSingle()
 
