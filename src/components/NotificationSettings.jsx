@@ -12,6 +12,11 @@ const DEFAULT_PREFERENCES = {
   reminder_hour: 9,
   same_day_enabled: false,
   timezone: 'Europe/Madrid',
+  budget_alerts_enabled: true,
+  overdue_installments_enabled: true,
+  balance_alerts_enabled: true,
+  commitment_summary_enabled: true,
+  commitment_summary_days: 7,
 }
 
 const euro = (value, currency = 'EUR') => new Intl.NumberFormat('es-ES', {
@@ -78,7 +83,7 @@ function WebPushNotificationSettings() {
 
       const [preferencesResult, notificationsResult] = await Promise.all([
         supabase.from('notification_preferences')
-          .select('fixed_payments_enabled, installments_enabled, reminder_days_before, reminder_hour, same_day_enabled, timezone')
+          .select('fixed_payments_enabled, installments_enabled, reminder_days_before, reminder_hour, same_day_enabled, timezone, budget_alerts_enabled, overdue_installments_enabled, balance_alerts_enabled, commitment_summary_enabled, commitment_summary_days')
           .eq('user_id', user.id)
           .maybeSingle(),
         supabase.from('notifications')
@@ -125,7 +130,7 @@ function WebPushNotificationSettings() {
           ...next,
           updated_at: new Date().toISOString(),
         }, { onConflict: 'user_id' })
-        .select('fixed_payments_enabled, installments_enabled, reminder_days_before, reminder_hour, same_day_enabled, timezone')
+        .select('fixed_payments_enabled, installments_enabled, reminder_days_before, reminder_hour, same_day_enabled, timezone, budget_alerts_enabled, overdue_installments_enabled, balance_alerts_enabled, commitment_summary_enabled, commitment_summary_days')
         .single()
 
       if (saveError) throw saveError
@@ -290,6 +295,33 @@ function WebPushNotificationSettings() {
             <div className="text-xs text-slate-400">Compras financiadas y cuotas pendientes</div>
           </div>
           <Switch checked={preferences.installments_enabled} disabled={loading || Boolean(saving)} label="Activar recordatorios de cuotas" onChange={(value) => savePreferences({ installments_enabled: value }, 'installments')} />
+        </div>
+
+        <div className="space-y-3 rounded-xl border border-emerald-900/40 bg-emerald-950/10 p-4">
+          <div>
+            <div className="text-sm font-semibold text-emerald-200">Alertas inteligentes</div>
+            <div className="mt-1 text-xs text-slate-400">Avisos automáticos calculados con tus movimientos confirmados y compromisos.</div>
+          </div>
+          {[
+            ['budget_alerts_enabled', 'Umbrales de presupuesto', 'Avisar al alcanzar el 50 %, 80 % y 100 %.'],
+            ['overdue_installments_enabled', 'Cuotas vencidas', 'Avisar si una cuota sigue pendiente después de su fecha.'],
+            ['balance_alerts_enabled', 'Saldo libre insuficiente', 'Comparar tu saldo en euros, menos reservas, con los pagos próximos.'],
+            ['commitment_summary_enabled', 'Resumen de compromisos', 'Recibir un resumen diario de pagos próximos.'],
+          ].map(([key, title, description]) => (
+            <div key={key} className="flex items-center justify-between gap-4 rounded-lg bg-slate-900/60 p-3">
+              <div className="min-w-0">
+                <div className="text-sm font-medium text-slate-100">{title}</div>
+                <div className="mt-1 text-xs text-slate-400">{description}</div>
+              </div>
+              <Switch checked={Boolean(preferences[key])} disabled={loading || Boolean(saving)} label={title} onChange={(value) => savePreferences({ [key]: value }, key)} />
+            </div>
+          ))}
+          <label className="block text-xs text-slate-400">
+            Antelación del resumen
+            <FinanceSelect value={preferences.commitment_summary_days || 7} disabled={loading || Boolean(saving)} onChange={(event) => savePreferences({ commitment_summary_days: Number(event.target.value) }, 'summary-days')} className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white">
+              {[3, 7, 14, 30].map((days) => <option key={days} value={days}>{days} días</option>)}
+            </FinanceSelect>
+          </label>
         </div>
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
