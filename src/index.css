@@ -307,3 +307,38 @@
 .quick-add-menu .quick-add-option > span:first-child {
   flex-shrink: 0;
 }
+
+/* Final contrast lock for the Añadir dropdown */
+#finanzas-quick-add-menu,
+header.app-topbar #finanzas-quick-add-menu {
+  background-color: #101c2e !important;
+  background: #101c2e !important;
+  opacity: 1 !important;
+  filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  color: #f8fafc !important;
+}
+#finanzas-quick-add-menu button.quick-add-option,
+header.app-topbar #finanzas-quick-add-menu button.quick-add-option {
+  display: flex !important;
+  background-color: #1b2b42 !important;
+  background: #1b2b42 !important;
+  color: #ffffff !important;
+  opacity: 1 !important;
+  filter: none !important;
+  border: 1px solid #40536d !important;
+}
+#finanzas-quick-add-menu button.quick-add-option *,
+header.app-topbar #finanzas-quick-add-menu button.quick-add-option * {
+  opacity: 1 !important;
+  color: #ffffff !important;
+}
+#finanzas-quick-add-menu button.quick-add-option:hover,
+#finanzas-quick-add-menu button.quick-add-option:focus-visible {
+  background-color: #263c59 !important;
+  background: #263c59 !important;
+}
+#finanzas-quick-add-menu > div:first-child p:last-child {
+  color: #c1ccda !important;
+}
