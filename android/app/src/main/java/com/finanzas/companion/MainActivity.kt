@@ -1,7 +1,10 @@
 package com.finanzas.companion
 
 import android.content.Intent
+import android.graphics.Color
 import android.os.Bundle
+import android.view.View
+import android.view.ViewGroup
 import androidx.biometric.BiometricPrompt
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
@@ -12,6 +15,7 @@ import com.google.firebase.FirebaseOptions
 class MainActivity : BridgeActivity() {
     private var appLockAuthenticated = false
     private var appLockPromptShowing = false
+    private var appLockCover: View? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         // Ensure Firebase Messaging has a default app before Capacitor can invoke
@@ -50,9 +54,36 @@ class MainActivity : BridgeActivity() {
         super.onStop()
     }
 
+    private fun coverProtectedContent() {
+        if (appLockCover != null) return
+        val decor = window.decorView as? ViewGroup ?: return
+        appLockCover = View(this).apply {
+            setBackgroundColor(Color.BLACK)
+            isClickable = true
+            isFocusable = true
+            importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
+            contentDescription = "Contenido de Finanzas protegido"
+        }
+        decor.addView(
+            appLockCover,
+            ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT,
+            ),
+        )
+        appLockCover?.bringToFront()
+    }
+
+    private fun revealProtectedContent() {
+        val decor = window.decorView as? ViewGroup
+        appLockCover?.let { decor?.removeView(it) }
+        appLockCover = null
+    }
+
     private fun enforceAppLock() {
         if (!AppLockStore.isEnabled(this)) {
             appLockAuthenticated = true
+            revealProtectedContent()
             return
         }
         val authenticators =
@@ -70,10 +101,14 @@ class MainActivity : BridgeActivity() {
             // was removed after app lock had been enabled. The owner can enable it again.
             AppLockStore.setEnabled(this, false)
             appLockAuthenticated = true
+            revealProtectedContent()
             return
         }
         if (appLockAuthenticated || appLockPromptShowing) return
 
+        // Cover the WebView before Android displays its biometric sheet so no part
+        // of the financial dashboard can remain visible behind the system prompt.
+        coverProtectedContent()
         appLockPromptShowing = true
         val prompt = BiometricPrompt(
             this,
@@ -82,12 +117,13 @@ class MainActivity : BridgeActivity() {
                 override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
                     appLockPromptShowing = false
                     appLockAuthenticated = true
+                    revealProtectedContent()
                 }
 
                 override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
                     appLockPromptShowing = false
                     appLockAuthenticated = false
-                    // Keep protected financial screens out of view after cancellation or
+                    // Keep protected financial screens covered after cancellation or
                     // an unrecoverable authentication error. Returning to Finanzas prompts again.
                     moveTaskToBack(true)
                 }
