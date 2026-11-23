@@ -1,105 +1,52 @@
 import { lazy, Suspense } from 'react'
-import { CalendarDays, BarChart3, Sparkles, TrendingUp, WalletCards } from 'lucide-react'
+import { CalendarDays, ChartNoAxesCombined, CircleDollarSign, LayoutDashboard, Sparkles } from 'lucide-react'
 const GraficoGastos = lazy(() => import('@/components/dashboard/GraficoGastos'))
 const GraficoIngresos = lazy(() => import('@/components/dashboard/GraficoIngresos'))
 import DineroDisponible from '@/components/dashboard/DineroDisponible'
 import ResumenObligaciones from '@/components/dashboard/ResumenObligaciones'
 
 const today = new Date()
-const dateLabel = today.toLocaleDateString('es-ES', {
-  weekday: 'long',
-  day: 'numeric',
-  month: 'long',
-  year: 'numeric',
-})
+const dateLabel = today.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
 
-function SectionHeading({ icon: Icon, eyebrow, title, description }) {
-  return (
-    <div className="flex items-start gap-3">
-      <div className="mt-0.5 rounded-xl border border-emerald-500/15 bg-emerald-500/[0.08] p-2.5">
-        <Icon className="h-4 w-4 text-emerald-400" />
-      </div>
-      <div className="min-w-0">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-emerald-400/80">{eyebrow}</p>
-        <h2 className="mt-1 text-base font-semibold tracking-tight text-white sm:text-lg">{title}</h2>
-        <p className="mt-1 max-w-2xl text-xs leading-5 text-slate-400 sm:text-sm">{description}</p>
-      </div>
-    </div>
-  )
+function BlockTitle({ icon: Icon, kicker, title, description }) {
+  return <div className="flex min-w-0 items-start gap-3">
+    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-emerald-400/15 bg-emerald-400/[0.08] text-emerald-300"><Icon className="h-[18px] w-[18px]" /></div>
+    <div className="min-w-0"><p className="text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-400/80">{kicker}</p><h2 className="mt-1 text-lg font-bold tracking-tight text-white sm:text-xl">{title}</h2><p className="mt-1 max-w-2xl text-xs leading-5 text-slate-400 sm:text-sm">{description}</p></div>
+  </div>
+}
+
+function ChartPanel({ children }) {
+  return <div className="min-w-0 overflow-hidden rounded-[1.5rem] border border-slate-700/80 bg-gradient-to-b from-slate-900 to-slate-950 p-3 shadow-xl shadow-black/15 sm:p-4">{children}</div>
 }
 
 export default function Dashboard() {
-  return (
-    <div className="mx-auto w-full max-w-7xl space-y-7 pb-8 md:space-y-9">
-      <header className="relative isolate overflow-hidden rounded-3xl border border-slate-800 bg-gradient-to-br from-slate-900 via-slate-900 to-emerald-950/35 px-5 py-6 shadow-xl shadow-black/10 sm:px-7 sm:py-8">
-        <div aria-hidden="true" className="pointer-events-none absolute -right-16 -top-24 -z-10 h-64 w-64 rounded-full border border-emerald-400/10 bg-emerald-400/[0.04] blur-[1px]" />
-        <div aria-hidden="true" className="pointer-events-none absolute right-12 top-10 -z-10 h-28 w-28 rounded-full border border-emerald-400/[0.08]" />
-        <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
-          <div className="max-w-2xl">
-            <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/[0.08] px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-emerald-300">
-              <Sparkles className="h-3.5 w-3.5" />
-              Finanzas personales y familiares
-            </div>
-            <h1 className="mt-4 text-2xl font-bold tracking-tight text-white sm:text-3xl lg:text-4xl">
-              Tu dinero, <span className="text-emerald-400">bajo control.</span>
-            </h1>
-            <p className="mt-3 max-w-xl text-sm leading-6 text-slate-400 sm:text-base">
-              Una visión clara de tus cuentas, compromisos y evolución financiera para tomar mejores decisiones cada día.
-            </p>
-          </div>
-          <div className="inline-flex w-fit shrink-0 items-center gap-2.5 rounded-2xl border border-slate-700/80 bg-slate-950/55 px-4 py-3 text-xs text-slate-300 shadow-inner shadow-black/10">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500/10">
-              <CalendarDays className="h-4 w-4 text-emerald-400" />
-            </span>
-            <span>
-              <span className="block text-[10px] font-medium uppercase tracking-[0.14em] text-slate-500">Hoy</span>
-              <span className="mt-0.5 block capitalize font-semibold text-slate-200">{dateLabel}</span>
-            </span>
-          </div>
+  return <div className="mx-auto w-full max-w-[1500px] space-y-8 pb-8 md:space-y-10">
+    <header className="relative isolate overflow-hidden rounded-[1.8rem] border border-slate-700/80 bg-[#0b1424] shadow-2xl shadow-black/20">
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top_right,rgba(16,185,129,0.2),transparent_48%),linear-gradient(115deg,rgba(15,23,42,0.2),rgba(2,6,23,0.72))]" />
+      <div aria-hidden="true" className="pointer-events-none absolute -right-20 -top-28 -z-10 h-80 w-80 rounded-full border border-emerald-300/[0.08]" />
+      <div className="flex flex-col gap-5 p-5 sm:p-7 lg:flex-row lg:items-end lg:justify-between lg:p-8">
+        <div className="max-w-2xl">
+          <div className="inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-400/[0.08] px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-300"><Sparkles className="h-3.5 w-3.5" /> Tu centro de control</div>
+          <div className="mt-4 flex items-center gap-2 text-slate-400"><LayoutDashboard className="h-4 w-4 text-emerald-400" /><span className="text-xs font-semibold uppercase tracking-[0.16em]">Panel financiero</span></div>
+          <h1 className="mt-2 text-3xl font-bold tracking-[-0.045em] text-white sm:text-4xl lg:text-[2.7rem]">Resumen <span className="text-emerald-400">general</span></h1>
+          <p className="mt-3 max-w-xl text-sm leading-6 text-slate-400 sm:text-base">Todo lo importante de tus finanzas, reunido en un solo lugar. Consulta tu dinero, anticipa compromisos y sigue tus movimientos.</p>
         </div>
-        <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-slate-800/80 pt-4 text-[11px] text-slate-500">
-          <span className="inline-flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /> Saldos de tus cuentas</span>
-          <span className="inline-flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-sky-400" /> Compromisos y planificación</span>
-          <span className="inline-flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-violet-400" /> Evolución de movimientos</span>
+        <div className="flex items-center gap-3 rounded-2xl border border-slate-700/90 bg-slate-950/55 px-4 py-3 shadow-inner shadow-black/20 backdrop-blur">
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-400/10 text-emerald-300"><CalendarDays className="h-5 w-5" /></span>
+          <span><span className="block text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500">Fecha de hoy</span><span className="mt-1 block text-sm font-semibold capitalize text-slate-100">{dateLabel}</span></span>
         </div>
-      </header>
-
-      <section aria-label="Dinero disponible" className="space-y-3">
-        <div className="flex items-center gap-2 px-1">
-          <WalletCards className="h-4 w-4 text-emerald-400" />
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Tu posición actual</p>
-        </div>
-        <DineroDisponible />
-      </section>
-
-      <section aria-label="Obligaciones y pendientes" className="space-y-4">
-        <SectionHeading
-          icon={BarChart3}
-          eyebrow="Planificación"
-          title="Compromisos y pendientes"
-          description="Cuotas, pagos recurrentes, deudas y dinero por reponer, organizados para que sepas qué tienes por delante."
-        />
-        <ResumenObligaciones />
-      </section>
-
-      <section aria-label="Evolución financiera" className="space-y-4">
-        <div className="flex flex-col gap-3 border-b border-slate-800/80 pb-4 sm:flex-row sm:items-end sm:justify-between">
-          <SectionHeading
-            icon={TrendingUp}
-            eyebrow="Seguimiento"
-            title="Evolución de tus movimientos"
-            description="Consulta cómo se comportan tus ingresos y gastos durante el periodo."
-          />
-          <span className="inline-flex w-fit items-center gap-2 rounded-full border border-slate-800 bg-slate-900/60 px-3 py-1.5 text-[11px] text-slate-400">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-            Datos contabilizados
-          </span>
-        </div>
-        <div className="grid grid-cols-1 items-stretch gap-5 xl:grid-cols-2">
-          <Suspense fallback={<div className="h-80 animate-pulse rounded-2xl border border-slate-800 bg-slate-900/60" />}><GraficoIngresos /></Suspense>
-          <Suspense fallback={<div className="h-80 animate-pulse rounded-2xl border border-slate-800 bg-slate-900/60" />}><GraficoGastos /></Suspense>
-        </div>
-      </section>
-    </div>
-  )
+      </div>
+      <div className="grid grid-cols-1 border-t border-slate-800/90 bg-slate-950/25 sm:grid-cols-3">
+        <div className="flex items-center gap-3 px-5 py-3.5 sm:px-7"><CircleDollarSign className="h-4 w-4 text-emerald-400" /><span className="text-xs font-medium text-slate-300">Cuentas y dinero disponible</span></div>
+        <div className="flex items-center gap-3 border-t border-slate-800/70 px-5 py-3.5 sm:border-l sm:border-t-0 sm:px-7"><CalendarDays className="h-4 w-4 text-sky-400" /><span className="text-xs font-medium text-slate-300">Pagos y compromisos próximos</span></div>
+        <div className="flex items-center gap-3 border-t border-slate-800/70 px-5 py-3.5 sm:border-l sm:border-t-0 sm:px-7"><ChartNoAxesCombined className="h-4 w-4 text-violet-400" /><span className="text-xs font-medium text-slate-300">Evolución de ingresos y gastos</span></div>
+      </div>
+    </header>
+    <section aria-label="Posición financiera" className="space-y-4"><BlockTitle icon={CircleDollarSign} kicker="01 · Posición financiera" title="Tu dinero, de un vistazo" description="Saldos reales por cuenta, dinero reservado y disponibilidad después de reservas." /><DineroDisponible /></section>
+    <section aria-label="Compromisos financieros" className="space-y-4"><BlockTitle icon={CalendarDays} kicker="02 · Organización" title="Lo que tienes por delante" description="Cuotas, pagos fijos, deudas y reposiciones para anticiparte a tus próximos compromisos." /><ResumenObligaciones /></section>
+    <section aria-label="Análisis de movimientos" className="space-y-5">
+      <div className="flex flex-col gap-3 border-b border-slate-800/90 pb-4 sm:flex-row sm:items-end sm:justify-between"><BlockTitle icon={ChartNoAxesCombined} kicker="03 · Análisis" title="Tu evolución financiera" description="Visualiza el comportamiento de tus ingresos y gastos registrados." /><span className="inline-flex w-fit items-center gap-2 rounded-full border border-slate-700/80 bg-slate-900/70 px-3 py-2 text-[11px] font-medium text-slate-400"><span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /> Historial contabilizado</span></div>
+      <div className="grid grid-cols-1 items-start gap-4 2xl:grid-cols-2"><ChartPanel><Suspense fallback={<div className="h-80 animate-pulse rounded-xl bg-slate-800/50" />}><GraficoIngresos /></Suspense></ChartPanel><ChartPanel><Suspense fallback={<div className="h-80 animate-pulse rounded-xl bg-slate-800/50" />}><GraficoGastos /></Suspense></ChartPanel></div>
+    </section>
+  </div>
 }
