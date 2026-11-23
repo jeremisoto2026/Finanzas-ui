@@ -1,104 +1,122 @@
-import { Client } from '@notionhq/client'
+import { handleCors } from '../server/cors.js'
+import { createAuthenticatedClient, findOrCreateCategory, findOwnedAccountId, sendApiError } from '../server/supabase.js'
+import { transactionForUi } from '../server/finance.js'
+import { DEFAULT_INCOME_CATEGORIES } from '../src/lib/category-catalog.js'
+import { uniqueCategoryNames } from '../src/lib/category-utils.js'
+
+function isDateOnly(value) {
+  const text = String(value || '').slice(0, 10)
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) return false
+  const parsed = new Date(`${text}T00:00:00.000Z`)
+  return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === text
+}
 
 export default async function handler(req, res) {
-  console.log('🔍 API INGRESOS - DETECTADO CREATED_TIME COMO FECHA')
-  
+  if (handleCors(req, res)) return;
+  res.setHeader('Cache-Control', 'no-store')
+
   try {
-    if (!process.env.NOTION_TOKEN || !process.env.NOTION_INCOME_DB) {
-      return res.status(500).json({ error: 'Configuración incompleta' })
+    const { supabase, user } = await createAuthenticatedClient(req)
+
+    if (req.method === 'GET' && req.query?.resource === 'categories') {
+      const { data, error } = await supabase
+        .from('categories')
+        .select('name')
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+        .in('direction', ['income', 'both'])
+        .order('name', { ascending: true })
+      if (error) throw error
+      return res.status(200).json(uniqueCategoryNames([
+        ...DEFAULT_INCOME_CATEGORIES,
+        ...(data || []).map((row) => row.name),
+      ]))
     }
 
-    const notion = new Client({
-      auth: process.env.NOTION_TOKEN,
-    })
-
-    const response = await notion.databases.query({
-      database_id: process.env.NOTION_INCOME_DB,
-      page_size: 100,
-      sorts: [
-        {
-          timestamp: 'created_time',
-          direction: 'descending',
-        },
-      ],
-    })
-
-    console.log(`📊 ${response.results.length} registros encontrados`)
-
-    const ingresos = response.results.map((page, index) => {
-      const props = page.properties
-      
-      // ¡IMPORTANTE! - La "fecha" viene de page.created_time, no de properties
-      let fechaFormateada = null
-      
-      // Usar la fecha de creación de la página (created_time)
-      if (page.created_time) {
-        // created_time viene como: "2025-12-31T20:12:00.000Z"
-        // Extraer solo la parte de la fecha: "2025-12-31"
-        fechaFormateada = page.created_time.split('T')[0]
-      }
-
-      // DEBUG del primer registro
-      if (index === 0) {
-        console.log('🔎 Primer registro procesado:', {
-          id: page.id,
-          created_time: page.created_time,
-          fecha_formateada: fechaFormateada,
-          concepto: props.Nombre?.title?.[0]?.plain_text || 'Sin concepto',
-          todas_las_propiedades: Object.keys(props)
-        })
-      }
-
-      return {
-        id: page.id,
-        concepto: props.Nombre?.title?.[0]?.plain_text || 'Sin concepto',
-        monto: props.Cantidad?.number || 0,
-        fecha: fechaFormateada, // ¡Aquí está la fecha correcta!
-        categoria: props.Categoría?.select?.name || '',
-        metodo: props['Método de pago']?.select?.name || '',
-        cuenta: props.Cuenta?.select?.name || '',
-        // Para referencia
-        created_time: page.created_time,
-      }
-    })
-
-    // Mostrar resultado
-    console.log('✅ Procesamiento completado')
-    
-    if (ingresos.length > 0) {
-      console.log('📝 Primeras 3 fechas encontradas:')
-      ingresos.slice(0, 3).forEach((ingreso, i) => {
-        console.log(`   ${i + 1}. ${ingreso.fecha} - ${ingreso.concepto}`)
-      })
+    if (req.method === 'GET') {
+      const { data, error } = await supabase
+        .from('transactions')
+        .select('id, account_id, amount, occurred_on, description, payment_method, categories(name), accounts(name)')
+        .eq('user_id', user.id)
+        .eq('kind', 'income')
+        .eq('status', 'posted')
+        .order('occurred_on', { ascending: false })
+      if (error) throw error
+      return res.status(200).json((data || []).map(transactionForUi))
     }
 
-    return res.status(200).json(ingresos)
+    if (req.method === 'POST') {
+      const body = req.body || {}
+      const description = String(body.concepto || '').trim()
+      const amount = Number(body.monto)
+      const occurredOn = String(body.fecha || '').slice(0, 10)
+      if (!description || !Number.isFinite(amount) || amount <= 0 || !isDateOnly(occurredOn)) {
+        return res.status(400).json({ error: 'Indica concepto, importe positivo y fecha válida.' })
+      }
 
+      const categoryId = await findOrCreateCategory(supabase, user.id, body.categoria || 'Otros', 'income')
+      const accountId = await findOwnedAccountId(supabase, user.id, body.cuentaId)
+      const { data, error } = await supabase.from('transactions').insert({
+        user_id: user.id,
+        account_id: accountId,
+        category_id: categoryId,
+        kind: 'income',
+        status: 'posted',
+        amount,
+        occurred_on: occurredOn,
+        description,
+        payment_method: body.metodo || null,
+        idempotency_key: body.idempotencyKey || null,
+      }).select('id, account_id, amount, occurred_on, description, payment_method, categories(name), accounts(name)').single()
+      if (error) throw error
+      return res.status(201).json(transactionForUi(data))
+    }
+
+    if (req.method === 'PATCH') {
+      const body = req.body || {}
+      if (!body.id) return res.status(400).json({ error: 'Falta el identificador del ingreso.' })
+      const patch = {}
+      if (body.concepto !== undefined) {
+        const value = String(body.concepto || '').trim()
+        if (!value) return res.status(400).json({ error: 'El concepto no puede estar vacío.' })
+        patch.description = value
+      }
+      if (body.monto !== undefined) {
+        const amount = Number(body.monto)
+        if (!Number.isFinite(amount) || amount <= 0) return res.status(400).json({ error: 'El importe debe ser mayor que cero.' })
+        patch.amount = amount
+      }
+      if (body.fecha !== undefined) {
+        const date = String(body.fecha || '').slice(0, 10)
+        if (!isDateOnly(date)) return res.status(400).json({ error: 'La fecha no es válida.' })
+        patch.occurred_on = date
+      }
+      if (body.categoria !== undefined) patch.category_id = await findOrCreateCategory(supabase, user.id, body.categoria, 'income')
+      if (body.cuentaId !== undefined) patch.account_id = await findOwnedAccountId(supabase, user.id, body.cuentaId)
+      if (body.metodo !== undefined) patch.payment_method = String(body.metodo || '').trim() || null
+      if (!Object.keys(patch).length) return res.status(400).json({ error: 'No hay cambios para guardar.' })
+      const { data, error } = await supabase.from('transactions').update(patch)
+        .eq('id', body.id).eq('user_id', user.id).eq('kind', 'income').eq('status', 'posted')
+        .select('id, account_id, amount, occurred_on, description, payment_method, categories(name), accounts(name)').maybeSingle()
+      if (error) throw error
+      if (!data) return res.status(404).json({ error: 'No se encontró el ingreso.' })
+      return res.status(200).json(transactionForUi(data))
+    }
+
+    if (req.method === 'DELETE') {
+      const { id } = req.body || {}
+      if (!id) return res.status(400).json({ error: 'Falta el identificador del ingreso.' })
+      const { data, error } = await supabase.from('transactions')
+        .update({ status: 'void' }).eq('id', id).eq('user_id', user.id).eq('kind', 'income').eq('status', 'posted')
+        .select('id').maybeSingle()
+      if (error) throw error
+      if (!data) return res.status(404).json({ error: 'No se encontró el ingreso.' })
+      return res.status(200).json({ success: true, id })
+    }
+
+    res.setHeader('Allow', 'GET, POST, PATCH, DELETE')
+    return res.status(405).json({ error: 'Método no permitido.' })
   } catch (error) {
-    console.error('❌ Error:', error)
-    
-    // Datos de ejemplo con fechas reales
-    return res.status(200).json([
-      {
-        id: 'ejemplo-1',
-        concepto: 'Extras',
-        monto: 100,
-        fecha: '2025-10-01',
-        categoria: 'Extras',
-        metodo: 'Efectivo',
-        cuenta: 'Efectivo',
-        created_time: '2025-10-01T12:00:00.000Z'
-      },
-      {
-        id: 'ejemplo-2',
-        concepto: 'Glovo',
-        monto: 150,
-        fecha: '2025-10-05',
-        categoria: 'Delivery',
-        metodo: 'Bizum',
-        cuenta: 'BBVA',
-        created_time: '2025-10-05T14:30:00.000Z'
-      }
-    ])
+    return sendApiError(res, error, 'No se pudieron cargar o guardar los ingresos.')
   }
 }

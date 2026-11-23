@@ -1,16 +1,13 @@
 import { createContext, useContext, useState, useEffect, useMemo } from 'react';
+import { monthKeyFromDate, sumMoney, sumMoneyBy } from '@/lib/finance-core';
 
 const GastosContext = createContext();
 
 export function GastosProvider({ children }) {
-  // Estados para los datos de Notion (igual que en TablaGastos.jsx)
+  // Movimientos de gasto contabilizados del libro financiero.
   const [gastosMensuales, setGastosMensuales] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-
-  // Estados para pagos fijos y cuotas
-  const [pagosFijos, setPagosFijos] = useState([]);
-  const [comprasCuotas, setComprasCuotas] = useState([]);
 
   // Estados de filtros
   const [filtroMes, setFiltroMes] = useState('');
@@ -19,279 +16,52 @@ export function GastosProvider({ children }) {
 
   // ========== CARGAR TODOS LOS DATOS ==========
   useEffect(() => {
+    let cancelled = false
+
     const fetchTodosLosDatos = async () => {
       try {
-        setLoading(true);
-        
-        // 1. Cargar gastos normales
-        const resGastos = await fetch('/api/gastos');
-        if (!resGastos.ok) throw new Error('Error cargando gastos');
-        const gastosData = await resGastos.json();
-        setGastosMensuales(gastosData);
-
-        // 2. Cargar pagos fijos
-        const resPagos = await fetch('/api/pagos-fijos');
-        if (resPagos.ok) {
-          const pagosData = await resPagos.json();
-          setPagosFijos(pagosData.filter(p => p.activo === true));
+        const resGastos = await fetch('/api/gastos', { cache: 'no-store' })
+        if (!resGastos.ok) throw new Error('Error cargando gastos')
+        const gastosData = await resGastos.json()
+        if (!Array.isArray(gastosData)) throw new Error('La respuesta de gastos no es válida.')
+        if (!cancelled) {
+          setGastosMensuales(gastosData)
+          setError(null)
         }
-
-        // 3. Cargar compras a cuotas
-        const resCuotas = await fetch('/api/compras-cuotas');
-        if (resCuotas.ok) {
-          const cuotasData = await resCuotas.json();
-          setComprasCuotas(cuotasData.filter(c => c.activo === true));
-        }
-
       } catch (err) {
-        setError(err.message);
-        console.error('Error fetching datos:', err);
-        
-        // Datos de ejemplo MEJORADOS con historial real
-        setGastosMensuales([
-          { id: 1, fecha: '2026-01-02', concepto: 'Mercado', metodo: 'App', categoria: 'Alimentación', cuenta: 'Móvil', monto: 50 },
-          { id: 2, fecha: '2026-01-03', concepto: 'Mami', metodo: 'Bizum', categoria: 'Familia', cuenta: 'Bizum', monto: 20 },
-          { id: 3, fecha: '2026-01-05', concepto: 'Refresco', metodo: 'App', categoria: 'Alimentación', cuenta: 'Móvil', monto: 2 },
-        ]);
-        
-        // PAGOS FIJOS SOLO LOS YA EFECTUADOS (con fecha pasada)
-        setPagosFijos([
-          { 
-            id: '1', 
-            nombre: 'Alquiler Enero', 
-            monto: 750.00, 
-            metodo: 'Transferencia', 
-            categoria: 'Vivienda', 
-            frecuencia: 'mensual', 
-            activo: true, 
-            fechaInicio: '2026-01-01', // YA PAGADO
-            fechaRealPago: '2026-01-01' // Fecha cuando realmente se pagó
-          }
-        ]);
-        
-        // DATOS REALES BASADOS EN TUS IMÁGENES - SOLO CUOTAS YA PAGADAS
-        setComprasCuotas([
-          { 
-            id: '1', 
-            concepto: 'Aliexpress 1', 
-            montoTotal: 33.74,
-            cuotasTotales: 4,
-            cuotasPagadas: 3, // 3 de 4 pagadas
-            montoPrimeraCuota: 10.00,
-            montoUltimaCuota: 7.46,
-            fechaInicio: '2025-11-01', // Empezó en noviembre
-            metodo: 'Tarjeta',
-            categoria: 'Tecnología',
-            activo: true,
-            frecuenciaPago: 'mensual',
-            historialCuotas: [
-              { numero: 1, monto: 10.00, pagada: true, fecha: '2025-11-01' }, // YA PAGADA
-              { numero: 2, monto: 8.64, pagada: true, fecha: '2025-12-01' }, // YA PAGADA
-              { numero: 3, monto: 7.64, pagada: true, fecha: '2026-01-01' }, // YA PAGADA
-              { numero: 4, monto: 7.46, pagada: false, fecha: '2026-02-01' } // FUTURA - NO MOSTRAR
-            ]
-          },
-          { 
-            id: '2', 
-            concepto: 'Shein', 
-            montoTotal: 50.74,
-            cuotasTotales: 4,
-            cuotasPagadas: 1, // 1 de 4 pagadas
-            fechaInicio: '2026-01-01',
-            metodo: 'Tarjeta',
-            categoria: 'Otros',
-            activo: true,
-            frecuenciaPago: 'mensual',
-            historialCuotas: [
-              { numero: 1, monto: 12.69, pagada: true, fecha: '2026-01-01' }, // YA PAGADA
-              { numero: 2, monto: 12.69, pagada: false, fecha: '2026-02-01' }, // FUTURA - NO MOSTRAR
-              { numero: 3, monto: 12.68, pagada: false, fecha: '2026-03-01' }, // FUTURA - NO MOSTRAR
-              { numero: 4, monto: 12.68, pagada: false, fecha: '2026-04-01' } // FUTURA - NO MOSTRAR
-            ]
-          },
-          { 
-            id: '3', 
-            concepto: 'Aliexpress 3', 
-            montoTotal: 49.95,
-            cuotasTotales: 3,
-            cuotasPagadas: 1, // 1 de 3 pagadas
-            fechaInicio: '2026-01-01',
-            metodo: 'Tarjeta',
-            categoria: 'Tecnología',
-            activo: true,
-            frecuenciaPago: 'mensual',
-            historialCuotas: [
-              { numero: 1, monto: 16.65, pagada: true, fecha: '2026-01-01' }, // YA PAGADA
-              { numero: 2, monto: 16.65, pagada: false, fecha: '2026-02-01' }, // FUTURA - NO MOSTRAR
-              { numero: 3, monto: 16.65, pagada: false, fecha: '2026-03-01' } // FUTURA - NO MOSTRAR
-            ]
-          },
-          { 
-            id: '4', 
-            concepto: 'Aliexpress 2', 
-            montoTotal: 33.11,
-            cuotasTotales: 3,
-            cuotasPagadas: 1, // 1 de 3 pagadas
-            fechaInicio: '2026-01-01',
-            metodo: 'Tarjeta',
-            categoria: 'Tecnología',
-            activo: true,
-            frecuenciaPago: 'mensual',
-            historialCuotas: [
-              { numero: 1, monto: 11.04, pagada: true, fecha: '2026-01-01' }, // YA PAGADA
-              { numero: 2, monto: 11.04, pagada: false, fecha: '2026-02-01' }, // FUTURA - NO MOSTRAR
-              { numero: 3, monto: 11.03, pagada: false, fecha: '2026-03-01' } // FUTURA - NO MOSTRAR
-            ]
-          }
-        ]);
+        if (!cancelled) {
+          setError(err.message)
+          console.error('Error fetching datos:', err)
+          setGastosMensuales([])
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false)
       }
-    };
+    }
 
-    fetchTodosLosDatos();
+    const refresh = () => { void fetchTodosLosDatos() }
+    void fetchTodosLosDatos()
+    window.addEventListener('finanzas:transactions-updated', refresh)
+    return () => {
+      cancelled = true
+      window.removeEventListener('finanzas:transactions-updated', refresh)
+    }
   }, []);
 
-  // ========== FUNCIONES DE TRANSFORMACIÓN - SOLO HISTÓRICOS ==========
+  // No se generan gastos sintéticos desde compromisos o cuotas.
+  // Solo los movimientos contabilizados del libro pueden afectar al histórico real.
+  const transformarPagosFijosAGastos = []
+  const transformarCuotasAGastos = []
 
-  // 1. Transformar pagos fijos YA EFECTUADOS en gastos
-  const transformarPagosFijosAGastos = useMemo(() => {
-    const hoy = new Date();
-    hoy.setHours(0, 0, 0, 0); // Normalizar a inicio del día
-    
-    return pagosFijos.map(pago => {
-      // Usar fechaRealPago si existe, sino fechaInicio
-      const fechaPagoStr = pago.fechaRealPago || pago.fechaInicio;
-      if (!fechaPagoStr) return null;
-      
-      const fechaPago = new Date(fechaPagoStr);
-      fechaPago.setHours(0, 0, 0, 0);
-      
-      // SOLO incluir si la fecha de pago es HOY o PASADA
-      if (fechaPago > hoy) {
-        return null; // Pago futuro, no mostrar
-      }
-      
-      const fechaStr = fechaPagoStr;
-      const mesGasto = `${fechaPago.getFullYear()}-${String(fechaPago.getMonth() + 1).padStart(2, '0')}`;
-      
-      return {
-        id: `pago-fijo-${pago.id}`,
-        fecha: fechaStr,
-        concepto: `${pago.nombre} (Pago Fijo)`,
-        metodo: pago.metodo,
-        categoria: pago.categoria,
-        cuenta: 'Cuenta Principal',
-        monto: parseFloat(pago.monto),
-        origen: 'pago_fijo',
-        frecuencia: pago.frecuencia,
-        esHistorico: true
-      };
-    }).filter(Boolean);
-  }, [pagosFijos]);
-
-  // 2. Transformar CUOTAS YA PAGADAS en gastos
-  const transformarCuotasAGastos = useMemo(() => {
-    const hoy = new Date();
-    hoy.setHours(0, 0, 0, 0);
-    
-    const gastosCuotas = [];
-    
-    comprasCuotas.forEach(compra => {
-      // Verificar que tenga historial de cuotas
-      if (!compra.historialCuotas || compra.historialCuotas.length === 0) {
-        return;
-      }
-      
-      // Filtrar SOLO cuotas PAGADAS con fecha HOY o PASADA
-      compra.historialCuotas.forEach(cuota => {
-        if (!cuota.pagada) return; // Solo cuotas pagadas
-        if (!cuota.fecha) return; // Necesita fecha
-        
-        const fechaCuota = new Date(cuota.fecha);
-        fechaCuota.setHours(0, 0, 0, 0);
-        
-        // Solo incluir si la fecha es hoy o pasada
-        if (fechaCuota <= hoy) {
-          const cuotasPagadas = compra.cuotasPagadas || compra.historialCuotas.filter(c => c.pagada).length;
-          
-          gastosCuotas.push({
-            id: `cuota-${compra.id}-${cuota.numero}`,
-            fecha: cuota.fecha,
-            concepto: `${compra.concepto}`,
-            metodo: compra.metodo,
-            categoria: compra.categoria,
-            cuenta: 'Financiación',
-            monto: parseFloat(cuota.monto.toFixed(2)),
-            origen: 'cuota',
-            cuotaNumero: cuota.numero,
-            totalCuotas: compra.cuotasTotales,
-            cuotasPagadas: cuotasPagadas,
-            infoCuota: `Cuota ${cuota.numero} de ${compra.cuotasTotales}`,
-            infoProgreso: `${cuotasPagadas}/${compra.cuotasTotales} pagadas`,
-            esHistorico: true
-          });
-        }
-      });
-    });
-    
-    return gastosCuotas;
-  }, [comprasCuotas]);
-
-  // 3. Obtener meses únicos de TODOS los datos HISTÓRICOS
+  // 3. Meses disponibles únicamente a partir de movimientos reales contabilizados.
   const obtenerMesesDisponibles = useMemo(() => {
-    const mesesSet = new Set();
-    
-    // Agregar meses de gastos normales
-    gastosMensuales.forEach(gasto => {
-      if (gasto.fecha) {
-        try {
-          const fecha = new Date(gasto.fecha);
-          if (!isNaN(fecha.getTime())) {
-            const año = fecha.getFullYear();
-            const mes = fecha.getMonth() + 1;
-            const mesFormateado = `${año}-${mes.toString().padStart(2, '0')}`;
-            mesesSet.add(mesFormateado);
-          }
-        } catch (error) {
-          console.error('Error procesando fecha:', gasto.fecha, error);
-        }
-      }
+    const months = new Set();
+    gastosMensuales.forEach((gasto) => {
+      const value = String(gasto.fecha || '').slice(0, 7);
+      if (/^\d{4}-\d{2}$/.test(value)) months.add(value);
     });
-    
-    // Agregar meses de pagos fijos históricos
-    transformarPagosFijosAGastos.forEach(gasto => {
-      if (gasto.fecha) {
-        try {
-          const fecha = new Date(gasto.fecha);
-          const año = fecha.getFullYear();
-          const mes = fecha.getMonth() + 1;
-          const mesFormateado = `${año}-${mes.toString().padStart(2, '0')}`;
-          mesesSet.add(mesFormateado);
-        } catch (error) {
-          console.error('Error procesando fecha pago fijo:', gasto.fecha, error);
-        }
-      }
-    });
-    
-    // Agregar meses de cuotas históricas
-    transformarCuotasAGastos.forEach(gasto => {
-      if (gasto.fecha) {
-        try {
-          const fecha = new Date(gasto.fecha);
-          const año = fecha.getFullYear();
-          const mes = fecha.getMonth() + 1;
-          const mesFormateado = `${año}-${mes.toString().padStart(2, '0')}`;
-          mesesSet.add(mesFormateado);
-        } catch (error) {
-          console.error('Error procesando fecha cuota:', gasto.fecha, error);
-        }
-      }
-    });
-    
-    const mesesArray = Array.from(mesesSet);
-    return mesesArray.sort((a, b) => b.localeCompare(a));
-  }, [gastosMensuales, transformarPagosFijosAGastos, transformarCuotasAGastos]);
+    return Array.from(months).sort((a, b) => b.localeCompare(a));
+  }, [gastosMensuales]);
 
   // 4. Función para formatear mes a texto
   const formatearMesTexto = (mesFormato) => {
@@ -307,23 +77,19 @@ export function GastosProvider({ children }) {
   // ========== COMBINAR Y FILTRAR DATOS ==========
 
   // Combinar TODOS los gastos HISTÓRICOS
-  const todosLosGastos = useMemo(() => {
-    return [
-      ...gastosMensuales.map(g => ({ ...g, origen: 'normal' })),
-      ...transformarPagosFijosAGastos,
-      ...transformarCuotasAGastos
-    ];
-  }, [gastosMensuales, transformarPagosFijosAGastos, transformarCuotasAGastos]);
+  // El histórico de gastos sale únicamente del libro mayor (movimientos contabilizados).
+  // Pagos fijos y cuotas son compromisos/estados; no se convierten en cargos de caja.
+  const todosLosGastos = useMemo(() => (
+    gastosMensuales.map((gasto) => ({ ...gasto, origen: 'normal' }))
+  ), [gastosMensuales]);
 
   // Filtrar gastos combinados
   const gastosFiltrados = useMemo(() => {
     return todosLosGastos.filter(gasto => {
       if (!gasto.fecha) return false;
       
-      const fechaGasto = new Date(gasto.fecha);
-      if (isNaN(fechaGasto.getTime())) return false;
-      
-      const mesGasto = `${fechaGasto.getFullYear()}-${String(fechaGasto.getMonth() + 1).padStart(2, '0')}`;
+      const mesGasto = monthKeyFromDate(gasto.fecha);
+      if (!mesGasto) return false;
       
       const cumpleMes = !filtroMes || mesGasto === filtroMes;
       const cumpleMetodo = !filtroMetodo || gasto.metodo === filtroMetodo;
@@ -337,40 +103,24 @@ export function GastosProvider({ children }) {
 
   // 1. Total de gastos filtrados
   const totalGastosFiltrados = useMemo(() => {
-    return gastosFiltrados.reduce((sum, gasto) => sum + (gasto.monto || 0), 0);
+    return sumMoney(gastosFiltrados, (gasto) => gasto.monto || 0);
   }, [gastosFiltrados]);
 
   // 2. Gastos por categoría (para ResumenGastos)
   const gastosPorCategoria = useMemo(() => {
-    const categorias = {};
-    gastosFiltrados.forEach(gasto => {
-      const cat = gasto.categoria || 'Otros';
-      categorias[cat] = (categorias[cat] || 0) + (gasto.monto || 0);
-    });
-    return categorias;
+    return sumMoneyBy(gastosFiltrados, (gasto) => gasto.categoria || 'Otros', (gasto) => gasto.monto || 0);
   }, [gastosFiltrados]);
 
   // 3. Estadísticas por tipo de gasto
-  const estadisticasPorTipo = useMemo(() => {
-    const stats = {
-      normal: { total: 0, count: 0, label: 'Gastos Normales' },
-      pago_fijo: { total: 0, count: 0, label: 'Pagos Fijos' },
-      cuota: { total: 0, count: 0, label: 'Cuotas Pagadas' }
-    };
-    
-    gastosFiltrados.forEach(gasto => {
-      const tipo = gasto.origen || 'normal';
-      if (stats[tipo]) {
-        stats[tipo].total += gasto.monto || 0;
-        stats[tipo].count += 1;
-      } else {
-        stats.normal.total += gasto.monto || 0;
-        stats.normal.count += 1;
-      }
-    });
-    
-    return stats;
-  }, [gastosFiltrados]);
+  const estadisticasPorTipo = useMemo(() => ({
+    normal: {
+      total: sumMoney(gastosFiltrados, (gasto) => gasto.monto || 0),
+      count: gastosFiltrados.length,
+      label: 'Gastos registrados',
+    },
+    pago_fijo: { total: 0, count: 0, label: 'Pagos fijos (no incluidos)' },
+    cuota: { total: 0, count: 0, label: 'Cuotas (no incluidas)' },
+  }), [gastosFiltrados]);
 
   // ========== DATOS DEL MES ACTUAL ==========
 
@@ -386,55 +136,35 @@ export function GastosProvider({ children }) {
   const gastosMesActual = useMemo(() => {
     return todosLosGastos.filter(gasto => {
       if (!gasto.fecha) return false;
-      const fechaGasto = new Date(gasto.fecha);
-      const mesGasto = `${fechaGasto.getFullYear()}-${String(fechaGasto.getMonth() + 1).padStart(2, '0')}`;
-      return mesGasto === getMesActual;
+      return monthKeyFromDate(gasto.fecha) === getMesActual;
     });
   }, [todosLosGastos, getMesActual]);
 
   // 3. Total del mes actual
   const totalMesActual = useMemo(() => {
-    return gastosMesActual.reduce((sum, gasto) => sum + (gasto.monto || 0), 0);
+    return sumMoney(gastosMesActual, (gasto) => gasto.monto || 0);
   }, [gastosMesActual]);
 
   // 4. Gastos por categoría del mes actual
   const gastosPorCategoriaMesActual = useMemo(() => {
-    const categorias = {};
-    gastosMesActual.forEach(gasto => {
-      const cat = gasto.categoria || 'Otros';
-      categorias[cat] = (categorias[cat] || 0) + (gasto.monto || 0);
-    });
-    return categorias;
+    return sumMoneyBy(gastosMesActual, (gasto) => gasto.categoria || 'Otros', (gasto) => gasto.monto || 0);
   }, [gastosMesActual]);
 
   // 5. Estadísticas por tipo para el mes actual
-  const estadisticasPorTipoMesActual = useMemo(() => {
-    const stats = {
-      normal: { total: 0, count: 0, label: 'Gastos Normales' },
-      pago_fijo: { total: 0, count: 0, label: 'Pagos Fijos' },
-      cuota: { total: 0, count: 0, label: 'Cuotas Pagadas' }
-    };
-    
-    gastosMesActual.forEach(gasto => {
-      const tipo = gasto.origen || 'normal';
-      if (stats[tipo]) {
-        stats[tipo].total += gasto.monto || 0;
-        stats[tipo].count += 1;
-      } else {
-        stats.normal.total += gasto.monto || 0;
-        stats.normal.count += 1;
-      }
-    });
-    
-    return stats;
-  }, [gastosMesActual]);
+  const estadisticasPorTipoMesActual = useMemo(() => ({
+    normal: {
+      total: sumMoney(gastosMesActual, (gasto) => gasto.monto || 0),
+      count: gastosMesActual.length,
+      label: 'Gastos registrados',
+    },
+    pago_fijo: { total: 0, count: 0, label: 'Pagos fijos (no incluidos)' },
+    cuota: { total: 0, count: 0, label: 'Cuotas (no incluidas)' },
+  }), [gastosMesActual]);
 
   // Valor del contexto
   const value = {
     // Estados
     gastosMensuales,
-    pagosFijos,
-    comprasCuotas,
     loading,
     error,
     filtroMes,
@@ -483,18 +213,15 @@ export function GastosProvider({ children }) {
       
       const gastosDelMes = todosLosGastos.filter(gasto => {
         if (!gasto.fecha) return false;
-        const fechaGasto = new Date(gasto.fecha);
-        const mesGasto = `${fechaGasto.getFullYear()}-${String(fechaGasto.getMonth() + 1).padStart(2, '0')}`;
-        return mesGasto === mesFormato;
+        return monthKeyFromDate(gasto.fecha) === mesFormato;
       });
       
-      const totalDelMes = gastosDelMes.reduce((sum, gasto) => sum + (gasto.monto || 0), 0);
-      
-      const porCategoriaDelMes = {};
-      gastosDelMes.forEach(gasto => {
-        const cat = gasto.categoria || 'Otros';
-        porCategoriaDelMes[cat] = (porCategoriaDelMes[cat] || 0) + (gasto.monto || 0);
-      });
+      const totalDelMes = sumMoney(gastosDelMes, (gasto) => gasto.monto || 0);
+      const porCategoriaDelMes = sumMoneyBy(
+        gastosDelMes,
+        (gasto) => gasto.categoria || 'Otros',
+        (gasto) => gasto.monto || 0
+      );
       
       return {
         gastos: gastosDelMes,

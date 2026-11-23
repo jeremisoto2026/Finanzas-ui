@@ -1,3 +1,4 @@
+import FinanceSelect from '@/components/ui/FinanceSelect'
 import { useState, useEffect, useMemo } from 'react';
 import {
   Wallet, TrendingUp, TrendingDown, PieChart, BarChart3,
@@ -303,11 +304,11 @@ export default function DashboardFinancieroElitePro() {
           >
             <RefreshCw className="h-4 w-4 text-slate-400" />
           </button>
-          <select className="bg-slate-800 text-slate-300 text-sm px-3 py-2 rounded-lg border border-slate-700">
+          <FinanceSelect className="bg-slate-800 text-slate-300 text-sm px-3 py-2 rounded-lg border border-slate-700">
             <option>Mes Actual</option>
             <option>Últimos 3 meses</option>
             <option>Año completo</option>
-          </select>
+          </FinanceSelect>
         </div>
       </div>
     </div>

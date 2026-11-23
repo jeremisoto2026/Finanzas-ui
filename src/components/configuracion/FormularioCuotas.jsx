@@ -1,4 +1,6 @@
+import FinanceSelect from '@/components/ui/FinanceSelect'
 import { useState, useEffect } from 'react'
+import { useScrollToForm } from '@/lib/useScrollToForm'
 import { X, Save, Calculator, Calendar, Euro, AlertCircle } from 'lucide-react'
 
 export default function FormularioCuotas({ 
@@ -10,6 +12,7 @@ export default function FormularioCuotas({
   pagoEditando,
   onEdit 
 }) {
+  const formRef = useScrollToForm(Boolean(pagoEditando), pagoEditando?.id)
   const [formData, setFormData] = useState({
     nombre: '',
     montoTotal: '',
@@ -93,7 +96,7 @@ export default function FormularioCuotas({
   }
 
   return (
-    <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-6 backdrop-blur-sm">
+    <div ref={formRef} className="scroll-mt-24 bg-slate-900/80 border border-slate-800 rounded-xl p-6 backdrop-blur-sm">
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-xl font-bold text-white">
           {pagoEditando ? 'Editar compra a cuotas' : 'Nueva compra a cuotas'}
@@ -154,7 +157,7 @@ export default function FormularioCuotas({
               <Calculator className="h-4 w-4" />
               Número de cuotas *
             </label>
-            <select
+            <FinanceSelect
               name="cuotas"
               value={formData.cuotas}
               onChange={handleChange}
@@ -166,7 +169,7 @@ export default function FormularioCuotas({
                   {num} cuotas
                 </option>
               ))}
-            </select>
+            </FinanceSelect>
           </div>
 
           {/* Monto por cuota (calculado) */}
@@ -192,7 +195,7 @@ export default function FormularioCuotas({
             <label className="block text-sm font-medium text-slate-300 mb-2">
               Categoría *
             </label>
-            <select
+            <FinanceSelect
               name="categoria"
               value={formData.categoria}
               onChange={handleChange}
@@ -205,7 +208,7 @@ export default function FormularioCuotas({
                   {cat.label}
                 </option>
               ))}
-            </select>
+            </FinanceSelect>
           </div>
 
           {/* Frecuencia */}
@@ -213,7 +216,7 @@ export default function FormularioCuotas({
             <label className="block text-sm font-medium text-slate-300 mb-2">
               Frecuencia de pago *
             </label>
-            <select
+            <FinanceSelect
               name="frecuencia"
               value={formData.frecuencia}
               onChange={handleChange}
@@ -225,7 +228,7 @@ export default function FormularioCuotas({
                   {freq.label}
                 </option>
               ))}
-            </select>
+            </FinanceSelect>
           </div>
 
           {/* Fecha de inicio */}
@@ -249,7 +252,7 @@ export default function FormularioCuotas({
             <label className="block text-sm font-medium text-slate-300 mb-2">
               Método de pago *
             </label>
-            <select
+            <FinanceSelect
               name="metodoPago"
               value={formData.metodoPago}
               onChange={handleChange}
@@ -262,7 +265,7 @@ export default function FormularioCuotas({
                   {metodo.label}
                 </option>
               ))}
-            </select>
+            </FinanceSelect>
           </div>
         </div>
 

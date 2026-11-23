@@ -1,0 +1,20 @@
+{
+  "id": "/",
+  "name": "Finanzas",
+  "short_name": "Finanzas",
+  "description": "Control financiero personal y familiar.",
+  "lang": "es",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#080F1C",
+  "theme_color": "#080F1C",
+  "icons": [
+    {
+      "src": "/finanzas-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

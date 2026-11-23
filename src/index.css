@@ -57,3 +57,95 @@
     @apply bg-background text-foreground;
   }
 }
+/* Responsive shell shared by every page. */
+@layer base {
+  html, body, #root {
+    min-height: 100%;
+    width: 100%;
+  }
+  html { scroll-behavior: smooth; }
+  body {
+    min-width: 320px;
+    overflow-x: hidden;
+    background: #080f1c;
+  }
+  button, input, select, textarea { font: inherit; }
+}
+
+@layer components {
+  .app-shell {
+    min-height: 100dvh;
+    width: 100%;
+    background:
+      radial-gradient(ellipse at 75% -10%, rgba(16, 185, 129, 0.055), transparent 34rem),
+      #080f1c;
+  }
+  .app-sidebar {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(71, 85, 105, 0.7) transparent;
+  }
+  .app-main {
+    min-height: calc(100dvh - 4.5rem);
+    width: 100%;
+  }
+  .app-main > * { min-width: 0; }
+  .app-topbar { padding-top: max(0.65rem, env(safe-area-inset-top, 0px)); }
+  .app-bottom-nav {
+    position: fixed;
+    z-index: 50;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.25rem;
+    padding: 0.5rem 0.75rem calc(0.5rem + env(safe-area-inset-bottom, 0px));
+    border-top: 1px solid rgba(51, 65, 85, 0.78);
+    background: rgba(8, 15, 28, 0.96);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+  }
+  .mobile-nav-item {
+    display: flex;
+    min-width: 0;
+    min-height: 3.25rem;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
+    border: 1px solid transparent;
+    border-radius: 0.85rem;
+    color: #94a3b8;
+    font-size: 0.65rem;
+    font-weight: 600;
+    line-height: 1;
+    transition: color 150ms ease, background-color 150ms ease, border-color 150ms ease;
+  }
+  .mobile-nav-item.is-active {
+    border-color: rgba(16, 185, 129, 0.16);
+    background: rgba(16, 185, 129, 0.09);
+    color: #a7f3d0;
+  }
+  .mobile-nav-item:focus-visible {
+    outline: 2px solid #34d399;
+    outline-offset: 2px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .app-shell { display: flex; align-items: flex-start; }
+  .app-sidebar { position: sticky; top: 0; height: 100dvh; }
+  .app-bottom-nav { display: none; }
+  .app-main { min-height: calc(100dvh - 4.5rem); }
+}
+
+@media (min-width: 1440px) {
+  .app-main {
+    padding-left: clamp(2rem, 2.6vw, 3.25rem);
+    padding-right: clamp(2rem, 2.6vw, 3.25rem);
+  }
+}
+
+@media (max-width: 639px) {
+  .app-main { padding-left: 0.75rem; padding-right: 0.75rem; }
+}

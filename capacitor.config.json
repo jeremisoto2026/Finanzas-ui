@@ -1,0 +1,20 @@
+{
+  "appId": "com.finanzas.mobile",
+  "appName": "Finanzas",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https"
+  },
+  "plugins": {
+    "LocalNotifications": {
+      "smallIcon": "ic_stat_finanzas",
+      "iconColor": "#18B887"
+    },
+    "SystemBars": {
+      "insetsHandling": "css",
+      "initialViewportFitValueHint": "cover",
+      "style": "DARK",
+      "hidden": false
+    }
+  }
+}

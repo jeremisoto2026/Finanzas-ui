@@ -1,0 +1,121 @@
+name: Android APK CI
+
+on:
+  push:
+    branches:
+      - feat/finance-core-hardening
+      - feat/finanzas-apk-capacitor
+      - feat/finanzas-cuentas-dinamicas-edicion
+      - feat/fase5-alertas-inteligentes
+      - feat/migracion-recharts-3
+    paths:
+      - "android/**"
+      - "src/**"
+      - "tests/**"
+      - "package.json"
+      - "capacitor.config.json"
+      - "index.html"
+      - ".github/workflows/android-companion.yml"
+  pull_request:
+    paths:
+      - "android/**"
+      - "src/**"
+      - "tests/**"
+      - "package.json"
+      - "capacitor.config.json"
+      - "index.html"
+      - ".github/workflows/android-companion.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-android:
+    name: Build Finanzas Android APK
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: android
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+
+      - name: Install web and Capacitor dependencies
+        run: npm install --no-audit --no-fund
+        working-directory: .
+
+      - name: Run web tests
+        run: npm test
+        working-directory: .
+
+      - name: Build web application
+        run: npm run build
+        working-directory: .
+        env:
+          # These are the public Supabase project URL and publishable key.
+          # Vite embeds VITE_* values into the APK at build time; they are not server secrets.
+          VITE_SUPABASE_URL: "https://brkckgaicoqkqdcwwftm.supabase.co"
+          VITE_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_4aTVOdrHyro5iyDctv1mjg__yI6jqh-"
+          VITE_WEB_PUSH_PUBLIC_KEY: "BCCG0oqkafAUE2lXK9FsIWkT-qWSCQtwNk9PWCFYJa071-aZ9m7K1HsI-jc4JjTwMfX37dFPGlpIoXK58pUfBeQ"
+
+      - name: Sync web assets and native Capacitor plugins into Android
+        run: npx cap sync android
+        working-directory: .
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6.4.1
+        with:
+          gradle-version: "8.13"
+
+      - name: Run Android parser tests
+        run: gradle --no-daemon :app:testDebugUnitTest
+
+      - name: Prepare persistent Preview signing key
+        shell: bash
+        env:
+          FINANZAS_PREVIEW_KEYSTORE_BASE64: ${{ secrets.FINANZAS_PREVIEW_KEYSTORE_BASE64 }}
+          FINANZAS_PREVIEW_KEYSTORE_PASSWORD: ${{ secrets.FINANZAS_PREVIEW_KEYSTORE_PASSWORD }}
+          FINANZAS_PREVIEW_KEY_ALIAS: ${{ secrets.FINANZAS_PREVIEW_KEY_ALIAS }}
+          FINANZAS_PREVIEW_KEY_PASSWORD: ${{ secrets.FINANZAS_PREVIEW_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          for secret_name in FINANZAS_PREVIEW_KEYSTORE_BASE64 FINANZAS_PREVIEW_KEYSTORE_PASSWORD FINANZAS_PREVIEW_KEY_ALIAS FINANZAS_PREVIEW_KEY_PASSWORD; do
+            if [[ -z "${!secret_name:-}" ]]; then
+              echo "::error::Missing GitHub Actions secret: $secret_name"
+              exit 1
+            fi
+          done
+          keystore_path="$RUNNER_TEMP/finanzas-preview-signing.jks"
+          printf '%s' "$FINANZAS_PREVIEW_KEYSTORE_BASE64" | base64 --decode > "$keystore_path"
+          test -s "$keystore_path"
+          chmod 600 "$keystore_path"
+          echo "FINANZAS_PREVIEW_KEYSTORE_PATH=$keystore_path" >> "$GITHUB_ENV"
+
+      - name: Assemble debug APK
+        run: gradle --no-daemon :app:assembleDebug
+        env:
+          # Gradle reads these in android/app/build.gradle.kts to select the
+          # persistent Preview signing config instead of the ephemeral debug key.
+          FINANZAS_PREVIEW_KEYSTORE_PASSWORD: ${{ secrets.FINANZAS_PREVIEW_KEYSTORE_PASSWORD }}
+          FINANZAS_PREVIEW_KEY_ALIAS: ${{ secrets.FINANZAS_PREVIEW_KEY_ALIAS }}
+          FINANZAS_PREVIEW_KEY_PASSWORD: ${{ secrets.FINANZAS_PREVIEW_KEY_PASSWORD }}
+
+      - name: Upload personal preview APK
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: finanzas-mobile-poco-f8-pro-preview
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14

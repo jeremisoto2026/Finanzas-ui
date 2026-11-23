@@ -1,6 +1,7 @@
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
-import { Home, Smartphone, Film, Wifi, Car, ShoppingBag, Wallet, CheckCircle, Calendar } from 'lucide-react'
+import { Home, Smartphone, Film, Wifi, Car, ShoppingBag, Wallet, Calendar, Clock, CreditCard } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { monthlyEquivalentAmount, sumMonthlyEquivalent } from '@/lib/finance-core'
 
 export default function PagosFijos() {
   const [pagosFijos, setPagosFijos] = useState([])
@@ -9,52 +10,40 @@ export default function PagosFijos() {
   useEffect(() => {
     const fetchPagosFijos = async () => {
       try {
-        setLoading(true)
-        const response = await fetch('/api/pagos-fijos')
-        
-        if (response.ok) {
-          const data = await response.json()
-          const pagosActivos = data.filter(pago => pago.activo !== false)
-          setPagosFijos(pagosActivos)
-        } else {
-          // Fallback a localStorage
-          const datosGuardados = localStorage.getItem('pagosFijos')
-          if (datosGuardados) {
-            const parsedData = JSON.parse(datosGuardados)
-            const pagosActivos = parsedData.filter(p => p.activo !== false)
-            setPagosFijos(pagosActivos)
-          }
-        }
+        setLoading(true);
+        const response = await fetch('/api/pagos-fijos');
+        if (!response.ok) throw new Error('No se pudieron cargar los pagos fijos.');
+        const data = await response.json();
+        if (!Array.isArray(data)) throw new Error('Respuesta de pagos fijos no válida.');
+        setPagosFijos(data.filter((pago) => pago.activo !== false));
       } catch (err) {
-        console.error('Error cargando pagos fijos:', err)
-        const datosGuardados = localStorage.getItem('pagosFijos')
-        if (datosGuardados) {
-          try {
-            const parsedData = JSON.parse(datosGuardados)
-            const pagosActivos = parsedData.filter(p => p.activo !== false)
-            setPagosFijos(pagosActivos)
-          } catch (parseErr) {
-            console.error('Error parsing localStorage:', parseErr)
-          }
-        }
+        console.error('Error cargando pagos fijos:', err);
+        setPagosFijos([]);
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
-    }
+    };
+    fetchPagosFijos();
+  }, []);
 
-    fetchPagosFijos()
-  }, [])
-
-  // Calcular total
-  const total = pagosFijos.reduce((sum, pago) => {
-    const monto = typeof pago.monto === 'number' ? pago.monto : parseFloat(pago.monto) || 0
-    return sum + monto
-  }, 0)
+  const pagosActivos = pagosFijos.filter((pago) => pago.activo !== false)
+  const total = sumMonthlyEquivalent(
+    pagosActivos,
+    (pago) => pago.monto,
+    (pago) => pago.frecuencia || 'mensual'
+  )
+  const pagosConEquivalente = pagosActivos.map((pago) => ({
+    ...pago,
+    mensualEquivalente: monthlyEquivalentAmount(pago.monto, pago.frecuencia || 'mensual'),
+  }))
 
   // Mapeo de iconos
   const getIcon = (nombre) => {
     const iconMap = {
       'Alquiler': Home,
+      'Alquiler Jeremi': Home,
+      'Alquiler papá': Home,
+      'Scalapay habitual': CreditCard,
       'Teléfono': Smartphone,
       'Netflix': Film,
       'Internet': Wifi,
@@ -137,8 +126,6 @@ export default function PagosFijos() {
     )
   }
 
-  const pagosActivos = pagosFijos.filter(p => p.activo !== false)
-
   return (
     <Card className="bg-slate-900/60 border border-slate-800">
       <CardHeader className="pb-3">
@@ -154,10 +141,12 @@ export default function PagosFijos() {
       </CardHeader>
 
       <CardContent className="space-y-4">
-        {pagosActivos.slice(0, 6).map((pago) => {
+        {pagosConEquivalente.map((pago) => {
           const Icon = getIcon(pago.nombre)
-          const montoFormateado = (typeof pago.monto === 'number' ? pago.monto : parseFloat(pago.monto || 0)).toFixed(2)
-          const porcentaje = total > 0 ? Math.round((parseFloat(pago.monto) / total) * 100) : 0
+          const montoFormateado = Number(pago.monto || 0).toFixed(2)
+          const porcentaje = total > 0 && pago.mensualEquivalente !== null
+            ? Math.round((pago.mensualEquivalente / total) * 100)
+            : null
           
           return (
             <div
@@ -171,7 +160,6 @@ export default function PagosFijos() {
                   <span className="text-sm font-medium text-white">{pago.nombre}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <CheckCircle className="h-3 w-3 text-green-400" />
                   <span className="text-sm font-semibold text-slate-300">
                     €{montoFormateado}
                   </span>
@@ -183,44 +171,40 @@ export default function PagosFijos() {
                 <div className="flex items-center gap-2">
                   <span className="capitalize">{pago.frecuencia || 'mensual'}</span>
                   <span className="text-slate-700">·</span>
-                  <span>{pago.metodo || 'Transferencia'}</span>
+                  <span>{pago.metodo || 'Método pendiente de confirmar'}</span>
                   {pago.fechaInicio && (
                     <>
                       <span className="text-slate-700">·</span>
                       <span className="flex items-center gap-1">
                         <Calendar className="h-2.5 w-2.5" />
-                        {formatearFecha(pago.fechaInicio)}
+                        Próximo vencimiento: {formatearFecha(pago.fechaInicio)}
                       </span>
                     </>
                   )}
                 </div>
-                <div>
-                  {porcentaje}% del total · {pago.categoria || 'Alquiler'}
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                  {porcentaje === null
+                    ? <span className="text-amber-400">Frecuencia personalizada: no incluida en el total mensual</span>
+                    : <span>{porcentaje}% del total mensual · {new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(pago.mensualEquivalente)}/mes equivalente</span>}
+                  <span>· {pago.categoria || 'Otros'}</span>
                 </div>
+                {pago.notas && <div className="max-w-xl whitespace-normal text-xs leading-relaxed text-slate-500">{pago.notas}</div>}
               </div>
             </div>
           )
         })}
 
-        {pagosActivos.length > 6 && (
-          <div className="text-center py-2">
-            <span className="text-xs text-slate-500">
-              +{pagosActivos.length - 6} pagos más
-            </span>
-          </div>
-        )}
-
         <div className="pt-4 border-t border-slate-800">
           <div className="flex justify-between items-center p-3 bg-slate-800/30 rounded-lg">
             <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-slate-300">Total fijos</span>
+              <span className="text-sm font-medium text-slate-300">Coste mensual equivalente</span>
               <span className="text-xs text-slate-500 bg-slate-900 px-2 py-0.5 rounded">
                 {pagosActivos.length} servicios
               </span>
             </div>
             <div className="text-right">
               <span className={`text-lg font-bold ${total > 500 ? 'text-red-400' : total > 200 ? 'text-yellow-400' : 'text-green-400'}`}>
-                €{total.toFixed(2)}
+                {new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(total)}
               </span>
               <div className="text-xs text-slate-500">
                 {total > 500 ? 'Alto impacto' : total > 200 ? 'Impacto moderado' : 'Bajo impacto'}
@@ -231,11 +215,11 @@ export default function PagosFijos() {
           <div className="mt-3 text-xs text-slate-500 flex items-center justify-between">
             <div className="flex items-center gap-1">
               <Calendar className="h-3 w-3" />
-              <span>Mes actual: 2026-01</span>
+              <span>Compromisos recurrentes previstos</span>
             </div>
             <div className="flex items-center gap-1">
-              <CheckCircle className="h-3 w-3 text-green-400" />
-              <span>{pagosActivos.length} pagados este mes</span>
+              <Clock className="h-3 w-3 text-amber-400" />
+              <span>No implica que ya estén pagados</span>
             </div>
           </div>
         </div>

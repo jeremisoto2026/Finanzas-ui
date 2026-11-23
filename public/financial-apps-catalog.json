@@ -1,0 +1,190 @@
+{
+  "updatedAt": "2026-11-22",
+  "region": [
+    "ES",
+    "EU",
+    "Global"
+  ],
+  "apps": [
+    {
+      "packageName": "com.bbva.bbvacontigo",
+      "name": "BBVA",
+      "type": "Banco"
+    },
+    {
+      "packageName": "com.bbva.netcash",
+      "name": "BBVA Empresas",
+      "type": "Banco"
+    },
+    {
+      "packageName": "es.lacaixa.mobile.android.newwapicon",
+      "name": "CaixaBank",
+      "type": "Banco"
+    },
+    {
+      "packageName": "com.imaginbank.app",
+      "name": "imagin",
+      "type": "Banco"
+    },
+    {
+      "packageName": "es.bancosantander.apps",
+      "name": "Santander",
+      "type": "Banco"
+    },
+    {
+      "packageName": "es.bancosantander.empresas",
+      "name": "Santander Empresas",
+      "type": "Banco"
+    },
+    {
+      "packageName": "com.bankinter.launcher",
+      "name": "Bankinter",
+      "type": "Banco"
+    },
+    {
+      "packageName": "com.bankinter.empresas",
+      "name": "Bankinter Empresas",
+      "type": "Banco"
+    },
+    {
+      "packageName": "www.ingdirect.nativeframe",
+      "name": "ING",
+      "type": "Banco"
+    },
+    {
+      "packageName": "es.openbank.mobile",
+      "name": "Openbank",
+      "type": "Banco"
+    },
+    {
+      "packageName": "net.inverline.bancosabadell.officelocator.android",
+      "name": "Banco Sabadell",
+      "type": "Banco"
+    },
+    {
+      "packageName": "es.unicajabanco.app",
+      "name": "Unicaja",
+      "type": "Banco"
+    },
+    {
+      "packageName": "es.ibercaja.ibercajaapp",
+      "name": "Ibercaja",
+      "type": "Banco"
+    },
+    {
+      "packageName": "es.caixagalicia.activamovil",
+      "name": "ABANCA",
+      "type": "Banco"
+    },
+    {
+      "packageName": "com.abanca.bancaempresas",
+      "name": "ABANCA Empresas",
+      "type": "Banco"
+    },
+    {
+      "packageName": "es.pibank.customers",
+      "name": "Pibank",
+      "type": "Banco"
+    },
+    {
+      "packageName": "com.kutxabank.android",
+      "name": "Kutxabank",
+      "type": "Banco"
+    },
+    {
+      "packageName": "com.cajasur.android",
+      "name": "Cajasur",
+      "type": "Banco"
+    },
+    {
+      "packageName": "com.mediolanum",
+      "name": "Banco Mediolanum",
+      "type": "Banco"
+    },
+    {
+      "packageName": "com.grupocajamar.wefferent",
+      "name": "Grupo Cajamar",
+      "type": "Banco"
+    },
+    {
+      "packageName": "com.indra.itecban.triodosbank.mobile.banking",
+      "name": "Triodos Bank",
+      "type": "Banco"
+    },
+    {
+      "packageName": "com.rsi",
+      "name": "ruralvía",
+      "type": "Banco"
+    },
+    {
+      "packageName": "com.tecnocom.cajalaboral",
+      "name": "Laboral Kutxa",
+      "type": "Banco"
+    },
+    {
+      "packageName": "com.cajaingenieros.android.bancamovil",
+      "name": "Caja de Ingenieros",
+      "type": "Banco"
+    },
+    {
+      "packageName": "es.caixaontinyent.caixaontinyentapp",
+      "name": "Caixa Ontinyent",
+      "type": "Banco"
+    },
+    {
+      "packageName": "com.revolut.revolut",
+      "name": "Revolut",
+      "type": "Banco y servicios financieros"
+    },
+    {
+      "packageName": "de.number26.android",
+      "name": "N26",
+      "type": "Banco y servicios financieros"
+    },
+    {
+      "packageName": "com.transferwise.android",
+      "name": "Wise",
+      "type": "Servicios financieros"
+    },
+    {
+      "packageName": "com.paypal.android.p2pmobile",
+      "name": "PayPal",
+      "type": "Servicios financieros"
+    },
+    {
+      "packageName": "com.google.android.apps.walletnfcrel",
+      "name": "Google Wallet",
+      "type": "Billetera digital"
+    },
+    {
+      "packageName": "com.moneybookers.skrillpayments",
+      "name": "Skrill",
+      "type": "Servicios financieros"
+    },
+    {
+      "packageName": "com.binance.dev",
+      "name": "Binance",
+      "type": "Servicios financieros"
+    },
+    {
+      "packageName": "com.coinbase.android",
+      "name": "Coinbase",
+      "type": "Servicios financieros"
+    },
+    {
+      "packageName": "com.kraken.trade",
+      "name": "Kraken",
+      "type": "Servicios financieros"
+    },
+    {
+      "packageName": "de.traderepublic.app",
+      "name": "Trade Republic",
+      "type": "Servicios financieros"
+    },
+    {
+      "packageName": "com.bunq.android",
+      "name": "bunq",
+      "type": "Banco y servicios financieros"
+    }
+  ]
+}
