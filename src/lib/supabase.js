@@ -804,7 +804,9 @@ async function fetchAndroidApi(parsedUrl, method, input, init, sourceRequest) {
   }
 
 
-  if (ANDROID_MANAGEMENT_WRITE_PATHS.has(parsedUrl.pathname) && ['POST', 'PATCH', 'DELETE'].includes(method)) {
+  if (ANDROID_MANAGEMENT_WRITE_PATHS.has(parsedUrl.pathname) &&
+      !(parsedUrl.pathname === '/api/compromisos' && parsedUrl.searchParams.get('resource') === 'reservations') &&
+      ['POST', 'PATCH', 'DELETE'].includes(method)) {
     return forwardAndroidManagementWrite(parsedUrl, method, init, sourceRequest)
   }
 
