@@ -116,20 +116,20 @@ export default function LandingPage({ signIn, signUp, signInWithGoogle }) {
 
   return (
     <main className="landing-page relative bg-[#080F1C] text-slate-100">
-      <header className="landing-header sticky top-0 z-40 border-b border-slate-800/80 bg-[#080F1C]/90 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3.5 sm:px-6 lg:px-8">
+      <header className="landing-header sticky top-0 z-40 border-b border-slate-700/60 bg-[#080F1C]/95 shadow-[0_8px_30px_rgba(0,0,0,0.18)] backdrop-blur-2xl">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
           <a href="#inicio" className="flex shrink-0 items-center" aria-label="Finanzas, inicio">
             <img
               src="/finanzas-logo-horizontal-dark.svg"
               alt="Finanzas"
-              className="h-9 w-auto max-w-[10.75rem] object-contain"
+              className="h-9 w-auto max-w-[11.5rem] object-contain drop-shadow-[0_0_18px_rgba(16,185,129,0.12)]"
               draggable="false"
             />
           </a>
 
-          <nav className="hidden items-center gap-7 md:flex" aria-label="Navegación principal">
-            <a href="#funciones" className="text-sm text-slate-400 transition hover:text-white">Funciones</a>
-            <a href="#organizacion" className="text-sm text-slate-400 transition hover:text-white">Cómo te ayuda</a>
+          <nav className="hidden items-center gap-2 rounded-full border border-slate-800/80 bg-slate-900/45 p-1.5 md:flex" aria-label="Navegación principal">
+            <a href="#funciones" className="rounded-full px-4 py-2 text-sm text-slate-400 transition hover:bg-slate-800 hover:text-white">Funciones</a>
+            <a href="#organizacion" className="rounded-full px-4 py-2 text-sm text-slate-400 transition hover:bg-slate-800 hover:text-white">Cómo te ayuda</a>
           </nav>
 
           <div className="flex shrink-0 items-center gap-2">
@@ -143,7 +143,7 @@ export default function LandingPage({ signIn, signUp, signInWithGoogle }) {
             <a
               href="#acceso"
               onClick={() => changeMode('signup')}
-              className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-3.5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-emerald-950/25 transition hover:bg-emerald-500 sm:px-4"
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-emerald-400/20 bg-gradient-to-br from-emerald-500 to-emerald-700 px-4 py-2.5 text-sm font-semibold text-white shadow-[0_8px_24px_rgba(5,150,105,0.24)] transition hover:-translate-y-0.5 hover:from-emerald-400 hover:to-emerald-600 sm:px-5"
             >
               <UserPlus className="h-4 w-4" />
               <span>Crear cuenta</span>
@@ -152,33 +152,33 @@ export default function LandingPage({ signIn, signUp, signInWithGoogle }) {
         </div>
       </header>
 
-      <section id="inicio" className="relative isolate">
-        <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden" aria-hidden="true">
+      <section id="inicio" className="relative isolate overflow-hidden">
+        <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden" aria-hidden="true">\n          <div className="absolute inset-0 bg-[linear-gradient(rgba(148,163,184,0.025)_1px,transparent_1px),linear-gradient(90deg,rgba(148,163,184,0.025)_1px,transparent_1px)] bg-[size:52px_52px] [mask-image:linear-gradient(to_bottom,black,transparent_78%)]" />
           <div className="absolute -left-40 top-0 h-96 w-96 rounded-full bg-emerald-500/[0.09] blur-3xl" />
           <div className="absolute -right-40 top-28 h-96 w-96 rounded-full bg-sky-500/[0.05] blur-3xl" />
         </div>
 
-        <div className="mx-auto grid max-w-7xl items-center gap-12 px-4 pb-16 pt-14 sm:px-6 sm:pt-20 lg:grid-cols-[minmax(0,1fr)_minmax(420px,0.92fr)] lg:gap-14 lg:px-8 lg:pb-24 lg:pt-20">
+        <div className="mx-auto grid max-w-7xl items-start gap-10 px-4 pb-16 pt-12 sm:px-6 sm:pt-16 lg:grid-cols-[minmax(0,1fr)_minmax(410px,0.88fr)] lg:gap-16 lg:px-8 lg:pb-24 lg:pt-20">
           <div className="max-w-2xl">
             <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/[0.07] px-3 py-1.5 text-xs font-semibold text-emerald-300">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
               CONTROL FINANCIERO PERSONAL Y FAMILIAR
             </div>
 
-            <h1 className="mt-6 max-w-2xl text-4xl font-semibold leading-[1.12] tracking-tight text-white sm:text-5xl lg:text-[3.65rem]">
+            <h1 className="mt-7 max-w-2xl text-[2.65rem] font-semibold leading-[1.06] tracking-[-0.045em] text-white sm:text-6xl lg:text-[4.35rem]">
               Tus cuentas claras.
-              <span className="mt-1 block text-emerald-300">Tus decisiones, más tranquilas.</span>
+              <span className="mt-2 block bg-gradient-to-r from-emerald-200 via-emerald-300 to-teal-400 bg-clip-text text-transparent">Tus decisiones, más tranquilas.</span>
             </h1>
 
-            <p className="mt-6 max-w-xl text-base leading-7 text-slate-400 sm:text-lg sm:leading-8">
+            <p className="mt-7 max-w-xl text-base leading-8 text-slate-300/80 sm:text-lg sm:leading-8">
               Reúne tus cuentas, gastos, ingresos y pagos en un solo lugar. Planifica lo que viene, separa lo que ya está comprometido y descubre cuánto dinero tienes realmente disponible.
             </p>
 
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+            <div className="mt-9 flex flex-col gap-3 sm:flex-row">
               <a
                 href="#acceso"
                 onClick={() => changeMode('signup')}
-                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-950/30 transition hover:bg-emerald-500"
+                className="inline-flex min-h-13 items-center justify-center gap-2 rounded-xl border border-emerald-300/20 bg-gradient-to-br from-emerald-500 to-emerald-700 px-6 py-3.5 text-sm font-bold text-white shadow-[0_12px_30px_rgba(5,150,105,0.24)] transition hover:-translate-y-0.5 hover:from-emerald-400 hover:to-emerald-600"
               >
                 Crear mi cuenta
                 <ArrowRight className="h-4 w-4" />
@@ -186,22 +186,22 @@ export default function LandingPage({ signIn, signUp, signInWithGoogle }) {
               <a
                 href="#acceso"
                 onClick={() => changeMode('signin')}
-                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-900/60 px-5 py-3 text-sm font-semibold text-slate-200 transition hover:border-slate-600 hover:bg-slate-800"
+                className="inline-flex min-h-13 items-center justify-center gap-2 rounded-xl border border-slate-700/90 bg-slate-900/75 px-6 py-3.5 text-sm font-semibold text-slate-200 shadow-lg shadow-black/10 transition hover:-translate-y-0.5 hover:border-slate-500 hover:bg-slate-800"
               >
                 <LogIn className="h-4 w-4" />
                 Ya tengo una cuenta
               </a>
             </div>
 
-            <div className="mt-8 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-slate-500">
+            <div className="mt-9 flex flex-wrap items-center gap-x-5 gap-y-3 border-t border-slate-800/80 pt-6 text-xs font-medium text-slate-400">
               <span className="inline-flex items-center gap-1.5"><CheckCircle2 className="h-4 w-4 text-emerald-400" /> Cuentas y movimientos</span>
               <span className="inline-flex items-center gap-1.5"><CheckCircle2 className="h-4 w-4 text-emerald-400" /> Presupuestos y reservas</span>
               <span className="inline-flex items-center gap-1.5"><ShieldCheck className="h-4 w-4 text-emerald-400" /> Acceso privado</span>
             </div>
           </div>
 
-          <div className="grid gap-4">
-            <div id="acceso" className="w-full rounded-2xl border border-slate-800 bg-slate-900/90 p-5 shadow-xl shadow-black/20 sm:p-6">
+          <div className="grid gap-5 lg:pt-1">
+            <div id="acceso" className="relative w-full overflow-hidden rounded-[26px] border border-emerald-500/20 bg-[#0d1727] p-5 shadow-[0_28px_80px_rgba(0,0,0,0.42)] ring-1 ring-white/[0.035] sm:p-7">\n              <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-emerald-300/60 to-transparent" />
               <div className="mb-5 flex items-center gap-3">
                 <img
                   src="/finanzas-icon.svg"
@@ -273,7 +273,7 @@ export default function LandingPage({ signIn, signUp, signInWithGoogle }) {
               </button>
             </div>
 
-            <div className="finance-panel overflow-hidden rounded-3xl border border-slate-700/80 bg-slate-900/75 p-4 shadow-2xl shadow-black/30 sm:p-5">
+            <div className="finance-panel overflow-hidden rounded-[26px] border border-slate-700/70 bg-[#0c1626] p-4 shadow-[0_24px_70px_rgba(0,0,0,0.36)] sm:p-5">
               <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-300">Vista de ejemplo</p>
@@ -359,7 +359,7 @@ export default function LandingPage({ signIn, signUp, signInWithGoogle }) {
         </div>
       </section>
 
-      <section id="funciones" className="border-y border-slate-800/70 bg-slate-900/25 py-16 sm:py-20">
+      <section id="funciones" className="border-y border-slate-800/70 bg-gradient-to-b from-slate-900/35 to-slate-950/15 py-20 sm:py-24">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="max-w-2xl">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-300">Todo conectado</p>
@@ -373,7 +373,7 @@ export default function LandingPage({ signIn, signUp, signInWithGoogle }) {
             {features.map((feature, index) => {
               const Icon = feature.icon
               return (
-                <article key={feature.title} className="group rounded-2xl border border-slate-800 bg-slate-900/65 p-5 transition duration-200 hover:-translate-y-0.5 hover:border-emerald-500/25 hover:bg-slate-900">
+                <article key={feature.title} className="group rounded-[22px] border border-slate-800/90 bg-gradient-to-br from-slate-900/90 to-slate-900/55 p-6 shadow-[0_12px_34px_rgba(0,0,0,0.12)] transition duration-300 hover:-translate-y-1 hover:border-emerald-500/30 hover:shadow-[0_20px_45px_rgba(0,0,0,0.24)]">
                   <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-emerald-500/15 bg-emerald-500/[0.08] text-emerald-300">
                     <Icon className="h-5 w-5" />
                   </div>
@@ -388,7 +388,7 @@ export default function LandingPage({ signIn, signUp, signInWithGoogle }) {
         </div>
       </section>
 
-      <section id="organizacion" className="py-16 sm:py-20">
+      <section id="organizacion" className="py-20 sm:py-24">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="grid gap-10 lg:grid-cols-[0.85fr_1.15fr] lg:items-center">
             <div>
@@ -445,7 +445,7 @@ export default function LandingPage({ signIn, signUp, signInWithGoogle }) {
       </section>
 
       <section className="px-4 pb-16 sm:px-6 sm:pb-20 lg:px-8">
-        <div className="mx-auto flex max-w-7xl flex-col items-start justify-between gap-6 rounded-3xl border border-emerald-500/20 bg-gradient-to-br from-emerald-950/55 via-slate-900/90 to-slate-900 p-6 shadow-xl shadow-black/20 sm:p-9 lg:flex-row lg:items-center">
+        <div className="mx-auto flex max-w-7xl flex-col items-start justify-between gap-6 rounded-[28px] border border-emerald-500/20 bg-[radial-gradient(ellipse_at_top_left,rgba(16,185,129,0.16),transparent_55%),linear-gradient(135deg,#0d2a27,#101b2d_58%,#111827)] p-7 shadow-[0_24px_70px_rgba(0,0,0,0.28)] sm:p-10 lg:flex-row lg:items-center">
           <div className="max-w-2xl">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-300">Empieza cuando quieras</p>
             <h2 className="mt-3 text-2xl font-semibold tracking-tight text-white sm:text-3xl">Pon tus cuentas en orden con Finanzas.</h2>
