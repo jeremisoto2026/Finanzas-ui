@@ -7,8 +7,7 @@ on:
       - feat/finanzas-apk-capacitor
       - feat/finanzas-cuentas-dinamicas-edicion
       - feat/fase5-alertas-inteligentes
-      - feat/fase3-calendario-financiero
-      - feat/fase6-bloqueo-biometrico
+      - feat/migracion-recharts-3
     paths:
       - "android/**"
       - "src/**"
