@@ -518,6 +518,127 @@ async function replenishments(db: any, userId: string, method: string, body: any
   throw new HttpError("Método no permitido.", 405);
 }
 
+
+function mapDebt(row: any) {
+  return { id: row.id, direction: row.direction, personName: row.person_name,
+    description: row.description || "", originalAmount: Number(row.original_amount || 0),
+    outstandingAmount: Number(row.outstanding_amount || 0), dueOn: row.due_on || null, status: row.status };
+}
+async function debtCategoryId(db: any, userId: string, direction: string) {
+  const income = direction === "receivable";
+  const name = income ? "Cobros de préstamos" : "Pago de deudas";
+  const targetDirection = income ? "income" : "expense";
+  const { data, error } = await db.from("categories").select("id, name, direction")
+    .eq("user_id", userId).order("created_at", { ascending: true });
+  if (error) throw error;
+  const found = (data || []).find((row: any) => normalize(row.name) === normalize(name));
+  if (found) {
+    if (found.direction !== targetDirection && found.direction !== "both") {
+      const { error: updateError } = await db.from("categories").update({ direction: "both" })
+        .eq("id", found.id).eq("user_id", userId);
+      if (updateError) throw updateError;
+    }
+    return found.id;
+  }
+  const { data: created, error: insertError } = await db.from("categories")
+    .insert({ user_id: userId, name, direction: targetDirection }).select("id").single();
+  if (insertError) {
+    if (insertError.code === "23505") {
+      const retry = await db.from("categories").select("id, name").eq("user_id", userId);
+      if (retry.error) throw retry.error;
+      const existing = (retry.data || []).find((row: any) => normalize(row.name) === normalize(name));
+      if (existing) return existing.id;
+    }
+    throw insertError;
+  }
+  return created.id;
+}
+async function debts(db: any, userId: string, method: string, body: any) {
+  const select = "id, direction, person_name, description, original_amount, outstanding_amount, due_on, status";
+  if (method === "POST" && body.action === "settle") {
+    if (!body.id || !body.accountId || !body.idempotencyKey) throw new HttpError("Selecciona deuda, cuenta y confirma la operación.");
+    const amount = Number(body.amount);
+    const occurredOn = String(body.occurredOn || "").slice(0, 10);
+    if (!Number.isFinite(amount) || amount <= 0 || !dateIsValid(occurredOn)) throw new HttpError("Indica un importe válido y la fecha del movimiento.");
+    const { data: current, error: readError } = await db.from("debts").select("id, direction")
+      .eq("id", body.id).eq("user_id", userId).maybeSingle();
+    if (readError) throw readError;
+    if (!current) throw new HttpError("No se encontró la deuda seleccionada.", 404);
+    const category = await debtCategoryId(db, userId, current.direction);
+    const { data: settlement, error: settlementError } = await db.rpc("register_debt_settlement", {
+      p_debt_id: body.id, p_account_id: body.accountId, p_amount: amount,
+      p_occurred_on: occurredOn, p_idempotency_key: body.idempotencyKey, p_category_id: category,
+    });
+    if (settlementError) throw settlementError;
+    const { data: updated, error: updateError } = await db.from("debts").select(select)
+      .eq("id", body.id).eq("user_id", userId).single();
+    if (updateError) throw updateError;
+    return { status: 200, body: { success: true, debt: mapDebt(updated),
+      transactionId: settlement?.transactionId || null, alreadyRecorded: Boolean(settlement?.alreadyRecorded) } };
+  }
+  if (method === "POST" || method === "PATCH") {
+    if (method === "PATCH" && !body.id) throw new HttpError("Falta el identificador de la deuda.");
+    let current: any = null;
+    if (method === "PATCH") {
+      const { data, error } = await db.from("debts").select("id, original_amount, outstanding_amount, direction, status")
+        .eq("id", body.id).eq("user_id", userId).maybeSingle();
+      if (error) throw error;
+      if (!data) throw new HttpError("No se encontró la deuda.", 404);
+      current = data;
+    }
+    const patch: any = {};
+    if (method === "POST" || body.personName !== undefined) {
+      const personName = String(body.personName || "").trim();
+      if (!personName) throw new HttpError("Indica una persona.");
+      patch.person_name = personName;
+    }
+    if (method === "POST" || body.direction !== undefined) {
+      if (!["receivable", "payable"].includes(body.direction)) throw new HttpError("Tipo de deuda no válido.");
+      patch.direction = body.direction;
+    }
+    if (body.description !== undefined || method === "POST") patch.description = String(body.description || "").trim() || null;
+    if (body.dueOn !== undefined) {
+      const dueOn = body.dueOn ? String(body.dueOn).slice(0, 10) : null;
+      if (dueOn && !dateIsValid(dueOn)) throw new HttpError("La fecha de vencimiento no es válida.");
+      patch.due_on = dueOn;
+    }
+    if (method === "POST" || body.amount !== undefined || body.originalAmount !== undefined) {
+      const amount = Number(body.amount ?? body.originalAmount);
+      if (!Number.isFinite(amount) || amount <= 0) throw new HttpError("El importe original debe ser mayor que cero.");
+      patch.original_amount = amount;
+    }
+    if (body.outstandingAmount !== undefined) {
+      const outstanding = Number(body.outstandingAmount);
+      if (!Number.isFinite(outstanding) || outstanding < 0) throw new HttpError("El saldo pendiente no puede ser negativo.");
+      patch.outstanding_amount = outstanding;
+    } else if (method === "POST") patch.outstanding_amount = patch.original_amount;
+    const resultingOriginal = Number(patch.original_amount ?? current?.original_amount ?? 0);
+    const resultingOutstanding = Number(patch.outstanding_amount ?? current?.outstanding_amount ?? 0);
+    if (resultingOutstanding > resultingOriginal) throw new HttpError("El importe pendiente no puede superar el importe original.");
+    if (body.status !== undefined) {
+      if (!["open", "partially_settled", "settled", "written_off"].includes(body.status)) throw new HttpError("Estado de deuda no válido.");
+      patch.status = body.status;
+    } else if (patch.outstanding_amount !== undefined || method === "POST") {
+      patch.status = resultingOutstanding === 0 ? "settled" : resultingOutstanding < resultingOriginal ? "partially_settled" : "open";
+    }
+    const query = method === "POST"
+      ? db.from("debts").insert({ user_id: userId, ...patch })
+      : db.from("debts").update(patch).eq("id", body.id).eq("user_id", userId);
+    const { data, error } = await query.select(select).single();
+    if (error) throw error;
+    return { status: method === "POST" ? 201 : 200, body: mapDebt(data) };
+  }
+  if (method === "DELETE") {
+    if (!body.id) throw new HttpError("Falta el identificador de la deuda.");
+    const { data, error } = await db.from("debts").delete().eq("id", body.id)
+      .eq("user_id", userId).select("id").maybeSingle();
+    if (error) throw error;
+    if (!data) throw new HttpError("No se encontró la deuda.", 404);
+    return { status: 200, body: { success: true, id: body.id } };
+  }
+  throw new HttpError("Método no permitido.", 405);
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers });
   if (req.method !== "POST") return reply({ error: "Método no permitido." }, 405);
@@ -538,7 +659,7 @@ Deno.serve(async (req: Request) => {
     const path = String(request?.path || "");
     const method = String(request?.method || "").toUpperCase();
     const body = request?.body && typeof request.body === "object" ? request.body : {};
-    if (!["/api/presupuestos", "/api/pagos-fijos", "/api/compras-cuotas", "/api/compromisos"].includes(path)) {
+    if (!["/api/presupuestos", "/api/pagos-fijos", "/api/compras-cuotas", "/api/compromisos", "/api/deudas"].includes(path)) {
       throw new HttpError("Operación no disponible en Finanzas Mobile.", 404);
     }
     if (!["POST", "PATCH", "DELETE"].includes(method)) throw new HttpError("Método no permitido.", 405);
@@ -549,7 +670,9 @@ Deno.serve(async (req: Request) => {
         ? await fixedPayments(db, userId, method, body)
         : path === "/api/compras-cuotas"
         ? await installmentPlans(db, userId, method, body)
-        : await replenishments(db, userId, method, body);
+        : path === "/api/compromisos"
+          ? await replenishments(db, userId, method, body)
+          : await debts(db, userId, method, body);
     return reply(result.body, result.status);
   } catch (error) {
     const status = error instanceof HttpError ? error.status : 500;
