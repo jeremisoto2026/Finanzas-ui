@@ -1,3 +1,4 @@
+import AppLockSettings from '@/components/AppLockSettings'
 import {
   ArrowRight,
   ArrowLeftRight,
@@ -111,6 +112,8 @@ export default function Ajustes({ onNavigate, attentionCounts = {} }) {
           </section>
         ))}
       </div>
+
+      <AppLockSettings />
 
       <p className="flex items-center gap-2 px-1 text-[11px] text-slate-500">
         <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-emerald-400/80" />
