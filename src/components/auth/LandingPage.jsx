@@ -370,7 +370,7 @@ export default function LandingPage({ signIn, signUp, signInWithGoogle }) {
           <div className="mx-auto max-w-3xl text-center">
             <p className="text-xs font-bold uppercase tracking-[0.2em] text-emerald-300">Todo conectado</p>
             <h2 className="mt-4 text-3xl font-semibold tracking-[-0.035em] text-white sm:text-4xl">Cada parte de tus finanzas, en su sitio.</h2>
-            <p className="mx-auto mt-4 max-w-2xl text-sm leading-7 text-slate-400 sm:text-base>
+            <p className="mx-auto mt-4 max-w-2xl text-sm leading-7 text-slate-400 sm:text-base">
               Finanzas reúne las herramientas que necesitas para entender tu situación y organizar los próximos pagos sin perder de vista el dinero disponible.
             </p>
           </div>
