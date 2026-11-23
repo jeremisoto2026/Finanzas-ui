@@ -17,8 +17,8 @@ class AppLockPlugin : Plugin() {
 
     @PluginMethod
     fun getStatus(call: PluginCall) {
-        val manager = BiometricManager.from(context)
-        val keyguard = context.getSystemService(KeyguardManager::class.java)
+        val manager = BiometricManager.from(getContext())
+        val keyguard = getContext().getSystemService(KeyguardManager::class.java)
         val secureDevice = keyguard?.isDeviceSecure == true
         val result = manager.canAuthenticate(authenticators)
         val supported = secureDevice && result == BiometricManager.BIOMETRIC_SUCCESS
@@ -27,7 +27,7 @@ class AppLockPlugin : Plugin() {
         ) == BiometricManager.BIOMETRIC_SUCCESS
 
         call.resolve(JSObject().apply {
-            put("enabled", AppLockStore.isEnabled(context))
+            put("enabled", AppLockStore.isEnabled(getContext()))
             put("supported", supported)
             put("biometricAvailable", biometricAvailable)
             put("deviceCredentialAvailable", secureDevice)
@@ -51,8 +51,8 @@ class AppLockPlugin : Plugin() {
             ?: return call.reject("Falta indicar si el bloqueo estará activado.")
 
         if (enabled) {
-            val manager = BiometricManager.from(context)
-            val keyguard = context.getSystemService(KeyguardManager::class.java)
+            val manager = BiometricManager.from(getContext())
+            val keyguard = getContext().getSystemService(KeyguardManager::class.java)
             val secureDevice = keyguard?.isDeviceSecure == true
             val result = manager.canAuthenticate(authenticators)
             if (!secureDevice || result != BiometricManager.BIOMETRIC_SUCCESS) {
@@ -62,7 +62,7 @@ class AppLockPlugin : Plugin() {
             }
         }
 
-        AppLockStore.setEnabled(context, enabled)
+        AppLockStore.setEnabled(getContext(), enabled)
         call.resolve(JSObject().apply {
             put("enabled", enabled)
             put("success", true)
