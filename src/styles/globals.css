@@ -69,10 +69,22 @@
    * py-* or min-h-* utilities that override these declarations.
    */
   .app-topbar {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    isolation: isolate;
     box-sizing: border-box;
     padding-top: calc(0.75rem + var(--finance-safe-area-top));
     padding-bottom: 0.75rem;
     min-height: calc(4.25rem + var(--finance-safe-area-top));
+    /* Fully opaque surface: scrolling content must never show through the header. */
+    background: #080F1C;
+    background-color: #080F1C;
+    background-image: none;
+    border-bottom: 1px solid rgba(71, 85, 105, 0.72);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.32);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
   }
 
   /*
