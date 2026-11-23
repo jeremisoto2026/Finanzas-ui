@@ -329,6 +329,19 @@ test('Android supports creating, editing, deleting and settling pending replenis
   assert.match(writer, /"\/api\/compromisos"/)
 })
 
+test('Android supports creating, editing, deleting and settling debts', () => {
+  const native = read('src/lib/supabase.js')
+  const writer = read('supabase/functions/finance-management-write/index.ts')
+  assert.match(native, /'\/api\/deudas'/)
+  assert.match(writer, /async function debts\(/)
+  assert.match(writer, /from\("debts"\)\.insert/)
+  assert.match(writer, /from\("debts"\)\.update/)
+  assert.match(writer, /from\("debts"\)\.delete\(\)/)
+  assert.match(writer, /register_debt_settlement/)
+  assert.match(writer, /p_idempotency_key: body\.idempotencyKey/)
+  assert.match(writer, /"\/api\/deudas"/)
+})
+
 test('Authenticated Android topbar preserves the status-bar safe area', () => {
   const navbar = read('src/components/layout/Navbar.jsx')
   const styles = read('src/styles/globals.css')
