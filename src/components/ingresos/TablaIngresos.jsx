@@ -720,76 +720,38 @@ export default function TablaIngresos() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-7xl space-y-6 pb-8">
+    <div className="mx-auto w-full max-w-7xl space-y-6 px-1 pb-10 sm:px-0">
       {formError && !formOpen && (
         <p role="alert" className="rounded-xl border border-rose-800/50 bg-rose-950/30 px-4 py-3 text-sm text-rose-200">{formError}</p>
       )}
-      {/* HEADER MEJORADO (igual que TablaGastos) */}
-      <div className="mb-8">
-        <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-white mb-1">Ingresos del Mes</h1>
-            <div className="flex items-center gap-3 mt-2">
-              <span className="text-3xl font-bold text-emerald-400">€{total.toFixed(2)}</span>
-              <div className="h-2 w-2 rounded-full bg-slate-600"></div>
-              <span className="text-slate-400">
-                {filtroMes ? formatearMesTexto(filtroMes) : 'Todos los meses'}
-              </span>
-              <span className="text-slate-500 text-sm bg-slate-900 px-3 py-1 rounded-full">
-                {ingresosFiltrados.length} transacciones
-              </span>
+      {/* CABECERA PREMIUM */}
+      <section className="relative isolate overflow-hidden rounded-[28px] border border-slate-800/90 bg-gradient-to-br from-[#101b2d] via-slate-900 to-[#102b2a] p-5 shadow-2xl shadow-black/20 sm:p-7">
+        <div className="pointer-events-none absolute -right-16 -top-24 h-64 w-64 rounded-full bg-emerald-500/10 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-24 left-1/3 h-48 w-48 rounded-full bg-blue-500/5 blur-3xl" />
+        <div className="relative flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
+          <div className="min-w-0 flex-1">
+            <div className="mb-4 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-emerald-300"><span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_12px_rgba(52,211,153,0.8)]" /> Control de entradas</div>
+            <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">Ingresos</h1>
+            <p className="mt-1.5 max-w-xl text-sm text-slate-400">Todo lo que recibes, organizado para entender tu evolución financiera.</p>
+            <div className="mt-6 flex flex-wrap items-end gap-x-8 gap-y-4">
+              <div><p className="mb-1 text-xs font-medium uppercase tracking-wider text-slate-500">{filtroMes ? formatearMesTexto(filtroMes) : 'Total histórico filtrado'}</p><p className="text-4xl font-bold tracking-tight tabular-nums text-emerald-300 sm:text-5xl">+€{total.toFixed(2)}</p></div>
+              <div className="hidden h-12 w-px bg-slate-700 sm:block" />
+              <div className="pb-1"><p className="text-xs font-medium uppercase tracking-wider text-slate-500">Movimientos</p><p className="mt-1 text-2xl font-semibold tabular-nums text-white">{ingresosFiltrados.length}</p></div>
+              <div className="pb-1"><p className="text-xs font-medium uppercase tracking-wider text-slate-500">Promedio por ingreso</p><p className="mt-1 text-2xl font-semibold tabular-nums text-slate-200">€{(ingresosFiltrados.length ? total / ingresosFiltrados.length : 0).toFixed(2)}</p></div>
             </div>
-            {/* TENDENCIA MEJORADA (igual que TablaGastos) */}
-            {tendenciaMensual.cambio !== 0 && (
-              <div className={`mt-2 text-sm flex items-center gap-2 ${
-                tendenciaMensual.tendencia === 'subiendo' ? 'text-emerald-400' : 
-                tendenciaMensual.tendencia === 'bajando' ? 'text-red-400' : 'text-slate-400'
-              }`}>
-                {tendenciaMensual.tendencia === 'subiendo' ? <TrendingUp className="h-4 w-4" /> :
-                 tendenciaMensual.tendencia === 'bajando' ? <TrendingDown className="h-4 w-4" /> :
-                 <TrendingDown className="h-4 w-4" />}
-                <span>{tendenciaMensual.mensaje}</span>
-              </div>
-            )}
-            {/* BARRA DE PROGRESO DE META (mantenemos esta funcionalidad única) */}
-            <div className="mt-3 max-w-md">
-              <div className="flex justify-between text-sm text-slate-400 mb-1">
-                <span>Meta mensual: €{metaIngresos.meta}</span>
-                <span>{metaIngresos.progreso.toFixed(1)}%</span>
-              </div>
-              <div className="w-full bg-slate-800 rounded-full h-2">
-                <div 
-                  className={`h-2 rounded-full transition-all duration-700 ${
-                    metaIngresos.alcanzada 
-                      ? 'bg-emerald-500' 
-                      : 'bg-gradient-to-r from-amber-500 to-amber-400'
-                  }`}
-                  style={{ width: `${Math.min(metaIngresos.progreso, 100)}%` }}
-                ></div>
-              </div>
-              <div className="text-xs text-slate-500 mt-1">
-                {metaIngresos.alcanzada 
-                  ? '✅ Meta alcanzada' 
-                  : `Faltan €${Math.max(0, metaIngresos.meta - total).toFixed(2)} para la meta`}
-              </div>
-            </div>
+            {tendenciaMensual.cambio !== 0 && <div className={`mt-4 inline-flex items-center gap-2 rounded-full border border-slate-700/80 bg-slate-950/40 px-3 py-1.5 text-xs ${tendenciaMensual.tendencia === 'subiendo' ? 'text-emerald-300' : tendenciaMensual.tendencia === 'bajando' ? 'text-rose-300' : 'text-slate-400'}`}>{tendenciaMensual.tendencia === 'subiendo' ? <TrendingUp className="h-3.5 w-3.5" /> : <TrendingDown className="h-3.5 w-3.5" />}{tendenciaMensual.mensaje}</div>}
           </div>
-          
-          {/* BOTÓN DE EXPORTAR MEJORADO (igual que TablaGastos) */}
-          <button 
-            onClick={exportarCSV}
-            className="group flex items-center gap-3 px-5 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-medium transition-all duration-200 hover:shadow-lg hover:shadow-emerald-900/30"
-          >
-            <Download className="h-5 w-5 group-hover:scale-110 transition-transform" />
-            <FileText className="h-5 w-5" />
-            <span>Exportar CSV</span>
-          </button>
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row xl:min-w-[250px] xl:flex-col">
+            <button onClick={abrirNuevoIngreso} className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 py-3.5 text-sm font-semibold text-white shadow-lg shadow-emerald-950/30 transition hover:-translate-y-0.5 hover:bg-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-400/50"><Plus className="h-4 w-4" />Nuevo ingreso</button>
+            <button onClick={exportarCSV} className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-950/40 px-5 py-3.5 text-sm font-semibold text-slate-200 transition hover:border-emerald-400/40 hover:bg-slate-800"><Download className="h-4 w-4" />Exportar movimientos</button>
+          </div>
         </div>
-      </div>
-
-      <div className="mb-5 flex justify-end">
-        <button onClick={abrirNuevoIngreso} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-500"><Plus className="h-4 w-4" />Nuevo ingreso</button>
-      </div>
+        <div className="relative mt-6 max-w-2xl border-t border-slate-700/70 pt-4">
+          <div className="mb-2 flex items-center justify-between gap-3 text-xs"><span className="font-semibold text-slate-300">Objetivo mensual · €{metaIngresos.meta}</span><span className="font-semibold tabular-nums text-emerald-300">{metaIngresos.progreso.toFixed(1)}%</span></div>
+          <div className="h-2 overflow-hidden rounded-full bg-slate-800"><div className={`h-full rounded-full transition-all duration-700 ${metaIngresos.alcanzada ? 'bg-emerald-400' : 'bg-gradient-to-r from-emerald-600 to-emerald-400'}`} style={{ width: `${Math.min(metaIngresos.progreso, 100)}%` }} /></div>
+          <p className="mt-2 text-xs text-slate-500">{metaIngresos.alcanzada ? 'Objetivo mensual alcanzado' : `Faltan €${Math.max(0, metaIngresos.meta - total).toFixed(2)} para alcanzar el objetivo`}</p>
+        </div>
+      </section>
 
       {formOpen && (
         <div
@@ -853,11 +815,11 @@ export default function TablaIngresos() {
       )}
 
       {/* LAYOUT DE DOS COLUMNAS (igual que TablaGastos) */}
-      <div className="flex flex-col lg:flex-row gap-6">
+      <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[280px_minmax(0,1fr)] xl:gap-6">
         {/* COLUMNA IZQUIERDA - FILTROS Y ANÁLISIS */}
-        <div className="lg:w-1/3 xl:w-1/4 space-y-6">
+        <div className="space-y-5">
           {/* PANEL DE FILTROS MEJORADO */}
-          <div className="bg-slate-900/80 backdrop-blur-sm rounded-xl border border-slate-800 p-5">
+          <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-5 shadow-lg shadow-black/10">
             <div className="flex items-center gap-2 mb-4">
               <Filter className="h-5 w-5 text-emerald-400" />
               <h2 className="text-lg font-semibold text-white">Filtros</h2>
@@ -1092,7 +1054,7 @@ export default function TablaIngresos() {
         </div>
 
         {/* COLUMNA DERECHA - TABLA Y ANÁLISIS DETALLADO */}
-        <div className="lg:w-2/3 xl:w-3/4">
+        <div className="min-w-0">
           <div className="bg-slate-900/80 backdrop-blur-sm rounded-xl border border-slate-800 overflow-hidden">
             {/* HEADER DE TABLA MEJORADO */}
             <div className="px-6 py-4 border-b border-slate-800">
@@ -1112,12 +1074,38 @@ export default function TablaIngresos() {
               </div>
             </div>
 
+            <div className="space-y-3 p-3 md:hidden">
+              {ingresosFiltrados.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-slate-700 px-5 py-10 text-center text-sm text-slate-400">No hay ingresos para este periodo. Prueba a cambiar los filtros.</div>
+              ) : ingresosFiltrados.map((ingreso) => {
+                const cuentaNombre = String(ingreso.cuenta || '').trim();
+                const tipo = estadisticasCategorias[ingreso.categoria]?.tipo || 'variable';
+                return <article key={ingreso.id} className="rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate font-semibold text-white">{ingreso.concepto}</p>
+                      <p className="mt-1 text-xs text-slate-500">{ingreso.fecha} · {ingreso.metodo || 'Sin método'}</p>
+                    </div>
+                    <p className="shrink-0 text-lg font-bold text-emerald-300">+€{ingreso.monto?.toFixed(2) || '0.00'}</p>
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                    <span className="rounded-lg bg-blue-500/10 px-2.5 py-1.5 text-blue-200">{ingreso.categoria}</span>
+                    <span className={`rounded-lg px-2.5 py-1.5 ${tipo === 'fijo' ? 'bg-emerald-500/10 text-emerald-200' : 'bg-amber-500/10 text-amber-200'}`}>{tipo === 'fijo' ? 'Fijo' : 'Variable'}</span>
+                    <span className="rounded-lg bg-slate-800 px-2.5 py-1.5 text-slate-300">{cuentaNombre || 'Sin cuenta'}</span>
+                  </div>
+                  <div className="mt-3 flex justify-end gap-2 border-t border-slate-800 pt-3">
+                    <button type="button" disabled={saving} onClick={() => editarIngreso(ingreso)} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 px-3 py-2 text-xs font-medium text-sky-300 disabled:opacity-50"><Pencil className="h-3.5 w-3.5"/>Editar</button>
+                    <button type="button" disabled={saving} onClick={() => eliminarIngreso(ingreso)} className="inline-flex items-center gap-1.5 rounded-lg border border-rose-900/50 bg-rose-950/20 px-3 py-2 text-xs font-medium text-rose-300 disabled:opacity-50"><Trash2 className="h-3.5 w-3.5"/>Anular</button>
+                  </div>
+                </article>
+              })}
+            </div>
             {/* TABLA MEJORADA CON TIPO DE INGRESO */}
             <div
               role="region"
               aria-label="Historial de ingresos, desplazamiento horizontal"
               tabIndex={0}
-              className="overflow-x-auto overscroll-x-contain"
+              className="hidden overflow-x-auto overscroll-x-contain md:block"
             >
               <table className="w-full min-w-[1040px]">
                 <thead className="bg-slate-900">
