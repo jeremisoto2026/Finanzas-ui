@@ -55,6 +55,23 @@ class MainActivity : BridgeActivity() {
             appLockAuthenticated = true
             return
         }
+        val authenticators =
+            androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_STRONG or
+                androidx.biometric.BiometricManager.Authenticators.DEVICE_CREDENTIAL
+        val authenticationStatus = androidx.biometric.BiometricManager.from(this)
+            .canAuthenticate(authenticators)
+        val deviceSecure = getSystemService(android.app.KeyguardManager::class.java)
+            ?.isDeviceSecure == true
+        if (!deviceSecure ||
+            authenticationStatus == androidx.biometric.BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED ||
+            authenticationStatus == androidx.biometric.BiometricManager.BIOMETRIC_ERROR_NO_HARDWARE ||
+            authenticationStatus == androidx.biometric.BiometricManager.BIOMETRIC_ERROR_UNSUPPORTED) {
+            // Avoid permanently locking the owner out if the device security method
+            // was removed after app lock had been enabled. The owner can enable it again.
+            AppLockStore.setEnabled(this, false)
+            appLockAuthenticated = true
+            return
+        }
         if (appLockAuthenticated || appLockPromptShowing) return
 
         appLockPromptShowing = true
