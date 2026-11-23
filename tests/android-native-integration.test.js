@@ -318,6 +318,7 @@ test('Android supports creating, editing, deleting and settling pending replenis
   const writer = read('supabase/functions/finance-management-write/index.ts')
   assert.match(native, /'\/api\/compromisos'/)
   assert.match(native, /ANDROID_MANAGEMENT_WRITE_PATHS\.has\(parsedUrl\.pathname\)/)
+  assert.match(native, /searchParams\.get\('resource'\) === 'reservations'/)
   assert.match(writer, /async function replenishments\(/)
   assert.match(writer, /from\("financial_items"\)\.insert\(\{ user_id: userId, item_kind: "replenishment"/)
   assert.match(writer, /from\("financial_items"\)\.update/)
