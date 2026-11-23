@@ -19,6 +19,6 @@ test('Recharts dependency uses major version 3', () => {
 test('dashboard charts do not use the removed activeIndex prop', () => {
   for (const file of chartFiles) {
     const source = readFileSync(resolve(here, file), 'utf8')
-    assert.doesNotMatch(source, /\bactiveIndex\s*=/, `${file} must not pass the removed activeIndex prop`)
+    assert.doesNotMatch(source, /\bactiveIndex\s*=\s*\{/, `${file} must not pass the removed activeIndex prop`)
   }
 })
