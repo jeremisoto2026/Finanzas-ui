@@ -171,14 +171,14 @@ export default function DineroDisponible() {
   ), [totalsByCurrency, reservedByCurrency])
 
   return (
-    <Card className="overflow-hidden border border-emerald-800/40 bg-gradient-to-br from-emerald-950/35 via-slate-900/95 to-slate-900 shadow-xl shadow-black/10">
-      <CardHeader className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center">
+    <Card className="overflow-hidden rounded-[1.65rem] border border-slate-700/80 bg-[#0b1424] shadow-2xl shadow-black/20 ring-1 ring-white/[0.025]">
+      <CardHeader className="mb-5 flex flex-col gap-3 border-b border-slate-800/90 bg-gradient-to-r from-emerald-950/35 via-slate-900/10 to-transparent px-5 pb-5 pt-5 sm:flex-row sm:items-center sm:px-6">
         <div className="flex items-center gap-3">
-          <div className="rounded-xl border border-emerald-500/15 bg-emerald-500/10 p-2.5">
+          <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 p-3 shadow-lg shadow-emerald-950/30">
             <Wallet className="h-5 w-5 text-emerald-400" />
           </div>
           <div>
-            <CardTitle className="text-base font-semibold text-white">Dinero en tus cuentas</CardTitle>
+            <CardTitle className="text-base font-bold tracking-tight text-white">Dinero en tus cuentas</CardTitle>
             <p className="mt-0.5 text-xs text-slate-400">Saldo actual según el libro de movimientos</p>
           </div>
         </div>
@@ -207,18 +207,18 @@ export default function DineroDisponible() {
           </div>
         ) : (
           <>
-            <div className="grid gap-4 xl:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
-              <div className="flex flex-col justify-center rounded-2xl border border-emerald-500/15 bg-slate-950/55 p-5 sm:p-6">
+            <div className="grid gap-4 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+              <div className="relative isolate flex min-h-52 flex-col justify-center overflow-hidden rounded-[1.4rem] border border-emerald-400/20 bg-gradient-to-br from-emerald-950 via-[#0c2828] to-slate-950 p-6 shadow-xl shadow-emerald-950/20 sm:p-7">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-300/80">
-                  Total por moneda
+                  Saldo total
                 </p>
                 {Object.entries(totalsByCurrency).length === 0 ? (
                   <p className="mt-3 text-2xl font-semibold text-white">Sin cuentas</p>
                 ) : (
-                  <div className="mt-3 space-y-4">
+                  <div className="relative z-10 mt-4 space-y-4">
                     {Object.entries(totalsByCurrency).map(([currency, amount]) => (
                       <div key={currency}>
-                        <p className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
+                        <p className="text-4xl font-bold tracking-[-0.045em] text-white sm:text-5xl">
                           {formatMoney(amount, currency)}
                         </p>
                         <p className="mt-1 text-xs text-slate-400">Saldo bancario en {currency}</p>
@@ -238,15 +238,15 @@ export default function DineroDisponible() {
                     No hay cuentas configuradas.
                   </div>
                 ) : (
-                  <div className="grid gap-2 sm:grid-cols-2">
+                  <div className="grid gap-3 sm:grid-cols-2">
                     {accounts.map((account) => (
-                      <div key={account.id} className="min-w-0 rounded-xl border border-slate-800 bg-slate-950/45 p-3 transition-colors hover:border-slate-700">
+                      <div key={account.id} className="min-w-0 rounded-2xl border border-slate-800/90 bg-slate-900/65 p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-emerald-500/30 hover:bg-slate-900">
                         <div className="flex items-center gap-2">
                           <Landmark className="h-4 w-4 shrink-0 text-slate-500" />
                           <span className="min-w-0 truncate text-sm font-medium text-slate-200">{account.name}</span>
                           <button type="button" onClick={() => openAccountBalanceEditor(account)} className="ml-auto rounded-lg p-1.5 text-sky-300 transition hover:bg-slate-800" title={`Ajustar saldo de ${account.name}`} aria-label={`Ajustar saldo de ${account.name}`}><Pencil className="h-4 w-4" /></button>
                         </div>
-                        <p className="mt-3 text-xl font-semibold tabular-nums text-white">
+                        <p className="mt-3 text-2xl font-bold tracking-tight tabular-nums text-white">
                           {formatMoney(account.balance, account.currencyCode)}
                         </p>
                         <p className="mt-1 truncate text-[11px] text-slate-500">
@@ -261,9 +261,9 @@ export default function DineroDisponible() {
               </div>
             </div>
 
-            <div className="grid gap-3 border-t border-slate-800/80 pt-4 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-3 border-t border-slate-800/90 pt-5 sm:grid-cols-2 xl:grid-cols-3">
               {budgetReserve.month && (
-                <div className="rounded-xl border border-amber-500/20 bg-amber-500/[0.06] p-4">
+                <div className="rounded-2xl border border-amber-500/20 bg-gradient-to-br from-amber-500/[0.09] to-slate-950/50 p-4 shadow-lg shadow-black/10">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.13em] text-amber-300/80">Presupuesto pendiente · {new Date(budgetReserve.month + '-01T00:00:00').toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}</p>
                   <p className="mt-2 text-2xl font-semibold tabular-nums text-white">{formatMoney(budgetReserve.remaining)}</p>
                   <p className="mt-1 text-xs text-slate-400">De {formatMoney(budgetReserve.planned)} planificados · {formatMoney(budgetReserve.spent)} gastados. Es planificación, no una reserva bancaria.</p>
@@ -280,7 +280,7 @@ export default function DineroDisponible() {
                 )) : <p className="mt-2 text-2xl font-semibold tabular-nums text-white">{formatMoney(0)}</p>}
                 <p className="mt-1 text-xs text-slate-400">{reservationsError || 'Reservas activas vinculadas a tus cuentas.'}</p>
               </div>
-              <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/[0.06] p-4">
+              <div className="rounded-2xl border border-emerald-500/25 bg-gradient-to-br from-emerald-500/[0.11] to-slate-950/50 p-4 shadow-lg shadow-emerald-950/10">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.13em] text-emerald-300/80">Dinero libre tras reservas</p>
                 {reservationsLoading ? (
                   <p className="mt-2 text-sm text-slate-300">Calculando…</p>
@@ -292,7 +292,7 @@ export default function DineroDisponible() {
                 <p className="mt-1 text-xs text-slate-400">Saldo bancario menos reservas activas, sin mezclar monedas.</p>
               </div>
             </div>
-            <div className="flex items-start gap-2 border-t border-slate-800/80 pt-3 text-xs leading-5 text-slate-500">
+            <div className="flex items-start gap-2 rounded-xl border border-slate-800/80 bg-slate-950/35 px-4 py-3 text-xs leading-5 text-slate-400">
               <Landmark className="mt-0.5 h-4 w-4 shrink-0 text-slate-600" />
               <p>
                 Incluye los saldos iniciales y los movimientos contabilizados. Las deudas por cobrar y el dinero pendiente de reponer no se suman al saldo bancario.

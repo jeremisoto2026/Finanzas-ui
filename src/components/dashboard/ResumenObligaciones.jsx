@@ -153,23 +153,23 @@ export default function ResumenObligaciones() {
             amber: 'bg-amber-500/10 text-amber-300',
           }
           return (
-            <article key={card.title} className="group rounded-2xl border border-slate-800 bg-slate-900/65 p-4 shadow-sm transition-colors hover:border-slate-700 hover:bg-slate-900/90">
-              <div className="flex items-center justify-between gap-2">
+            <article key={card.title} className="group relative isolate overflow-hidden rounded-[1.35rem] border border-slate-700/80 bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 p-5 shadow-xl shadow-black/15 transition-all duration-200 hover:-translate-y-1 hover:border-emerald-500/30 hover:shadow-emerald-950/20">
+              <div className="relative z-10 flex items-center justify-between gap-2">
                 <p className="text-sm font-medium capitalize text-slate-300">{card.title}</p>
                 <span className={'rounded-lg p-2 ' + toneClasses[card.tone]}>
                   <Icon className="h-4 w-4" />
                 </span>
               </div>
-              <p className="mt-4 text-xl font-semibold tracking-tight tabular-nums text-white">{card.value}</p>
+              <p className="mt-5 text-2xl font-bold tracking-tight tabular-nums text-white sm:text-[1.7rem]">{card.value}</p>
               <p className="mt-1 text-xs text-slate-400">{card.detail}</p>
-              <p className="mt-3 border-t border-slate-800 pt-3 text-[11px] leading-5 text-slate-500">{card.secondary}</p>
+              <p className="mt-4 border-t border-slate-800/90 pt-3 text-[11px] leading-5 text-slate-400">{card.secondary}</p>
             </article>
           )
         })}
       </div>
 
-      <div className="rounded-2xl border border-slate-800 bg-slate-900/45 p-4 sm:p-5">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+      <div className="overflow-hidden rounded-[1.5rem] border border-slate-700/80 bg-gradient-to-br from-slate-900/95 to-slate-950/90 p-4 shadow-xl shadow-black/10 sm:p-6">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2 border-b border-slate-800/90 pb-4">
           <div className="flex items-center gap-2">
             <CalendarDaysIcon className="h-4 w-4 text-emerald-400" />
             <h3 className="text-sm font-semibold capitalize text-white">Cuotas de {monthLabel(summary.focusMonth)}</h3>
@@ -182,7 +182,7 @@ export default function ResumenObligaciones() {
         ) : (
           <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
             {summary.upcoming.map((item) => (
-              <div key={item.installmentId || item.planName + item.numero} className="flex items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-950/55 px-3 py-3">
+              <div key={item.installmentId || item.planName + item.numero} className="flex items-center justify-between gap-3 rounded-2xl border border-slate-700/70 bg-slate-950/70 px-4 py-4 shadow-sm transition-colors hover:border-slate-600">
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium text-slate-200">{item.planName} · Cuota {item.numero}</p>
                   <p className="mt-1 text-xs text-slate-500">{new Date(item.fecha + 'T00:00:00').toLocaleDateString('es-ES')}</p>
