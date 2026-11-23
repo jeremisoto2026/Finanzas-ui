@@ -91,6 +91,17 @@ jobs:
           FINANZAS_PROD_KEY_ALIAS: ${{ secrets.FINANZAS_PROD_KEY_ALIAS }}
           FINANZAS_PROD_KEY_PASSWORD: ${{ secrets.FINANZAS_PROD_KEY_PASSWORD }}
 
+      - name: Add Android build-tools to PATH
+        shell: bash
+        run: |
+          set -euo pipefail
+          build_tools_dir="$(find "${ANDROID_HOME:-$ANDROID_SDK_ROOT}/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
+          if [[ -z "$build_tools_dir" || ! -x "$build_tools_dir/apksigner" ]]; then
+            echo "::error::Android SDK build-tools apksigner was not found."
+            exit 1
+          fi
+          echo "$build_tools_dir" >> "$GITHUB_PATH"
+
       - name: Verify APK signature
         working-directory: android
         run: |
