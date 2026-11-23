@@ -253,3 +253,54 @@
 @media (min-width: 1024px) {
   .app-topbar { min-height: 4.85rem; padding-right: clamp(1.5rem, 2vw, 2.5rem); padding-left: clamp(1.5rem, 2vw, 2.5rem); }
 }
+
+
+/* Quick-add menu: force opaque, high-contrast surfaces on mobile and desktop */
+.quick-add-menu {
+  position: relative;
+  z-index: 100;
+  isolation: isolate;
+  opacity: 1 !important;
+  background: #0b1424 !important;
+  background-image: none !important;
+  border: 1px solid #334155 !important;
+  box-shadow: 0 22px 55px rgba(0, 0, 0, 0.72) !important;
+  color: #f8fafc !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+.quick-add-menu > div:first-child {
+  opacity: 1 !important;
+}
+.quick-add-menu > div:first-child p:first-child {
+  color: #f8fafc !important;
+}
+.quick-add-menu > div:first-child p:last-child {
+  color: #a8b4c5 !important;
+}
+.quick-add-menu .quick-add-option {
+  opacity: 1 !important;
+  background: #142238 !important;
+  border: 1px solid #263950 !important;
+  color: #f8fafc !important;
+  box-shadow: none !important;
+}
+.quick-add-menu .quick-add-option + .quick-add-option {
+  margin-top: 0.35rem;
+}
+.quick-add-menu .quick-add-option:hover,
+.quick-add-menu .quick-add-option:focus-visible {
+  background: #1c3049 !important;
+  border-color: #3b536d !important;
+}
+.quick-add-menu .quick-add-option > span:last-child > span:first-child {
+  color: #ffffff !important;
+  opacity: 1 !important;
+}
+.quick-add-menu .quick-add-option > span:last-child > span:last-child {
+  color: #bdc9d8 !important;
+  opacity: 1 !important;
+}
+.quick-add-menu .quick-add-option > span:first-child {
+  flex-shrink: 0;
+}
