@@ -414,6 +414,110 @@ async function installmentPlans(db: any, userId: string, method: string, body: a
   throw new HttpError("Método no permitido.", 405);
 }
 
+
+function mapReplenishment(row: any) {
+  return { id: row.id, kind: row.item_kind, title: row.title, amount: Number(row.amount || 0),
+    outstandingAmount: Number(row.outstanding_amount || 0), status: row.status,
+    beneficiary: row.beneficiary || "", effectiveOn: row.effective_on || null,
+    dueOn: row.due_on || null, notes: row.notes || "" };
+}
+async function replenishmentCategoryId(db: any, userId: string) {
+  const name = "Reposiciones";
+  const { data, error } = await db.from("categories").select("id, name, direction")
+    .eq("user_id", userId).order("created_at", { ascending: true });
+  if (error) throw error;
+  const found = (data || []).find((row: any) => normalize(row.name) === normalize(name));
+  if (found) {
+    if (found.direction !== "income" && found.direction !== "both") {
+      const { error: updateError } = await db.from("categories").update({ direction: "both" })
+        .eq("id", found.id).eq("user_id", userId);
+      if (updateError) throw updateError;
+    }
+    return found.id;
+  }
+  const { data: created, error: insertError } = await db.from("categories")
+    .insert({ user_id: userId, name, direction: "income" }).select("id").single();
+  if (insertError) {
+    if (insertError.code === "23505") {
+      const retry = await db.from("categories").select("id, name").eq("user_id", userId);
+      if (retry.error) throw retry.error;
+      const existing = (retry.data || []).find((row: any) => normalize(row.name) === normalize(name));
+      if (existing) return existing.id;
+    }
+    throw insertError;
+  }
+  return created.id;
+}
+async function replenishments(db: any, userId: string, method: string, body: any) {
+  const select = "id, item_kind, title, amount, outstanding_amount, status, beneficiary, effective_on, due_on, notes";
+  if (method === "POST" && body.action === "settle") {
+    if (!body.id || !body.accountId || !body.idempotencyKey) {
+      throw new HttpError("Selecciona la reposición, la cuenta y confirma la operación.");
+    }
+    const amount = Number(body.amount);
+    const occurredOn = String(body.occurredOn || "").slice(0, 10);
+    if (!Number.isFinite(amount) || amount <= 0 || !dateIsValid(occurredOn)) {
+      throw new HttpError("Indica un importe válido y la fecha en que recibiste el dinero.");
+    }
+    const category = await replenishmentCategoryId(db, userId);
+    const { data: settlement, error: settlementError } = await db.rpc("register_replenishment", {
+      p_item_id: body.id, p_account_id: body.accountId, p_amount: amount,
+      p_occurred_on: occurredOn, p_idempotency_key: body.idempotencyKey, p_category_id: category,
+    });
+    if (settlementError) throw settlementError;
+    const { data: updated, error: updateError } = await db.from("financial_items").select(select)
+      .eq("id", body.id).eq("user_id", userId).eq("item_kind", "replenishment").single();
+    if (updateError) throw updateError;
+    return { status: 200, body: { success: true, item: mapReplenishment(updated),
+      transactionId: settlement?.transactionId || null, alreadyRecorded: Boolean(settlement?.alreadyRecorded) } };
+  }
+  if (method === "POST" || method === "PATCH") {
+    if (method === "PATCH" && !body.id) throw new HttpError("Falta el identificador de la reposición.");
+    let current: any = null;
+    if (method === "PATCH") {
+      const { data, error } = await db.from("financial_items").select(select)
+        .eq("id", body.id).eq("user_id", userId).eq("item_kind", "replenishment").maybeSingle();
+      if (error) throw error;
+      if (!data) throw new HttpError("No se encontró la reposición.", 404);
+      current = data;
+    }
+    const title = body.title !== undefined ? String(body.title || "").trim() : current?.title;
+    const amount = body.amount !== undefined ? Number(body.amount) : Number(current?.amount || 0);
+    const outstanding = body.outstandingAmount !== undefined ? Number(body.outstandingAmount)
+      : method === "POST" ? amount : Number(current?.outstanding_amount || 0);
+    if (!title) throw new HttpError("Indica un concepto para la reposición.");
+    if (!Number.isFinite(amount) || amount <= 0) throw new HttpError("El importe debe ser mayor que cero.");
+    if (!Number.isFinite(outstanding) || outstanding < 0 || outstanding > amount) {
+      throw new HttpError("El importe pendiente debe estar entre cero y el importe total.");
+    }
+    const status = outstanding === 0 ? "settled" : outstanding < amount ? "partially_settled" : "open";
+    const patch: any = { title, amount, outstanding_amount: outstanding, status,
+      beneficiary: body.beneficiary !== undefined ? String(body.beneficiary || "").trim() || null : (current?.beneficiary || null),
+      due_on: body.dueOn !== undefined ? (body.dueOn || null) : (current?.due_on || null),
+      notes: body.notes !== undefined ? String(body.notes || "").trim() || null : (current?.notes || null) };
+    if (body.effectiveOn !== undefined) {
+      if (body.effectiveOn && !dateIsValid(body.effectiveOn)) throw new HttpError("La fecha de la reposición no es válida.");
+      patch.effective_on = body.effectiveOn || null;
+    } else if (method === "POST") patch.effective_on = null;
+    const query = method === "POST"
+      ? db.from("financial_items").insert({ user_id: userId, item_kind: "replenishment", ...patch })
+      : db.from("financial_items").update({ ...patch, updated_at: new Date().toISOString() })
+        .eq("id", body.id).eq("user_id", userId).eq("item_kind", "replenishment");
+    const { data, error } = await query.select(select).single();
+    if (error) throw error;
+    return { status: method === "POST" ? 201 : 200, body: mapReplenishment(data) };
+  }
+  if (method === "DELETE") {
+    if (!body.id) throw new HttpError("Falta el identificador de la reposición.");
+    const { data, error } = await db.from("financial_items").delete()
+      .eq("id", body.id).eq("user_id", userId).eq("item_kind", "replenishment").select("id").maybeSingle();
+    if (error) throw error;
+    if (!data) throw new HttpError("No se encontró la reposición.", 404);
+    return { status: 200, body: { success: true, id: body.id } };
+  }
+  throw new HttpError("Método no permitido.", 405);
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers });
   if (req.method !== "POST") return reply({ error: "Método no permitido." }, 405);
@@ -434,7 +538,7 @@ Deno.serve(async (req: Request) => {
     const path = String(request?.path || "");
     const method = String(request?.method || "").toUpperCase();
     const body = request?.body && typeof request.body === "object" ? request.body : {};
-    if (!["/api/presupuestos", "/api/pagos-fijos", "/api/compras-cuotas"].includes(path)) {
+    if (!["/api/presupuestos", "/api/pagos-fijos", "/api/compras-cuotas", "/api/compromisos"].includes(path)) {
       throw new HttpError("Operación no disponible en Finanzas Mobile.", 404);
     }
     if (!["POST", "PATCH", "DELETE"].includes(method)) throw new HttpError("Método no permitido.", 405);
@@ -443,7 +547,9 @@ Deno.serve(async (req: Request) => {
       ? await budgets(db, userId, method, body)
       : path === "/api/pagos-fijos"
         ? await fixedPayments(db, userId, method, body)
-        : await installmentPlans(db, userId, method, body);
+        : path === "/api/compras-cuotas"
+        ? await installmentPlans(db, userId, method, body)
+        : await replenishments(db, userId, method, body);
     return reply(result.body, result.status);
   } catch (error) {
     const status = error instanceof HttpError ? error.status : 500;
