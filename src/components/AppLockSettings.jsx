@@ -29,7 +29,7 @@ export default function AppLockSettings() {
   if (!isAndroid) return null
 
   const toggle = async () => {
-    if (!status?.supported || saving) return
+    if ((!status?.supported && !status?.enabled) || saving) return
     setSaving(true)
     setError('')
     try {
@@ -69,7 +69,7 @@ export default function AppLockSettings() {
           role="switch"
           aria-checked={Boolean(status?.enabled)}
           aria-label="Activar bloqueo de Finanzas"
-          disabled={loading || saving || !status?.supported}
+          disabled={loading || saving || (!status?.supported && !status?.enabled)}
           onClick={toggle}
           className={'relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 disabled:cursor-not-allowed disabled:opacity-50 ' + (status?.enabled ? 'bg-emerald-500' : 'bg-slate-700')}
         >
