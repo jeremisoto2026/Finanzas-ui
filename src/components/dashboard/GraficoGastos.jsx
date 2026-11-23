@@ -432,7 +432,6 @@ export default function GraficoGastos({ modo = 'mesActual' }) {
                 paddingAngle={2}
                 isAnimationActive
                 animationDuration={600}
-                activeIndex={activeIndex}
                 onMouseEnter={(_, index) => setActiveIndex(index)}
                 onMouseLeave={() => setActiveIndex(null)}
                 labelLine={false}
