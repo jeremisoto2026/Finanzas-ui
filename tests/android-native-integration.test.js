@@ -201,8 +201,8 @@ test('Google sign-in keeps the encrypted Android bank-notification session in sy
 test('Preview APK version is incremented and uses a persistent signing identity', () => {
   const gradle = read('android/app/build.gradle.kts')
   const workflow = read('.github/workflows/android-companion.yml')
-  assert.match(gradle, /versionCode = 30/)
-  assert.match(gradle, /versionName = "1.0.29-preview"/)
+  assert.match(gradle, /versionCode = 31/)
+  assert.match(gradle, /versionName = "1.0.30-preview"/)
   assert.match(gradle, /create\("preview"\)/)
   assert.match(gradle, /hasPersistentPreviewSigning/)
   assert.match(gradle, /signingConfig = signingConfigs\.getByName\("preview"\)/)
@@ -345,8 +345,8 @@ test('Global quick-add lets users select expenses or income from every screen', 
 
 test('Global quick-add Preview APK version is incremented for in-place installation', () => {
   const gradle = read('android/app/build.gradle.kts')
-  assert.match(gradle, /versionCode = 30/)
-  assert.match(gradle, /versionName = "1.0.29-preview"/)
+  assert.match(gradle, /versionCode = 31/)
+  assert.match(gradle, /versionName = "1.0.30-preview"/)
 })
 
 
