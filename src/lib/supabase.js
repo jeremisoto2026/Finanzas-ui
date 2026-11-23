@@ -586,6 +586,7 @@ const ANDROID_MANAGEMENT_WRITE_PATHS = new Set([
   '/api/presupuestos',
   '/api/pagos-fijos',
   '/api/compras-cuotas',
+  '/api/compromisos',
 ])
 
 async function forwardAndroidManagementWrite(parsedUrl, method, init, sourceRequest) {
