@@ -201,8 +201,8 @@ test('Google sign-in keeps the encrypted Android bank-notification session in sy
 test('Preview APK version is incremented and uses a persistent signing identity', () => {
   const gradle = read('android/app/build.gradle.kts')
   const workflow = read('.github/workflows/android-companion.yml')
-  assert.match(gradle, /versionCode = 29/)
-  assert.match(gradle, /versionName = "1.0.28-preview"/)
+  assert.match(gradle, /versionCode = 30/)
+  assert.match(gradle, /versionName = "1.0.29-preview"/)
   assert.match(gradle, /create\("preview"\)/)
   assert.match(gradle, /hasPersistentPreviewSigning/)
   assert.match(gradle, /signingConfig = signingConfigs\.getByName\("preview"\)/)
@@ -345,8 +345,8 @@ test('Global quick-add lets users select expenses or income from every screen', 
 
 test('Global quick-add Preview APK version is incremented for in-place installation', () => {
   const gradle = read('android/app/build.gradle.kts')
-  assert.match(gradle, /versionCode = 29/)
-  assert.match(gradle, /versionName = "1.0.28-preview"/)
+  assert.match(gradle, /versionCode = 30/)
+  assert.match(gradle, /versionName = "1.0.29-preview"/)
 })
 
 
@@ -357,3 +357,26 @@ test('La pantalla de acceso usa el logotipo original de Finanzas', () => {
   assert.match(landing, /src="\/finanzas-icon\.svg"/)
   assert.match(landing, /alt="Finanzas"/)
 })
+test('Android app lock uses biometric authentication with secure device-credential fallback', () => {
+  const gradle = read('android/app/build.gradle.kts')
+  const activity = read('android/app/src/main/java/com/finanzas/companion/MainActivity.kt')
+  const plugin = read('android/app/src/main/java/com/finanzas/companion/AppLockPlugin.kt')
+  const store = read('android/app/src/main/java/com/finanzas/companion/AppLockStore.kt')
+  const settings = read('src/components/AppLockSettings.jsx')
+  const ajustes = read('src/pages/Ajustes.jsx')
+
+  assert.match(gradle, /androidx\.biometric:biometric:1\.1\.0/)
+  assert.match(activity, /registerPlugin\(AppLockPlugin::class\.java\)/)
+  assert.match(activity, /BiometricPrompt/)
+  assert.match(activity, /Authenticators\.BIOMETRIC_STRONG/)
+  assert.match(activity, /Authenticators\.DEVICE_CREDENTIAL/)
+  assert.match(activity, /AppLockStore\.isEnabled/)
+  assert.match(plugin, /canAuthenticate\(authenticators\)/)
+  assert.match(plugin, /KeyguardManager/)
+  assert.match(store, /getSharedPreferences\(PREFS/)
+  assert.match(settings, /AppLock\.getStatus\(\)/)
+  assert.match(settings, /AppLock\.setEnabled/)
+  assert.match(settings, /PIN, patrón o contraseña/)
+  assert.match(ajustes, /<AppLockSettings \/>/)
+})
+
