@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "591403777520-gr8hb525urm5ugvru4nv0aj59jqda59m.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.finanzas.mobile",
+            "certificate_hash": "ea535d2b20bab1901fe40013acdd8ad16516ca95"
+          }
+        },
+        {
           "client_id": "591403777520-vk1ee8jluu7u6gqncee92dt0vehetfqh.apps.googleusercontent.com",
           "client_type": 3
         }
