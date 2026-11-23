@@ -586,6 +586,8 @@ const ANDROID_MANAGEMENT_WRITE_PATHS = new Set([
   '/api/presupuestos',
   '/api/pagos-fijos',
   '/api/compras-cuotas',
+  '/api/compromisos',
+  '/api/deudas',
 ])
 
 async function forwardAndroidManagementWrite(parsedUrl, method, init, sourceRequest) {
@@ -803,7 +805,9 @@ async function fetchAndroidApi(parsedUrl, method, input, init, sourceRequest) {
   }
 
 
-  if (ANDROID_MANAGEMENT_WRITE_PATHS.has(parsedUrl.pathname) && ['POST', 'PATCH', 'DELETE'].includes(method)) {
+  if (ANDROID_MANAGEMENT_WRITE_PATHS.has(parsedUrl.pathname) &&
+      !(parsedUrl.pathname === '/api/compromisos' && parsedUrl.searchParams.get('resource') === 'reservations') &&
+      ['POST', 'PATCH', 'DELETE'].includes(method)) {
     return forwardAndroidManagementWrite(parsedUrl, method, init, sourceRequest)
   }
 
