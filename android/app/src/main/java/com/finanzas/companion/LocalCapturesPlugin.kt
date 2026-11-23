@@ -6,7 +6,10 @@ import android.provider.Settings
 import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
+import androidx.credentials.exceptions.GetCredentialCancellationException
+import androidx.credentials.exceptions.NoCredentialException
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
+import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -122,20 +125,33 @@ class LocalCapturesPlugin : Plugin() {
     @PluginMethod
     fun signInWithGoogle(call: PluginCall) {
         val activity = getActivity()
-        val googleOption = GetGoogleIdOption.Builder()
-            .setFilterByAuthorizedAccounts(false)
-            .setServerClientId(BuildConfig.GOOGLE_WEB_CLIENT_ID)
-            .build()
-        val request = GetCredentialRequest.Builder()
-            .addCredentialOption(googleOption)
-            .build()
+        val credentialManager = CredentialManager.create(activity)
 
         CoroutineScope(SupervisorJob() + Dispatchers.Main).launch {
             try {
-                val result = CredentialManager.create(activity).getCredential(
-                    context = activity,
-                    request = request
-                )
+                val result = try {
+                    // Preferred Credential Manager bottom-sheet flow. Include all device
+                    // accounts so a first-time user can select an account.
+                    val googleOption = GetGoogleIdOption.Builder()
+                        .setFilterByAuthorizedAccounts(false)
+                        .setServerClientId(BuildConfig.GOOGLE_WEB_CLIENT_ID)
+                        .build()
+                    val request = GetCredentialRequest.Builder()
+                        .addCredentialOption(googleOption)
+                        .build()
+                    credentialManager.getCredential(context = activity, request = request)
+                } catch (_: NoCredentialException) {
+                    // Some devices/accounts cannot complete the bottom-sheet flow. Google's
+                    // documented button flow is a separate Credential Manager request.
+                    val buttonOption = GetSignInWithGoogleOption.Builder(
+                        BuildConfig.GOOGLE_WEB_CLIENT_ID
+                    ).build()
+                    val buttonRequest = GetCredentialRequest.Builder()
+                        .addCredentialOption(buttonOption)
+                        .build()
+                    credentialManager.getCredential(context = activity, request = buttonRequest)
+                }
+
                 val credential = result.credential
                 if (credential !is CustomCredential ||
                     credential.type != GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL
@@ -152,12 +168,17 @@ class LocalCapturesPlugin : Plugin() {
                 }
                 // The ID token is passed directly to Supabase Auth and is never logged or stored.
                 call.resolve(JSObject().apply { put("idToken", idToken) })
-            } catch (error: Exception) {
+            } catch (error: GetCredentialCancellationException) {
+                // Do not automatically retry after an explicit user cancellation.
+                call.reject("Se canceló el inicio de sesión con Google. Puedes intentarlo de nuevo.", error)
+            } catch (error: NoCredentialException) {
                 call.reject(
-                    error.message?.takeIf { it.isNotBlank() }
-                        ?: "No se pudo iniciar sesión con Google en este dispositivo.",
+                    "Google no encontró una cuenta disponible para esta aplicación. Comprueba que los Servicios de Google Play estén actualizados e inténtalo de nuevo.",
                     error
                 )
+            } catch (error: Exception) {
+                // Never expose raw platform exception text or credential/token data to the UI.
+                call.reject("No se pudo iniciar sesión con Google. Comprueba tu conexión y vuelve a intentarlo.", error)
             }
         }
     }
