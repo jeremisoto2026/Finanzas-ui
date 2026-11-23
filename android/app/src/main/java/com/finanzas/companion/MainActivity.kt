@@ -2,9 +2,16 @@ package com.finanzas.companion
 
 import android.content.Intent
 import android.graphics.Color
+import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
+import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
+import android.widget.FrameLayout
+import android.widget.ImageView
+import android.widget.LinearLayout
+import android.widget.TextView
 import androidx.biometric.BiometricPrompt
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
@@ -57,21 +64,74 @@ class MainActivity : BridgeActivity() {
     private fun coverProtectedContent() {
         if (appLockCover != null) return
         val decor = window.decorView as? ViewGroup ?: return
-        appLockCover = View(this).apply {
-            setBackgroundColor(Color.BLACK)
+        val density = resources.displayMetrics.density
+        fun dp(value: Int) = (value * density).toInt()
+        val cover = FrameLayout(this).apply {
+            background = GradientDrawable(
+                GradientDrawable.Orientation.TL_BR,
+                intArrayOf(Color.rgb(8, 15, 28), Color.rgb(10, 25, 39), Color.rgb(8, 15, 28)),
+            )
             isClickable = true
             isFocusable = true
             importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
-            contentDescription = "Contenido de Finanzas protegido"
+            contentDescription = "Finanzas protegida. Autentícate para continuar."
         }
+        val brand = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            setPadding(dp(28), dp(24), dp(28), dp(24))
+        }
+        val mark = ImageView(this).apply {
+            setImageResource(com.finanzas.companion.R.drawable.finanzas_lock_mark)
+            contentDescription = null
+            scaleType = ImageView.ScaleType.FIT_CENTER
+        }
+        brand.addView(mark, LinearLayout.LayoutParams(dp(92), dp(92)).apply {
+            bottomMargin = dp(22)
+        })
+        val name = TextView(this).apply {
+            text = "Finanzas"
+            setTextColor(Color.WHITE)
+            textSize = 29f
+            letterSpacing = 0.015f
+            typeface = Typeface.create("sans-serif", Typeface.BOLD)
+            gravity = Gravity.CENTER
+        }
+        brand.addView(name, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT,
+        ))
+        val accent = View(this).apply {
+            background = GradientDrawable(
+                GradientDrawable.Orientation.LEFT_RIGHT,
+                intArrayOf(Color.rgb(110, 231, 183), Color.rgb(16, 185, 129), Color.rgb(251, 191, 36)),
+            ).apply { cornerRadius = dp(3).toFloat() }
+        }
+        brand.addView(accent, LinearLayout.LayoutParams(dp(54), dp(3)).apply {
+            topMargin = dp(15)
+            bottomMargin = dp(17)
+        }.also { it.gravity = Gravity.CENTER_HORIZONTAL })
+        val subtitle = TextView(this).apply {
+            text = "Tu información financiera, protegida"
+            setTextColor(Color.rgb(148, 163, 184))
+            textSize = 13f
+            gravity = Gravity.CENTER
+        }
+        brand.addView(subtitle, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT,
+        ))
+        cover.addView(brand, FrameLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT,
+            Gravity.CENTER,
+        ))
+        appLockCover = cover
         decor.addView(
-            appLockCover,
+            cover,
             ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT,
             ),
         )
-        appLockCover?.bringToFront()
+        cover.bringToFront()
     }
 
     private fun revealProtectedContent() {
