@@ -15,20 +15,38 @@ val hasPersistentPreviewSigning = listOf(
     previewKeyPassword,
 ).all { !it.isNullOrBlank() }
 
+val productionKeystorePath = providers.environmentVariable("FINANZAS_PROD_KEYSTORE_PATH").orNull
+val productionKeystorePassword = providers.environmentVariable("FINANZAS_PROD_KEYSTORE_PASSWORD").orNull
+val productionKeyAlias = providers.environmentVariable("FINANZAS_PROD_KEY_ALIAS").orNull
+val productionKeyPassword = providers.environmentVariable("FINANZAS_PROD_KEY_PASSWORD").orNull
+val hasPersistentProductionSigning = listOf(
+    productionKeystorePath,
+    productionKeystorePassword,
+    productionKeyAlias,
+    productionKeyPassword,
+).all { !it.isNullOrBlank() }
+val productionReleaseRequested = gradle.startParameter.taskNames.any { it.contains("Release", ignoreCase = true) }
+
+if (productionReleaseRequested && !hasPersistentProductionSigning) {
+    throw GradleException(
+        "Production APK signing is not configured. Set FINANZAS_PROD_KEYSTORE_PATH, " +
+            "FINANZAS_PROD_KEYSTORE_PASSWORD, FINANZAS_PROD_KEY_ALIAS and FINANZAS_PROD_KEY_PASSWORD."
+    )
+}
+
 android {
     namespace = "com.finanzas.companion"
     compileSdk = 36
 
     defaultConfig {
-        // A separate application ID lets the full APK be tested without overwriting
-        // the currently installed personal connector or its encrypted local captures.
+        // Production application ID; debug remains Preview-isolated below.
         applicationId = "com.finanzas.mobile"
         minSdk = 26
         targetSdk = 36
-        versionCode = 31
-        versionName = "1.0.30-preview"
+        versionCode = 32
+        versionName = "1.0.31"
 
-        // Public Supabase values only. RLS remains the security boundary.
+        // Public Production Supabase values. RLS remains the security boundary.
         buildConfigField("String", "SUPABASE_URL", "\"https://xebgscmovaffrqckzpyz.supabase.co\"")
         buildConfigField("String", "SUPABASE_PUBLISHABLE_KEY", "\"sb_publishable_Mbxk3dAMZHoPKrh90zKHkw_yzzh22un\"")
         buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"591403777520-vk1ee8jluu7u6gqncee92dt0vehetfqh.apps.googleusercontent.com\"")
@@ -43,19 +61,30 @@ android {
                 keyPassword = checkNotNull(previewKeyPassword)
             }
         }
+        if (hasPersistentProductionSigning) {
+            create("production") {
+                storeFile = file(checkNotNull(productionKeystorePath))
+                storePassword = checkNotNull(productionKeystorePassword)
+                keyAlias = checkNotNull(productionKeyAlias)
+                keyPassword = checkNotNull(productionKeyPassword)
+            }
+        }
     }
 
     buildTypes {
-        // Debug APKs are always isolated from Production so personal testing
-        // can never write into the live financial database.
+        // Debug APKs are always isolated from Production.
         getByName("debug") {
-            // CI supplies a persistent Preview key from protected GitHub Actions secrets.
-            // Local developer builds keep the normal Android debug key when no Preview key is configured.
             if (hasPersistentPreviewSigning) {
                 signingConfig = signingConfigs.getByName("preview")
             }
             buildConfigField("String", "SUPABASE_URL", "\"https://brkckgaicoqkqdcwwftm.supabase.co\"")
             buildConfigField("String", "SUPABASE_PUBLISHABLE_KEY", "\"sb_publishable_4aTVOdrHyro5iyDctv1mjg__yI6jqh-\"")
+        }
+        getByName("release") {
+            isMinifyEnabled = false
+            if (hasPersistentProductionSigning) {
+                signingConfig = signingConfigs.getByName("production")
+            }
         }
     }
 

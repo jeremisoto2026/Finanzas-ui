@@ -1,0 +1,106 @@
+name: Finanzas Android Production APK
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "android/**"
+      - "src/**"
+      - "tests/**"
+      - "package.json"
+      - "package-lock.json"
+      - "capacitor.config.json"
+      - "index.html"
+      - ".github/workflows/android-production.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-production-apk:
+    name: Build signed Production APK
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+
+      - name: Install web and Capacitor dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Run application tests
+        run: npm test
+
+      - name: Build web assets against Supabase Production
+        run: npm run build
+        env:
+          VITE_SUPABASE_URL: "https://xebgscmovaffrqckzpyz.supabase.co"
+          VITE_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_Mbxk3dAMZHoPKrh90zKHkw_yzzh22un"
+          VITE_WEB_PUSH_PUBLIC_KEY: "BCCG0oqkafAUE2lXK9FsIWkT-qWSCQtwNk9PWCFYJa071-aZ9m7K1HsI-jc4JjTwMfX37dFPGlpIoXK58pUfBeQ"
+
+      - name: Sync web assets and native Capacitor plugins
+        run: npx cap sync android
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6.4.1
+        with:
+          gradle-version: "8.13"
+
+      - name: Run Android unit tests
+        working-directory: android
+        run: gradle --no-daemon :app:testDebugUnitTest
+
+      - name: Prepare persistent Production signing key
+        shell: bash
+        env:
+          FINANZAS_PROD_KEYSTORE_BASE64: ${{ secrets.FINANZAS_PROD_KEYSTORE_BASE64 }}
+          FINANZAS_PROD_KEYSTORE_PASSWORD: ${{ secrets.FINANZAS_PROD_KEYSTORE_PASSWORD }}
+          FINANZAS_PROD_KEY_ALIAS: ${{ secrets.FINANZAS_PROD_KEY_ALIAS }}
+          FINANZAS_PROD_KEY_PASSWORD: ${{ secrets.FINANZAS_PROD_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          for secret_name in FINANZAS_PROD_KEYSTORE_BASE64 FINANZAS_PROD_KEYSTORE_PASSWORD FINANZAS_PROD_KEY_ALIAS FINANZAS_PROD_KEY_PASSWORD; do
+            if [[ -z "${!secret_name:-}" ]]; then
+              echo "::error::Missing GitHub Actions secret: $secret_name. Configure the four FINANZAS_PROD_* signing secrets before building the distributable APK."
+              exit 1
+            fi
+          done
+          keystore_path="$RUNNER_TEMP/finanzas-production-signing.jks"
+          printf '%s' "$FINANZAS_PROD_KEYSTORE_BASE64" | base64 --decode > "$keystore_path"
+          test -s "$keystore_path"
+          chmod 600 "$keystore_path"
+          echo "FINANZAS_PROD_KEYSTORE_PATH=$keystore_path" >> "$GITHUB_ENV"
+
+      - name: Assemble signed Production APK
+        working-directory: android
+        run: gradle --no-daemon :app:assembleRelease
+        env:
+          FINANZAS_PROD_KEYSTORE_PASSWORD: ${{ secrets.FINANZAS_PROD_KEYSTORE_PASSWORD }}
+          FINANZAS_PROD_KEY_ALIAS: ${{ secrets.FINANZAS_PROD_KEY_ALIAS }}
+          FINANZAS_PROD_KEY_PASSWORD: ${{ secrets.FINANZAS_PROD_KEY_PASSWORD }}
+
+      - name: Verify APK signature
+        working-directory: android
+        run: |
+          set -euo pipefail
+          apksigner verify --verbose --print-certs app/build/outputs/apk/release/app-release.apk
+
+      - name: Upload signed Production APK
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: finanzas-mobile-production-apk
+          path: android/app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error
+          retention-days: 30
