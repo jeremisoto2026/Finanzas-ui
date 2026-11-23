@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react'
-import { CalendarDays, ChartNoAxesCombined, CircleDollarSign, LayoutDashboard, Sparkles } from 'lucide-react'
+import { CalendarDays, BarChart3, CircleDollarSign, LayoutDashboard, Sparkles } from 'lucide-react'
 const GraficoGastos = lazy(() => import('@/components/dashboard/GraficoGastos'))
 const GraficoIngresos = lazy(() => import('@/components/dashboard/GraficoIngresos'))
 import DineroDisponible from '@/components/dashboard/DineroDisponible'
@@ -39,13 +39,13 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 border-t border-slate-800/90 bg-slate-950/25 sm:grid-cols-3">
         <div className="flex items-center gap-3 px-5 py-3.5 sm:px-7"><CircleDollarSign className="h-4 w-4 text-emerald-400" /><span className="text-xs font-medium text-slate-300">Cuentas y dinero disponible</span></div>
         <div className="flex items-center gap-3 border-t border-slate-800/70 px-5 py-3.5 sm:border-l sm:border-t-0 sm:px-7"><CalendarDays className="h-4 w-4 text-sky-400" /><span className="text-xs font-medium text-slate-300">Pagos y compromisos próximos</span></div>
-        <div className="flex items-center gap-3 border-t border-slate-800/70 px-5 py-3.5 sm:border-l sm:border-t-0 sm:px-7"><ChartNoAxesCombined className="h-4 w-4 text-violet-400" /><span className="text-xs font-medium text-slate-300">Evolución de ingresos y gastos</span></div>
+        <div className="flex items-center gap-3 border-t border-slate-800/70 px-5 py-3.5 sm:border-l sm:border-t-0 sm:px-7"><BarChart3 className="h-4 w-4 text-violet-400" /><span className="text-xs font-medium text-slate-300">Evolución de ingresos y gastos</span></div>
       </div>
     </header>
     <section aria-label="Posición financiera" className="space-y-4"><BlockTitle icon={CircleDollarSign} kicker="01 · Posición financiera" title="Tu dinero, de un vistazo" description="Saldos reales por cuenta, dinero reservado y disponibilidad después de reservas." /><DineroDisponible /></section>
     <section aria-label="Compromisos financieros" className="space-y-4"><BlockTitle icon={CalendarDays} kicker="02 · Organización" title="Lo que tienes por delante" description="Cuotas, pagos fijos, deudas y reposiciones para anticiparte a tus próximos compromisos." /><ResumenObligaciones /></section>
     <section aria-label="Análisis de movimientos" className="space-y-5">
-      <div className="flex flex-col gap-3 border-b border-slate-800/90 pb-4 sm:flex-row sm:items-end sm:justify-between"><BlockTitle icon={ChartNoAxesCombined} kicker="03 · Análisis" title="Tu evolución financiera" description="Visualiza el comportamiento de tus ingresos y gastos registrados." /><span className="inline-flex w-fit items-center gap-2 rounded-full border border-slate-700/80 bg-slate-900/70 px-3 py-2 text-[11px] font-medium text-slate-400"><span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /> Historial contabilizado</span></div>
+      <div className="flex flex-col gap-3 border-b border-slate-800/90 pb-4 sm:flex-row sm:items-end sm:justify-between"><BlockTitle icon={BarChart3} kicker="03 · Análisis" title="Tu evolución financiera" description="Visualiza el comportamiento de tus ingresos y gastos registrados." /><span className="inline-flex w-fit items-center gap-2 rounded-full border border-slate-700/80 bg-slate-900/70 px-3 py-2 text-[11px] font-medium text-slate-400"><span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /> Historial contabilizado</span></div>
       <div className="grid grid-cols-1 items-start gap-4 2xl:grid-cols-2"><ChartPanel><Suspense fallback={<div className="h-80 animate-pulse rounded-xl bg-slate-800/50" />}><GraficoIngresos /></Suspense></ChartPanel><ChartPanel><Suspense fallback={<div className="h-80 animate-pulse rounded-xl bg-slate-800/50" />}><GraficoGastos /></Suspense></ChartPanel></div>
     </section>
   </div>
