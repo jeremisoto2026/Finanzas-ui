@@ -5,6 +5,7 @@ on:
     branches:
       - feat/finance-core-hardening
       - feat/finanzas-apk-capacitor
+      - feat/finanzas-inteligencia-gratuita-preview
       - feat/finanzas-cuentas-dinamicas-edicion
       - feat/fase5-alertas-inteligentes
       - feat/migracion-recharts-3
