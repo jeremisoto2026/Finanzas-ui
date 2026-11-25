@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, resolve } from 'node:path'
+import { classifyIncomeNotice } from '../supabase/functions/notification-capture-sync/finance-intelligence.js'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const read = (path) => readFileSync(resolve(root, path), 'utf8')
@@ -191,4 +192,32 @@ test('el selector muestra iconos originales y sugiere bancos sin autorizar autom
   assert.match(screen, /recognized \|\| previouslyAuthorized/)
   assert.match(screen, /Autorizada · fuera del catálogo/)
   assert.doesNotMatch(screen, /Posible app de pagos/)
+})
+
+
+test('la clasificación de ingresos capturados usa reglas locales y deja transferencias ambiguas sin categoría', () => {
+  const categories = [
+    { id: 'payroll', name: 'Nómina' },
+    { id: 'refunds', name: 'Devoluciones' },
+    { id: 'interest', name: 'Ingresos financieros' },
+    { id: 'benefits', name: 'Prestaciones' },
+    { id: 'other', name: 'Otros ingresos' },
+  ]
+  const payroll = classifyIncomeNotice('NOMINA RECIBIDA - EMPRESA EJEMPLO', categories)
+  assert.equal(payroll.category?.name, 'Nómina')
+  assert.ok(payroll.confidence >= 0.9)
+  assert.equal(payroll.requiresReview, false)
+
+  const refund = classifyIncomeNotice('CASHBACK DEVOLUCION COMPRA', categories)
+  assert.equal(refund.category?.name, 'Devoluciones')
+  assert.equal(refund.requiresReview, false)
+
+  const ambiguous = classifyIncomeNotice('TRANSFERENCIA RECIBIDA - PAGO SERVICIOS', categories)
+  assert.equal(ambiguous.category, null)
+  assert.equal(ambiguous.confidence, 0)
+  assert.equal(ambiguous.requiresReview, true)
+
+  const edge = read('supabase/functions/notification-capture-sync/index.ts')
+  assert.match(edge, /classifyIncomeNotice\(candidate\.reason, incomeCategories/)
+  assert.doesNotMatch(edge, /classifyUnknownWithOpenAI|generativelanguage\.googleapis\.com/)
 })
