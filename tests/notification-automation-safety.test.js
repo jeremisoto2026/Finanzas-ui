@@ -130,14 +130,18 @@ test('Android sincroniza en segundo plano con sesión cifrada y red disponible',
   assert.match(sync, /clearNativeAuthSession/)
 })
 
-test('el módulo de capturas no figura como apartado principal', () => {
+test('el módulo de capturas no figura como apartado principal y centraliza permisos', () => {
   const settings = read('src/pages/Ajustes.jsx')
   const layout = read('src/components/layout/Layout.jsx')
   const automation = read('src/pages/Automatizaciones.jsx')
+  const captures = read('src/pages/CapturasAutomaticas.jsx')
   assert.doesNotMatch(settings, /Capturas automáticas/)
   assert.match(layout, /Compras pendientes/)
-  assert.match(automation, /Detección en segundo plano/)
-  assert.match(automation, /Permisos Android/)
+  assert.match(automation, /reglas de los comercios/i)
+  assert.doesNotMatch(automation, /Detección en segundo plano|Permisos Android|Acceso a notificaciones/)
+  assert.match(captures, /Aplicaciones autorizadas para detectar movimientos/)
+  assert.match(captures, /Ajustes de notificaciones/)
+  assert.match(captures, /Vincular bancos con tus cuentas/)
 })
 
 
