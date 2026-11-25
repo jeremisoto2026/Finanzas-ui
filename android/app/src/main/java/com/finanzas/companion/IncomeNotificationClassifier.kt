@@ -9,7 +9,9 @@ enum class IncomeNoticeDecision { IGNORE, NEEDS_REVIEW, AUTO_INCOME }
 data class IncomeNoticeClassification(
     val decision: IncomeNoticeDecision,
     val amountCents: Long? = null,
-    val reason: String
+    val reason: String,
+    val suggestedCategory: String? = null,
+    val classificationConfidence: Double = 0.0
 )
 
 object IncomeNotificationClassifier {
@@ -68,6 +70,17 @@ object IncomeNotificationClassifier {
 
         val amount = extractAmountCents(combined)
         val explicitInbound = inboundSignal.containsMatchIn(combined)
+        val categorySuggestion = when {
+            Regex("\\\\b(n[oó]mina|salario|salary|payroll)\\\\b", RegexOption.IGNORE_CASE).containsMatchIn(combined) ->
+                "Nómina" to 0.97
+            Regex("\\\\b(cashback|reembolso|devoluci[oó]n|refund)\\\\b", RegexOption.IGNORE_CASE).containsMatchIn(combined) ->
+                "Devoluciones" to 0.94
+            Regex("\\\\b(inter[eé]s|interest)\\\\b", RegexOption.IGNORE_CASE).containsMatchIn(combined) ->
+                "Ingresos financieros" to 0.94
+            Regex("\\\\b(pensi[oó]n|prestaci[oó]n|subsidio)\\\\b", RegexOption.IGNORE_CASE).containsMatchIn(combined) ->
+                "Prestaciones" to 0.90
+            else -> null
+        }
         // An amount from a bank app is not enough to infer an incoming movement.
         // Only explicit inbound wording can enter the income-review queue.
         if (!explicitInbound) {
@@ -76,7 +89,9 @@ object IncomeNotificationClassifier {
         if (amount == null) {
             return IncomeNoticeClassification(
                 IncomeNoticeDecision.NEEDS_REVIEW,
-                reason = "Posible ingreso: revisar importe y origen manualmente"
+                reason = "Posible ingreso: revisar importe y origen manualmente",
+                suggestedCategory = categorySuggestion?.first,
+                classificationConfidence = categorySuggestion?.second ?: 0.0
             )
         }
 
@@ -86,14 +101,18 @@ object IncomeNotificationClassifier {
             IncomeNoticeClassification(
                 IncomeNoticeDecision.AUTO_INCOME,
                 amountCents = amount,
-                reason = "Posible abono explícito; requiere confirmación"
+                reason = "Posible abono explícito; requiere confirmación",
+                suggestedCategory = categorySuggestion?.first,
+                classificationConfidence = categorySuggestion?.second ?: 0.0
             )
         } else {
             IncomeNoticeClassification(
                 IncomeNoticeDecision.NEEDS_REVIEW,
                 amountCents = amount,
                 reason = if (explicitInbound) "Posible entrada de dinero: confirmar origen"
-                    else "Movimiento monetario de origen no identificado: revisar manualmente"
+                    else "Movimiento monetario de origen no identificado: revisar manualmente",
+                suggestedCategory = categorySuggestion?.first,
+                classificationConfidence = categorySuggestion?.second ?: 0.0
             )
         }
     }
