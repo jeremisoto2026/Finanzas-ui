@@ -22,7 +22,7 @@ export default function DineroDisponible() {
   const [savingAccount, setSavingAccount] = useState(false)
   const [accountFormError, setAccountFormError] = useState('')
   const [accountNotice, setAccountNotice] = useState('')
-  const [budgetReserve, setBudgetReserve] = useState({ loading: true, month: '', planned: 0, spent: 0, remaining: 0 })
+  const [budgetSummary, setBudgetSummary] = useState({ loading: true, month: '', planned: 0, spent: 0, remaining: 0 })
 
   const openAccountBalanceEditor = (account) => {
     setEditingAccount(account)
@@ -86,13 +86,13 @@ export default function DineroDisponible() {
 
   useEffect(() => {
     let cancelled = false
-    const loadBudgetReserve = async () => {
+    const loadBudgetSummary = async () => {
       try {
         const [budgetsResponse, expensesResponse] = await Promise.all([
           fetch('/api/presupuestos', { cache: 'no-store' }),
           fetch('/api/gastos', { cache: 'no-store' }),
         ])
-        if (!budgetsResponse.ok || !expensesResponse.ok) throw new Error('No se pudo calcular el dinero apartado.')
+        if (!budgetsResponse.ok || !expensesResponse.ok) throw new Error('No se pudo calcular el presupuesto.')
         const [budgets, expenses] = await Promise.all([budgetsResponse.json(), expensesResponse.json()])
         const currentMonth = new Intl.DateTimeFormat('sv-SE', {
           timeZone: 'Europe/Madrid', year: 'numeric', month: '2-digit',
@@ -115,13 +115,13 @@ export default function DineroDisponible() {
         const planned = sumMoney(monthBudgets, (item) => item.amount || 0)
         const spent = sumMoney(monthBudgets, (item) => spendForBudget(item, targetMonth))
         const remaining = sumMoney(monthBudgets, (item) => Math.max(0, Number(item.amount || 0) - spendForBudget(item, targetMonth)))
-        if (!cancelled) setBudgetReserve({ loading: false, month: targetMonth, planned, spent, remaining })
+        if (!cancelled) setBudgetSummary({ loading: false, month: targetMonth, planned, spent, remaining })
       } catch (reserveError) {
-        if (!cancelled) setBudgetReserve({ loading: false, month: '', planned: 0, spent: 0, remaining: 0 })
-        console.error('No se pudo calcular la reserva del presupuesto:', reserveError)
+        if (!cancelled) setBudgetSummary({ loading: false, month: '', planned: 0, spent: 0, remaining: 0 })
+        console.error('No se pudo calcular el estado del presupuesto:', reserveError)
       }
     }
-    loadBudgetReserve()
+    loadBudgetSummary()
     return () => { cancelled = true }
   }, [])
 
@@ -262,11 +262,11 @@ export default function DineroDisponible() {
             </div>
 
             <div className="grid gap-3 border-t border-slate-800/90 pt-5 sm:grid-cols-2 xl:grid-cols-3">
-              {budgetReserve.month && (
+              {budgetSummary.month && (
                 <div className="rounded-2xl border border-amber-500/20 bg-gradient-to-br from-amber-500/[0.09] to-slate-950/50 p-4 shadow-lg shadow-black/10">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.13em] text-amber-300/80">Presupuesto pendiente · {new Date(budgetReserve.month + '-01T00:00:00').toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}</p>
-                  <p className="mt-2 text-2xl font-semibold tabular-nums text-white">{formatMoney(budgetReserve.remaining)}</p>
-                  <p className="mt-1 text-xs text-slate-400">De {formatMoney(budgetReserve.planned)} planificados · {formatMoney(budgetReserve.spent)} gastados. Es planificación, no una reserva bancaria.</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.13em] text-amber-300/80">Margen de presupuesto · {new Date(budgetSummary.month + '-01T00:00:00').toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}</p>
+                  <p className="mt-2 text-2xl font-semibold tabular-nums text-white">{formatMoney(budgetSummary.remaining)}</p>
+                  <p className="mt-1 text-xs text-slate-400">Límite {formatMoney(budgetSummary.planned)} · Gastado {formatMoney(budgetSummary.spent)}. Es una guía de gasto; no aparta dinero ni reduce tu saldo libre.</p>
                 </div>
               )}
               <div className="rounded-xl border border-amber-500/20 bg-amber-500/[0.06] p-4">
@@ -278,7 +278,7 @@ export default function DineroDisponible() {
                 ) : Object.entries(reservedByCurrency).length ? Object.entries(reservedByCurrency).map(([currency, amount]) => (
                   <p key={currency} className="mt-2 text-2xl font-semibold tabular-nums text-white">{formatMoney(amount, currency)}</p>
                 )) : <p className="mt-2 text-2xl font-semibold tabular-nums text-white">{formatMoney(0)}</p>}
-                <p className="mt-1 text-xs text-slate-400">{reservationsError || 'Reservas activas vinculadas a tus cuentas.'}</p>
+                <p className="mt-1 text-xs text-slate-400">{reservationsError || 'Dinero apartado manualmente; no es un gasto ni cambia el saldo bancario.'}</p>
               </div>
               <div className="rounded-2xl border border-emerald-500/25 bg-gradient-to-br from-emerald-500/[0.11] to-slate-950/50 p-4 shadow-lg shadow-emerald-950/10">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.13em] text-emerald-300/80">Dinero libre tras reservas</p>

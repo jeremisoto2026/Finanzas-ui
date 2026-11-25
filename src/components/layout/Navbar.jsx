@@ -10,12 +10,12 @@ const pageLabels = {
   Calendario: 'Planificación financiera',
   Cuentas: 'Tus cuentas y saldos',
   Transferencias: 'Movimientos entre cuentas',
-  Deudas: 'Seguimiento de deudas',
-  Compromisos: 'Reservas y reposiciones',
+  'Deudas y reposiciones': 'Préstamos, deudas y dinero adelantado',
+  Reservas: 'Dinero propio apartado por objetivos',
   Recordatorios: 'Avisos y recordatorios',
   Automatizaciones: 'Reglas automáticas',
   'Compras pendientes': 'Revisión de movimientos',
-  'Gestión financiera': 'Pagos y presupuestos',
+  'Gestión financiera': 'Pagos fijos, cuotas y presupuestos',
 }
 
 export default function Navbar({ onAdd, onSignOut, activePage = 'Dashboard' }) {

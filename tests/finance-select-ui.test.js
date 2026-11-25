@@ -5,11 +5,6 @@ import { readFileSync } from 'node:fs'
 const files = [
   'src/components/NativeReminderSettings.jsx',
   'src/components/NotificationSettings.jsx',
-  'src/components/configuracion/FormularioCuotas.jsx',
-  'src/components/configuracion/FormularioPagoFijo.jsx',
-  'src/components/configuracion/CuotasDetalle.jsx',
-  'src/components/configuracion/ListaPagosConfigurados.jsx',
-  'src/components/dashboard/DashboardFinancieroUnificado.jsx',
   'src/components/dashboard/GraficoIngresos.jsx',
   'src/components/gastos/TablaGastos.jsx',
   'src/components/ingresos/TablaIngresos.jsx',

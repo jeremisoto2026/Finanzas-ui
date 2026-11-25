@@ -1,5 +1,4 @@
 import FinanceSelect from '@/components/ui/FinanceSelect'
-import ReservasPanel from '@/components/ReservasPanel'
 import { useEffect, useMemo, useState } from 'react'
 import { ArrowPathIcon, BanknotesIcon, CheckCircleIcon, PlusIcon, PencilSquareIcon, TrashIcon, XMarkIcon } from '@heroicons/react/24/outline'
 import { sumMoney } from '@/lib/finance-core'
@@ -205,7 +204,6 @@ export default function Compromisos() {
 
   return (
     <div className="mx-auto w-full max-w-7xl space-y-6 text-slate-100">
-      <ReservasPanel />
       {settlement && (
         <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 p-4">
           <form onSubmit={submitSettlement} className="w-full max-w-lg space-y-4 rounded-2xl border border-slate-700 bg-slate-900 p-5 shadow-2xl">
@@ -244,9 +242,9 @@ export default function Compromisos() {
         <div>
           <div className="mb-2 flex items-center gap-3">
             <BanknotesIcon className="h-7 w-7 text-emerald-400" />
-            <h1 className="text-2xl font-bold text-white">Dinero pendiente de reponer</h1>
+            <h1 className="text-2xl font-bold text-white">Reposiciones y dinero adelantado</h1>
           </div>
-          <p className="max-w-3xl text-sm text-slate-400">Registra importes que adelantaste y que deben devolverte. Al recibir el dinero, elige la cuenta para contabilizar automáticamente el ingreso.</p>
+          <p className="max-w-3xl text-sm text-slate-400">Controla el dinero que has adelantado y que te tienen que devolver. Al recibirlo, registra el ingreso en la cuenta correspondiente; el historial de deudas y los movimientos bancarios se mantienen separados.</p>
         </div>
         <button onClick={openNew} className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-500">
           <PlusIcon className="h-4 w-4" /> Nueva reposición

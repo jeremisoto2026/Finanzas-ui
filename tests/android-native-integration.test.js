@@ -222,16 +222,12 @@ test('Preview APK version is incremented and uses a persistent signing identity'
 
 test('All visible edit forms focus the corresponding form after selecting a record', () => {
   const page = read('src/pages/Configuracion.jsx')
-  const legacyFixed = read('src/components/configuracion/FormularioPagoFijo.jsx')
-  const legacyInstallments = read('src/components/configuracion/FormularioCuotas.jsx')
   const expense = read('src/components/gastos/TablaGastos.jsx')
   const income = read('src/components/ingresos/TablaIngresos.jsx')
 
   assert.match(page, /useScrollToForm\(mostrarFormPagoFijo, editingPagoFijoId\)/)
   assert.match(page, /useScrollToForm\(mostrarFormCuotas, editingCompraCuotasId\)/)
   assert.match(page, /useScrollToForm\(mostrarFormPresupuesto, editingPresupuestoId\)/)
-  assert.match(legacyFixed, /useScrollToForm\(Boolean\(pagoEditando\), pagoEditando\?\.id\)/)
-  assert.match(legacyInstallments, /useScrollToForm\(Boolean\(pagoEditando\), pagoEditando\?\.id\)/)
   assert.match(expense, /fixed inset-0 z-\[70\]/)
   assert.match(income, /fixed inset-0 z-\[70\]/)
 })

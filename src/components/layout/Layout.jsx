@@ -11,8 +11,8 @@ const Ingresos = lazy(() => import('@/pages/Ingresos'))
 const Automatizaciones = lazy(() => import('@/pages/Automatizaciones'))
 const CapturasAutomaticas = lazy(() => import('@/pages/CapturasAutomaticas'))
 const Configuracion = lazy(() => import('@/pages/Configuracion'))
-const Deudas = lazy(() => import('@/pages/Deudas'))
-const Compromisos = lazy(() => import('@/pages/Compromisos'))
+const DeudasYReposiciones = lazy(() => import('@/pages/DeudasYReposiciones'))
+const Reservas = lazy(() => import('@/pages/Reservas'))
 const Recordatorios = lazy(() => import('@/pages/Recordatorios'))
 const Ajustes = lazy(() => import('@/pages/Ajustes'))
 const Cuentas = lazy(() => import('@/pages/Cuentas'))
@@ -39,8 +39,8 @@ function PageContent({ activePage, onNavigate, attentionCounts }) {
   if (activePage === 'Cuentas') return <Cuentas />
   if (activePage === 'Transferencias') return <Transferencias />
   if (activePage === 'Calendario') return <CalendarioFinanciero />
-  if (activePage === 'Deudas') return <Deudas />
-  if (activePage === 'Compromisos') return <Compromisos />
+  if (activePage === 'Deudas y reposiciones') return <DeudasYReposiciones />
+  if (activePage === 'Reservas') return <Reservas />
   return <Dashboard />
 }
 
@@ -69,8 +69,19 @@ export default function Layout({ onSignOut }) {
   }, [activePage, attentionReady, markViewed])
 
   const cambiarPagina = (page) => {
-    setActivePage(page)
+    const legacyDebtRoute = page === 'Deudas'
+    const legacyReplenishmentRoute = page === 'Compromisos'
+    const targetPage = legacyDebtRoute || legacyReplenishmentRoute ? 'Deudas y reposiciones' : page
+
+    setActivePage(targetPage)
     window.scrollTo({ top: 0, behavior: 'smooth' })
+
+    if (legacyDebtRoute || legacyReplenishmentRoute) {
+      const eventName = legacyReplenishmentRoute ? 'finanzas:show-replenishments' : 'finanzas:show-debts'
+      window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
+        window.dispatchEvent(new Event(eventName))
+      }))
+    }
   }
   useEffect(() => {
     if (!isFinanzasAndroid()) return undefined
@@ -90,7 +101,10 @@ export default function Layout({ onSignOut }) {
         } else if (payload.route === 'incomes') {
           cambiarPagina('Ingresos')
         } else if (payload.route === 'commitments') {
-          cambiarPagina('Compromisos')
+          cambiarPagina('Deudas y reposiciones')
+          window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
+            window.dispatchEvent(new Event('finanzas:show-replenishments'))
+          }))
         } else if (payload.route === 'accounts') {
           cambiarPagina('Cuentas')
         } else if (payload.route === 'reminders') {
@@ -165,8 +179,8 @@ export default function Layout({ onSignOut }) {
             'Gestión financiera',
             'Cuentas',
             'Transferencias',
-            'Deudas',
-            'Compromisos',
+            'Deudas y reposiciones',
+            'Reservas',
           ].includes(activePage))
           return (
             <button

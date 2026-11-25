@@ -3,7 +3,6 @@ import {
   ArrowLeftRight,
   BellRing,
   CircleDollarSign,
-  CreditCard,
   CalendarDays,
   Home,
   Landmark,
@@ -14,39 +13,31 @@ import {
 } from 'lucide-react'
 
 const groups = [
-  {
-    label: 'Principal',
-    items: [
-      { name: 'Dashboard', label: 'Resumen general', icon: Home },
-      { name: 'Gastos', label: 'Gastos', icon: Receipt },
-      { name: 'Ingresos', label: 'Ingresos', icon: ArrowDownCircle },
-    ],
-  },
-  {
-    label: 'Planificación',
-    items: [
-      { name: 'Cuentas', label: 'Cuentas y saldos', icon: Landmark },
-      { name: 'Transferencias', label: 'Transferencias', icon: ArrowLeftRight },
-      { name: 'Gestión financiera', label: 'Pagos y presupuestos', icon: Wallet },
-      { name: 'Calendario', label: 'Calendario financiero', icon: CalendarDays },
-      { name: 'Deudas', label: 'Deudas', icon: CircleDollarSign },
-      { name: 'Compromisos', label: 'Reservas y reposiciones', icon: CreditCard },
-    ],
-  },
-  {
-    label: 'Automatización',
-    items: [
-      { name: 'Automatizaciones', label: 'Reglas automáticas', icon: Sparkles },
-      { name: 'Compras pendientes', label: 'Compras por revisar', icon: ArrowLeftRight },
-    ],
-  },
-  {
-    label: 'Sistema',
-    items: [
-      { name: 'Recordatorios', label: 'Avisos y recordatorios', icon: BellRing },
-      { name: 'Ajustes', label: 'Centro de ajustes', icon: Settings },
-    ],
-  },
+  { label: 'Principal', items: [{ name: 'Dashboard', label: 'Resumen general', icon: Home }] },
+  { label: 'Movimientos', items: [
+    { name: 'Gastos', label: 'Gastos', icon: Receipt },
+    { name: 'Ingresos', label: 'Ingresos', icon: ArrowDownCircle },
+  ] },
+  { label: 'Cuentas', items: [
+    { name: 'Cuentas', label: 'Cuentas y saldos', icon: Landmark },
+    { name: 'Transferencias', label: 'Transferencias', icon: ArrowLeftRight },
+  ] },
+  { label: 'Planificación', items: [
+    { name: 'Gestión financiera', label: 'Pagos y presupuestos', icon: Wallet },
+    { name: 'Calendario', label: 'Calendario financiero', icon: CalendarDays },
+  ] },
+  { label: 'Seguimiento', items: [
+    { name: 'Deudas y reposiciones', label: 'Deudas y reposiciones', icon: CircleDollarSign },
+    { name: 'Reservas', label: 'Reservas de dinero', icon: Wallet },
+  ] },
+  { label: 'Automatización', items: [
+    { name: 'Automatizaciones', label: 'Reglas de comercios', icon: Sparkles },
+    { name: 'Compras pendientes', label: 'Compras por revisar', icon: ArrowLeftRight },
+  ] },
+  { label: 'Sistema', items: [
+    { name: 'Recordatorios', label: 'Avisos y recordatorios', icon: BellRing },
+    { name: 'Ajustes', label: 'Centro de ajustes', icon: Settings },
+  ] },
 ]
 
 export default function Sidebar({ activePage, setActivePage, attentionCount = 0 }) {
