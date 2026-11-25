@@ -61,7 +61,12 @@ function LoadingView() {
 
 export default function Layout({ onSignOut }) {
   const [activePage, setActivePage] = useState('Dashboard')
-  const { counts: attentionCounts, total: attentionTotal } = useSettingsAttention()
+  const { counts: attentionCounts, total: attentionTotal, markViewed, ready: attentionReady } = useSettingsAttention()
+
+  useEffect(() => {
+    if (!attentionReady) return
+    markViewed(activePage)
+  }, [activePage, attentionReady, markViewed])
 
   const cambiarPagina = (page) => {
     setActivePage(page)
