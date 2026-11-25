@@ -221,3 +221,37 @@ class IncomeNotificationClassifierTest {
     }
 
 }
+
+    @Test
+    fun recognizesExplicitRefundCreditWithEuroSymbolAndKeepsItForReview() {
+        val result = IncomeNotificationClassifier.classify(
+            "Devolución abonada",
+            "DEVOLUCIÓN ABONADA 15 €"
+        )
+        assertEquals(IncomeNoticeDecision.AUTO_INCOME, result.decision)
+        assertEquals(1500L, result.amountCents)
+        assertEquals("Devoluciones", result.suggestedCategory)
+        assertEquals(true, result.classificationConfidence >= 0.9)
+    }
+
+    @Test
+    fun recognizesPluralInterestCreditAndKeepsItForManualReview() {
+        val result = IncomeNotificationClassifier.classify(
+            "Intereses abonados",
+            "INTERESES ABONADOS 2 €"
+        )
+        assertEquals(IncomeNoticeDecision.NEEDS_REVIEW, result.decision)
+        assertEquals(200L, result.amountCents)
+        assertEquals("Ingresos financieros", result.suggestedCategory)
+        assertEquals(true, result.classificationConfidence >= 0.9)
+    }
+
+    @Test
+    fun genericCardPaymentIsNeverClassifiedAsIncome() {
+        val result = IncomeNotificationClassifier.classify(
+            "Pago con tarjeta",
+            "PAGO CON TARJETA 20 €"
+        )
+        assertEquals(IncomeNoticeDecision.IGNORE, result.decision)
+        assertNull(result.amountCents)
+    }
