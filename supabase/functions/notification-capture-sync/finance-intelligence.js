@@ -65,7 +65,7 @@ export function classifyIncomeNotice(reason, categories = []) {
     wanted = "Nómina"; confidence = 0.97;
   } else if (/\b(cashback|reembolso|devolucion|refund)\b/.test(value)) {
     wanted = "Devoluciones"; confidence = 0.94;
-  } else if (/\b(interes|interest)\b/.test(value)) {
+  } else if (/\b(interes(?:es)?|interest(?:s)?)\b/.test(value)) {
     wanted = "Ingresos financieros"; confidence = 0.94;
   } else if (/\b(pension|prestacion|subsidio|beneficio)\b/.test(value)) {
     wanted = "Prestaciones"; confidence = 0.9;
