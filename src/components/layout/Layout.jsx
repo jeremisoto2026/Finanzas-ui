@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
-import { Home, Receipt, TrendingUp, Landmark, MoreHorizontal, X, ChevronRight, ArrowLeftRight, Wallet, CalendarDays, CircleDollarSign, ArrowDownCircle, BellRing, Settings } from 'lucide-react'
+import { Home, Receipt, TrendingUp, Landmark, MoreHorizontal, X, ChevronRight, ArrowLeftRight, Wallet, CalendarDays, CircleDollarSign, ArrowDownCircle, BellRing, Settings, BrainCircuit } from 'lucide-react'
 import Sidebar from './Sidebar'
 import Navbar from './Navbar'
 import { useSettingsAttention } from '@/hooks/useSettingsAttention'
@@ -18,6 +18,8 @@ const Ajustes = lazy(() => import('@/pages/Ajustes'))
 const Cuentas = lazy(() => import('@/pages/Cuentas'))
 const Transferencias = lazy(() => import('@/pages/Transferencias'))
 const CalendarioFinanciero = lazy(() => import('@/pages/CalendarioFinanciero'))
+const LaboratorioIA = lazy(() => import('@/pages/LaboratorioIA'))
+const showAiLab = import.meta.env.VITE_FINANCE_AI_LAB_ENABLED === 'true'
 
 const primaryItems = [
   { name: 'Dashboard', label: 'Inicio', icon: Home },
@@ -54,6 +56,7 @@ const mobileSections = [
       { name: 'Compras pendientes', description: 'Revisa movimientos detectados antes de confirmarlos', icon: ArrowDownCircle },
     ],
   },
+  ...(showAiLab ? [{ title: 'Inteligencia', items: [{ name: 'Laboratorio de IA', description: 'Prueba la clasificación con Gemini', icon: BrainCircuit }] }] : []),
   {
     title: 'Sistema',
     items: [
@@ -75,6 +78,7 @@ function PageContent({ activePage, onNavigate, attentionCounts }) {
   if (activePage === 'Cuentas') return <Cuentas />
   if (activePage === 'Transferencias') return <Transferencias />
   if (activePage === 'Calendario') return <CalendarioFinanciero />
+  if (activePage === 'Laboratorio de IA' && showAiLab) return <LaboratorioIA />
   if (activePage === 'Deudas y reposiciones') return <DeudasYReposiciones />
   if (activePage === 'Reservas') return <Reservas />
   return <Dashboard />
