@@ -64,6 +64,7 @@ jobs:
           VITE_SUPABASE_URL: "https://brkckgaicoqkqdcwwftm.supabase.co"
           VITE_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_4aTVOdrHyro5iyDctv1mjg__yI6jqh-"
           VITE_WEB_PUSH_PUBLIC_KEY: "BCCG0oqkafAUE2lXK9FsIWkT-qWSCQtwNk9PWCFYJa071-aZ9m7K1HsI-jc4JjTwMfX37dFPGlpIoXK58pUfBeQ"
+          VITE_FINANCE_AI_LAB_ENABLED: "true"
 
       - name: Sync web assets and native Capacitor plugins into Android
         run: npx cap sync android
