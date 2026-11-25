@@ -680,7 +680,8 @@ Deno.serve(async (req: Request) => {
           parsed_amount: capture.amountCents / 100,
           currency_code: capture.currencyCode,
           category_id: resolvedCategoryId,
-          category_suggestion: capture.categorySuggestion,
+          category_suggestion: capture.categorySuggestion ||
+            (categories || []).find((item) => item.id === resolvedCategoryId)?.name || null,
           account_label: accountLabel,
           account_id: transactionAccountId,
           payment_channel: capture.sources.some((item) => item.isWallet)
