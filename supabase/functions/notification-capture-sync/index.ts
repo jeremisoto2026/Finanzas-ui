@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2.119.0"
+import { classifyExpenseMerchant } from "../_shared/finance-intelligence.js"
 
 const ALLOWED_ORIGINS = new Set([
   "https://localhost",
@@ -291,6 +292,11 @@ function validateIncomeCandidate(value: unknown): ValidIncomeCandidate {
   }
   const reason = String(item.reason || "").trim().slice(0, 240)
   if (reason.length < 2) throw new Error("Falta el motivo de revisión del posible ingreso.")
+  const suggestedCategory = String(item.suggestedCategory || "").trim().slice(0, 80) || null
+  const classificationConfidence = Number(item.classificationConfidence || 0)
+  if (!Number.isFinite(classificationConfidence) || classificationConfidence < 0 || classificationConfidence > 1) {
+    throw new Error("La confianza de clasificación del ingreso no es válida.")
+  }
 
   return {
     id,
@@ -300,6 +306,8 @@ function validateIncomeCandidate(value: unknown): ValidIncomeCandidate {
     amountCents,
     occurredAt: new Date(occurredAtMillis).toISOString(),
     reason,
+    suggestedCategory,
+    classificationConfidence,
   }
 }
 
@@ -500,9 +508,13 @@ Deno.serve(async (req: Request) => {
       const suggestedCategoryId = capture.categorySuggestion
         ? categoryIds.get(normalizeText(capture.categorySuggestion)) || null
         : null
-      const fallbackCategoryId = categoryIds.get(normalizeText("Otros")) ||
-        (categories || [])[0]?.id || null
-      const categoryId = ruleCategoryId || suggestedCategoryId || fallbackCategoryId
+      const deterministic = classifyExpenseMerchant(capture.merchant, categories || [])
+      const categoryId = ruleCategoryId || suggestedCategoryId || deterministic.category?.id || null
+      const categoryConfidence = ruleCategoryId
+        ? Number(savedRule?.confidence || 0)
+        : suggestedCategoryId
+          ? 0.86
+          : deterministic.confidence
 
       const account = resolveMappedAccount(
         capture,
@@ -582,7 +594,7 @@ Deno.serve(async (req: Request) => {
             .eq("id", existingByPair.id)
           if (merchantUpdateError) throw merchantUpdateError
         }
-      } else if (account?.id && categoryId) {
+      } else if (account?.id && categoryId && categoryConfidence >= 0.9) {
         const occurredOn = new Intl.DateTimeFormat("sv-SE", {
           timeZone: "Europe/Madrid",
           year: "numeric",
@@ -701,6 +713,9 @@ Deno.serve(async (req: Request) => {
         currency_code: "EUR",
         occurred_at: candidate.occurredAt,
         reason: candidate.reason,
+        suggested_category: candidate.suggestedCategory,
+        classification_confidence: candidate.classificationConfidence,
+        classification_source: candidate.suggestedCategory ? "on_device_rules" : "none",
         status: "needs_review",
       })))
       const { data: savedIncomeRows, error: incomeSaveError } = await supabase
