@@ -4,7 +4,7 @@ const OPENAI_URL = "https://api.openai.com/v1/responses"
 const OPENAI_ENABLED = false
 
 function isEnabled() {
-  return Deno.env.get("FINANCE_AI_ENABLED") === "true" &&
+  return OPENAI_ENABLED && Deno.env.get("FINANCE_AI_ENABLED") === "true" &&
     Boolean(Deno.env.get("OPENAI_API_KEY")) &&
     Boolean(Deno.env.get("OPENAI_MODEL"))
 }
