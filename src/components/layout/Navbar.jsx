@@ -130,7 +130,7 @@ export default function Navbar({ onAdd, onSignOut, activePage = 'Dashboard' }) {
 
   return (
     <>
-      <header className="app-topbar flex items-center justify-between gap-3 px-3 sm:px-5 lg:px-8">
+      <header className="app-topbar sticky top-0 flex items-center justify-between gap-3 px-3 sm:px-5 lg:px-8">
         <div className="min-w-0 flex-1">
           <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-emerald-400/90">
             Finanzas <span className="px-1 text-slate-600">/</span> {currentPage.section}
