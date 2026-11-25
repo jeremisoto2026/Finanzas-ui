@@ -19,6 +19,8 @@ const emptyForm = {
   direction: 'receivable',
   description: '',
   dueOn: '',
+  accountId: '',
+  creationKey: '',
 }
 
 export default function Deudas() {
@@ -70,7 +72,8 @@ export default function Deudas() {
 
   const openNew = () => {
     setEditingId(null)
-    setForm(emptyForm)
+    const defaultAccount = accounts.find((account) => account.name === 'Revolut') || accounts[0]
+    setForm({ ...emptyForm, accountId: defaultAccount?.id || '', creationKey: 'debt-create:' + crypto.randomUUID() })
     setError('')
     setNotice('')
     setFormOpen(true)
@@ -85,6 +88,8 @@ export default function Deudas() {
       direction: debt.direction,
       description: debt.description || '',
       dueOn: debt.dueOn || '',
+      accountId: debt.accountId || '',
+      creationKey: '',
     })
     setError('')
     setNotice('')
@@ -112,6 +117,7 @@ export default function Deudas() {
           ...form,
           amount,
           outstandingAmount,
+          ...(editingId ? {} : { accountId: form.direction === 'receivable' ? form.accountId : null, occurredOn: today(), idempotencyKey: form.creationKey }),
         }),
       })
       const result = await response.json()
@@ -298,6 +304,15 @@ export default function Deudas() {
             <label className="text-sm text-slate-300">Fecha prevista (opcional)
               <input type="date" value={form.dueOn} onChange={(event) => setForm({ ...form, dueOn: event.target.value })} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-white" />
             </label>
+            {form.direction === 'receivable' && !editingId && (
+              <label className="text-sm text-slate-300">Cuenta desde la que prestaste el dinero
+                <FinanceSelect required value={form.accountId} onChange={(event) => setForm({ ...form, accountId: event.target.value })} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-white">
+                  <option value="">Seleccionar cuenta</option>
+                  {accounts.map((account) => <option key={account.id} value={account.id}>{account.name} · {euro(account.balance)}</option>)}
+                </FinanceSelect>
+                <span className="mt-1 block text-xs text-slate-500">Al guardar, se registrará un gasto por el importe original y se descontará de esta cuenta.</span>
+              </label>
+            )}
             <label className="text-sm text-slate-300 md:col-span-2">Descripción
               <input value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-white" />
             </label>
