@@ -8,7 +8,6 @@ import {
   Landmark,
   Receipt,
   Settings,
-  Sparkles,
   Wallet,
 } from 'lucide-react'
 
