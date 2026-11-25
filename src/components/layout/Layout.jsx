@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
-import { Home, Receipt, TrendingUp, CalendarDays, Landmark, MoreHorizontal, X, ChevronRight } from 'lucide-react'
+import { Home, Receipt, TrendingUp, Landmark, MoreHorizontal, X, ChevronRight, ArrowLeftRight, Wallet, CalendarDays, CircleDollarSign, Sparkles, ArrowDownCircle, BellRing, Settings } from 'lucide-react'
 import Sidebar from './Sidebar'
 import Navbar from './Navbar'
 import { useSettingsAttention } from '@/hooks/useSettingsAttention'
@@ -29,27 +29,37 @@ const primaryItems = [
 
 const mobileSections = [
   {
-    title: 'Organiza tu dinero',
+    title: 'Cuentas',
     items: [
-      { name: 'Transferencias', description: 'Mueve dinero entre tus cuentas', icon: ChevronRight },
-      { name: 'Gestión financiera', description: 'Pagos fijos, cuotas y presupuestos', icon: ChevronRight },
-      { name: 'Calendario', description: 'Fechas y vencimientos', icon: ChevronRight },
-      { name: 'Reservas', description: 'Dinero apartado para tus objetivos', icon: ChevronRight },
+      { name: 'Transferencias', description: 'Mueve dinero entre tus propias cuentas', icon: ArrowLeftRight },
     ],
   },
   {
-    title: 'Haz seguimiento',
+    title: 'Planificación',
     items: [
-      { name: 'Deudas y reposiciones', description: 'Lo que debes, te deben o adelantaste', icon: ChevronRight },
-      { name: 'Compras pendientes', description: 'Movimientos detectados por revisar', icon: ChevronRight },
-      { name: 'Automatizaciones', description: 'Reglas para clasificar movimientos', icon: ChevronRight },
+      { name: 'Gestión financiera', description: 'Pagos fijos, cuotas y presupuestos', icon: Wallet },
+      { name: 'Calendario', description: 'Fechas importantes y vencimientos', icon: CalendarDays },
     ],
   },
   {
-    title: 'Personaliza la aplicación',
+    title: 'Seguimiento',
     items: [
-      { name: 'Recordatorios', description: 'Avisos y notificaciones', icon: ChevronRight },
-      { name: 'Ajustes', description: 'Preferencias y seguridad', icon: ChevronRight },
+      { name: 'Deudas y reposiciones', description: 'Controla préstamos y dinero pendiente de recuperar', icon: CircleDollarSign },
+      { name: 'Reservas', description: 'Consulta el dinero que has apartado', icon: Wallet },
+    ],
+  },
+  {
+    title: 'Automatización',
+    items: [
+      { name: 'Automatizaciones', description: 'Configura reglas para tus movimientos', icon: Sparkles },
+      { name: 'Compras pendientes', description: 'Revisa movimientos detectados antes de confirmarlos', icon: ArrowDownCircle },
+    ],
+  },
+  {
+    title: 'Sistema',
+    items: [
+      { name: 'Recordatorios', description: 'Avisos de pagos y fechas importantes', icon: BellRing },
+      { name: 'Ajustes', description: 'Seguridad y protección de la aplicación', icon: Settings },
     ],
   },
 ]
