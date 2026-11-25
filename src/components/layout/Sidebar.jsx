@@ -42,21 +42,21 @@ const groups = [
     label: 'Seguimiento',
     items: [
       { name: 'Deudas y reposiciones', label: 'Deudas y reposiciones', description: 'Lo que debes o deben', icon: CircleDollarSign },
-      { name: 'Reservas', label: 'Reservas de dinero', description: 'Dinero apartado por objetivos', icon: Wallet },
+      { name: 'Reservas', label: 'Reservas de dinero', description: 'Dinero apartado para objetivos', icon: Wallet },
     ],
   },
   {
     label: 'Automatización',
     items: [
-      { name: 'Automatizaciones', label: 'Reglas automáticas', description: 'Cómo clasificar movimientos', icon: Sparkles },
-      { name: 'Compras pendientes', label: 'Compras por revisar', description: 'Confirma lo que se ha detectado', icon: ArrowLeftRight },
+      { name: 'Automatizaciones', label: 'Reglas automáticas', description: 'Reglas para organizar movimientos', icon: Sparkles },
+      { name: 'Compras pendientes', label: 'Compras por revisar', description: 'Revisa movimientos detectados', icon: ArrowLeftRight },
     ],
   },
   {
     label: 'Sistema',
     items: [
       { name: 'Recordatorios', label: 'Avisos y recordatorios', description: 'Notificaciones importantes', icon: BellRing },
-      { name: 'Ajustes', label: 'Ajustes', description: 'Preferencias y seguridad', icon: Settings },
+      { name: 'Ajustes', label: 'Ajustes', description: 'Seguridad y protección de la app', icon: Settings },
     ],
   },
 ]
