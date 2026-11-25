@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
-import { Home, Receipt, TrendingUp, Landmark, MoreHorizontal, X, ChevronRight, ArrowLeftRight, Wallet, CalendarDays, CircleDollarSign, Sparkles, ArrowDownCircle, BellRing, Settings } from 'lucide-react'
+import { Home, Receipt, TrendingUp, Landmark, MoreHorizontal, X, ChevronRight, ArrowLeftRight, Wallet, CalendarDays, CircleDollarSign, ArrowDownCircle, BellRing, Settings } from 'lucide-react'
 import Sidebar from './Sidebar'
 import Navbar from './Navbar'
 import { useSettingsAttention } from '@/hooks/useSettingsAttention'
@@ -51,7 +51,6 @@ const mobileSections = [
   {
     title: 'Automatización',
     items: [
-      { name: 'Automatizaciones', description: 'Configura reglas para tus movimientos', icon: Sparkles },
       { name: 'Compras pendientes', description: 'Revisa movimientos detectados antes de confirmarlos', icon: ArrowDownCircle },
     ],
   },
