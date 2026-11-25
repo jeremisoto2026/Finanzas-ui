@@ -56,7 +56,7 @@ export default async function handler(req, res) {
       })
       if (settlementError) throw settlementError
       const { data: updatedDebt, error: updateError } = await supabase.from('debts')
-        .select('id, direction, person_name, description, original_amount, outstanding_amount, due_on, status')
+        .select('id, direction, person_name, description, original_amount, outstanding_amount, due_on, status, account_id')
         .eq('id', body.id).eq('user_id', user.id).single()
       if (updateError) throw updateError
       return res.status(200).json({
@@ -77,7 +77,7 @@ export default async function handler(req, res) {
       const occurredOn = String(body.occurredOn || '').slice(0, 10)
       const dueOn = body.dueOn ? String(body.dueOn).slice(0, 10) : null
       if (!Number.isFinite(amount) || amount <= 0 || !Number.isFinite(outstanding) || outstanding < 0 || outstanding > amount ||
-          !/^\\d{4}-\\d{2}-\\d{2}$/.test(occurredOn) || (dueOn && !/^\\d{4}-\\d{2}-\\d{2}$/.test(dueOn))) {
+          !/^\d{4}-\d{2}-\d{2}$/.test(occurredOn) || (dueOn && !/^\\d{4}-\\d{2}-\\d{2}$/.test(dueOn))) {
         return res.status(400).json({ error: 'Revisa los importes y las fechas del préstamo.' })
       }
       const categoryId = await findOrCreateCategory(supabase, user.id, 'Préstamos concedidos', 'expense')
@@ -162,7 +162,7 @@ export default async function handler(req, res) {
         ? supabase.from('debts').insert({ user_id: user.id, ...patch })
         : supabase.from('debts').update(patch).eq('id', body.id).eq('user_id', user.id)
       const { data, error } = await query
-        .select('id, direction, person_name, description, original_amount, outstanding_amount, due_on, status')
+        .select('id, direction, person_name, description, original_amount, outstanding_amount, due_on, status, account_id')
         .single()
       if (error) throw error
       return res.status(req.method === 'POST' ? 201 : 200).json(debtForUi(data))
