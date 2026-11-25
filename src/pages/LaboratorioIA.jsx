@@ -61,12 +61,20 @@ export default function LaboratorioIA() {
       const { data, error: invokeError } = await supabase.functions.invoke('finance-ai-lab', {
         body: { direction, description: clean, categories: uniqueCategories },
       })
-      if (invokeError) throw invokeError
+      if (invokeError) {
+        let serverMessage = ''
+        try {
+          const payload = await invokeError.context?.json?.()
+          serverMessage = typeof payload?.error === 'string' ? payload.error : ''
+        } catch {
+          // Keep the original client error when the response body is unavailable.
+        }
+        throw new Error(serverMessage || invokeError.message || 'No se pudo conectar con Gemini.')
+      }
       if (!data?.ok) throw new Error(data?.error || 'La IA no pudo completar la prueba.')
       setResult(data.result)
     } catch (err) {
-      const message = err?.context?.json?.error || err?.message || 'No se pudo conectar con Gemini.'
-      setError(message)
+      setError(err?.message || 'No se pudo conectar con Gemini.')
     } finally {
       setLoading(false)
     }
