@@ -29,8 +29,8 @@ const sections = [
     items: [
       { page: 'Cuentas', title: 'Cuentas y saldos', description: 'Bancos, tarjetas, efectivo y monederos.', icon: Landmark, keywords: 'cuentas bancos tarjetas efectivo saldo' },
       { page: 'Transferencias', title: 'Transferencias', description: 'Movimientos entre tus propias cuentas.', icon: ArrowLeftRight, keywords: 'transferir mover dinero' },
-      { page: 'Deudas', title: 'Deudas', description: 'Importes pendientes de cobrar o devolver.', icon: DollarSign, keywords: 'préstamos cobrar devolver' },
-      { page: 'Compromisos', title: 'Reservas y reposiciones', description: 'Dinero reservado y cantidades por reponer.', icon: CreditCard, keywords: 'reservas apartados reposiciones' },
+      { page: 'Deudas y reposiciones', title: 'Deudas y reposiciones', description: 'Préstamos, importes pendientes de cobrar y dinero adelantado a recuperar.', icon: DollarSign, keywords: 'préstamos deudas cobrar devolver reposiciones adelantos' },
+      { page: 'Reservas', title: 'Reservas de dinero', description: 'Dinero propio que has apartado para objetivos concretos.', icon: CreditCard, keywords: 'reservas apartados dinero objetivos' },
     ],
   },
   {

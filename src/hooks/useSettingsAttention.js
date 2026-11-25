@@ -88,8 +88,7 @@ export function useSettingsAttention() {
     const nextCounts = {
       'Compras pendientes': purchaseKeys.size + pendingIncome,
       Automatizaciones: incompleteRules,
-      Deudas: attentionRows(debtRows, today, true),
-      Compromisos: attentionRows(commitmentRows, today, true),
+      'Deudas y reposiciones': attentionRows(debtRows, today, true) + attentionRows(commitmentRows, today, true),
       'Gestión financiera': fixedPaymentActions + installmentActions + budgetActions,
     }
 

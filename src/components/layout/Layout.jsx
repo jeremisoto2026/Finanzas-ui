@@ -69,8 +69,19 @@ export default function Layout({ onSignOut }) {
   }, [activePage, attentionReady, markViewed])
 
   const cambiarPagina = (page) => {
-    setActivePage(page)
+    const legacyDebtRoute = page === 'Deudas'
+    const legacyReplenishmentRoute = page === 'Compromisos'
+    const targetPage = legacyDebtRoute || legacyReplenishmentRoute ? 'Deudas y reposiciones' : page
+
+    setActivePage(targetPage)
     window.scrollTo({ top: 0, behavior: 'smooth' })
+
+    if (legacyDebtRoute || legacyReplenishmentRoute) {
+      const eventName = legacyReplenishmentRoute ? 'finanzas:show-replenishments' : 'finanzas:show-debts'
+      window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
+        window.dispatchEvent(new Event(eventName))
+      }))
+    }
   }
   useEffect(() => {
     if (!isFinanzasAndroid()) return undefined

@@ -8,9 +8,14 @@ export default function DeudasYReposiciones() {
   const [activeTab, setActiveTab] = useState('deudas')
 
   useEffect(() => {
+    const showDebts = () => setActiveTab('deudas')
     const showReplenishments = () => setActiveTab('reposiciones')
+    window.addEventListener('finanzas:show-debts', showDebts)
     window.addEventListener('finanzas:show-replenishments', showReplenishments)
-    return () => window.removeEventListener('finanzas:show-replenishments', showReplenishments)
+    return () => {
+      window.removeEventListener('finanzas:show-debts', showDebts)
+      window.removeEventListener('finanzas:show-replenishments', showReplenishments)
+    }
   }, [])
 
   const tabClass = (selected) =>

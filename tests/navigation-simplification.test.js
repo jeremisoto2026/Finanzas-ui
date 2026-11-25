@@ -10,12 +10,18 @@ const read = (path) => readFileSync(resolve(root, path), 'utf8')
 test('la navegación separa movimientos, planificación, deudas y reservas', () => {
   const sidebar = read('src/components/layout/Sidebar.jsx')
   const layout = read('src/components/layout/Layout.jsx')
+  const settings = read('src/pages/Ajustes.jsx')
   assert.match(sidebar, /label: 'Movimientos'/)
   assert.match(sidebar, /name: 'Deudas y reposiciones'/)
   assert.match(sidebar, /name: 'Reservas'/)
   assert.doesNotMatch(sidebar, /name: 'Compromisos'/)
   assert.match(layout, /activePage === 'Deudas y reposiciones'/)
   assert.match(layout, /activePage === 'Reservas'/)
+  assert.match(settings, /page: 'Deudas y reposiciones'/)
+  assert.match(settings, /page: 'Reservas'/)
+  assert.match(layout, /page === 'Deudas'/)
+  assert.match(layout, /page === 'Compromisos'/)
+  assert.match(layout, /finanzas:show-debts/)
 })
 
 test('presupuestos y reservas tienen efectos diferentes', () => {
