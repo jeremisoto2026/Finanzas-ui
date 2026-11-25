@@ -12,7 +12,9 @@ data class LocalIncomeCandidate(
     val currencyCode: String,
     val occurredAtMillis: Long,
     val reason: String,
-    val notificationKey: String?
+    val notificationKey: String?,
+    val suggestedCategory: String?,
+    val classificationConfidence: Double
 )
 
 class IncomeCaptureStore(context: Context) {
@@ -45,7 +47,9 @@ class IncomeCaptureStore(context: Context) {
             currencyCode = "EUR",
             occurredAtMillis = occurredAtMillis,
             reason = classification.reason.take(240),
-            notificationKey = notificationKey
+            notificationKey = notificationKey,
+            suggestedCategory = classification.suggestedCategory,
+            classificationConfidence = classification.classificationConfidence.coerceIn(0.0, 1.0)
         ))
         persist(items)
         return true
@@ -71,7 +75,9 @@ class IncomeCaptureStore(context: Context) {
                         currencyCode = item.optString("currencyCode", "EUR"),
                         occurredAtMillis = item.optLong("occurredAtMillis"),
                         reason = item.optString("reason", "Posible ingreso pendiente de revisión"),
-                        notificationKey = item.optString("notificationKey").takeIf { it.isNotBlank() && it != "null" }
+                        notificationKey = item.optString("notificationKey").takeIf { it.isNotBlank() && it != "null" },
+                        suggestedCategory = item.optString("suggestedCategory").takeIf { it.isNotBlank() && it != "null" },
+                        classificationConfidence = item.optDouble("classificationConfidence", 0.0).coerceIn(0.0, 1.0)
                     ))
                 }
             }.sortedByDescending { it.occurredAtMillis }
@@ -97,7 +103,9 @@ class IncomeCaptureStore(context: Context) {
                 .put("currencyCode", item.currencyCode)
                 .put("occurredAtMillis", item.occurredAtMillis)
                 .put("reason", item.reason)
-                .put("notificationKey", item.notificationKey ?: JSONObject.NULL))
+                .put("notificationKey", item.notificationKey ?: JSONObject.NULL)
+                .put("suggestedCategory", item.suggestedCategory ?: JSONObject.NULL)
+                .put("classificationConfidence", item.classificationConfidence))
         }
         encrypted.putString(KEY, array.toString())
     }
