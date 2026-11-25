@@ -10,15 +10,12 @@ const read = (path) => readFileSync(resolve(root, path), 'utf8')
 test('la navegación separa movimientos, planificación, deudas y reservas', () => {
   const sidebar = read('src/components/layout/Sidebar.jsx')
   const layout = read('src/components/layout/Layout.jsx')
-  const settings = read('src/pages/Ajustes.jsx')
   assert.match(sidebar, /label: 'Movimientos'/)
   assert.match(sidebar, /name: 'Deudas y reposiciones'/)
   assert.match(sidebar, /name: 'Reservas'/)
   assert.doesNotMatch(sidebar, /name: 'Compromisos'/)
   assert.match(layout, /activePage === 'Deudas y reposiciones'/)
   assert.match(layout, /activePage === 'Reservas'/)
-  assert.match(settings, /page: 'Deudas y reposiciones'/)
-  assert.match(settings, /page: 'Reservas'/)
   assert.match(layout, /page === 'Deudas'/)
   assert.match(layout, /page === 'Compromisos'/)
   assert.match(layout, /finanzas:show-debts/)
@@ -51,9 +48,10 @@ test('el rediseño móvil prioriza cuatro accesos y organiza el resto en Más', 
   for (const label of ["label: 'Inicio'", "label: 'Gastos'", "label: 'Ingresos'", "label: 'Cuentas'", "label: 'Más'"]) {
     assert.ok(layout.includes(label), 'Falta el acceso móvil ' + label)
   }
-  for (const page of ['Transferencias', 'Gestión financiera', 'Calendario', 'Reservas', 'Deudas y reposiciones', 'Compras pendientes', 'Automatizaciones', 'Recordatorios', 'Ajustes']) {
+  for (const page of ['Transferencias', 'Gestión financiera', 'Calendario', 'Reservas', 'Deudas y reposiciones', 'Compras pendientes', 'Recordatorios', 'Ajustes']) {
     assert.ok(layout.includes("name: '" + page + "'"), 'Falta la sección móvil ' + page)
   }
+  assert.doesNotMatch(layout, /name: 'Automatizaciones'/)
   assert.match(layout, /role="dialog"/)
   assert.match(styles, /\.mobile-more-sheet/)
   assert.match(dashboard, /Saldo de tus cuentas/)
