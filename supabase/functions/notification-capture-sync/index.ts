@@ -256,6 +256,8 @@ type ValidIncomeCandidate = {
   amountCents: number | null
   occurredAt: string
   reason: string
+  suggestedCategory: string | null
+  classificationConfidence: number
 }
 
 function validateIncomeCandidate(value: unknown): ValidIncomeCandidate {
