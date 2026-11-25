@@ -12,6 +12,7 @@ const EXAMPLES = [
 const DIRECTION_LABELS = {
   income: 'Ingreso',
   expense: 'Gasto',
+  transfer: 'Transferencia entre cuentas',
   unknown: 'Tipo no identificado',
 }
 
@@ -155,7 +156,7 @@ export default function LaboratorioIA() {
             <div className="mt-4 grid gap-3 sm:grid-cols-3">
               <div className="rounded-xl border border-slate-700 bg-slate-950/60 p-3">
                 <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Tipo detectado</p>
-                <div className="mt-2 flex items-center gap-2 text-sm font-bold text-white"><DirectionIcon className={'h-4 w-4 ' + (detectedDirection === 'income' ? 'text-emerald-300' : 'text-rose-300')} />{DIRECTION_LABELS[detectedDirection] || DIRECTION_LABELS.unknown}</div>
+                <div className="mt-2 flex items-center gap-2 text-sm font-bold text-white"><DirectionIcon className={'h-4 w-4 ' + (detectedDirection === 'income' ? 'text-emerald-300' : detectedDirection === 'expense' ? 'text-rose-300' : 'text-sky-300')} />{DIRECTION_LABELS[detectedDirection] || DIRECTION_LABELS.unknown}</div>
               </div>
               <div className="rounded-xl border border-slate-700 bg-slate-950/60 p-3">
                 <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Categoría</p>
