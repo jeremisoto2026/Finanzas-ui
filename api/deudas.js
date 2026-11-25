@@ -11,6 +11,7 @@ function debtForUi(row) {
     outstandingAmount: Number(row.outstanding_amount || 0),
     dueOn: row.due_on || null,
     status: row.status,
+    accountId: row.account_id || null,
   }
 }
 
@@ -22,7 +23,7 @@ export default async function handler(req, res) {
 
     if (req.method === 'GET') {
       const { data, error } = await supabase.from('debts')
-        .select('id, direction, person_name, description, original_amount, outstanding_amount, due_on, status')
+        .select('id, direction, person_name, description, original_amount, outstanding_amount, due_on, status, account_id')
         .eq('user_id', user.id).order('created_at', { ascending: false })
       if (error) throw error
       return res.status(200).json((data || []).map(debtForUi))
@@ -55,7 +56,7 @@ export default async function handler(req, res) {
       })
       if (settlementError) throw settlementError
       const { data: updatedDebt, error: updateError } = await supabase.from('debts')
-        .select('id, direction, person_name, description, original_amount, outstanding_amount, due_on, status')
+        .select('id, direction, person_name, description, original_amount, outstanding_amount, due_on, status, account_id')
         .eq('id', body.id).eq('user_id', user.id).single()
       if (updateError) throw updateError
       return res.status(200).json({
@@ -64,6 +65,40 @@ export default async function handler(req, res) {
         transactionId: settlement?.transactionId || null,
         alreadyRecorded: Boolean(settlement?.alreadyRecorded),
       })
+    }
+
+    if (req.method === 'POST' && req.body?.direction === 'receivable') {
+      const body = req.body
+      if (!body.accountId || !body.idempotencyKey) {
+        return res.status(400).json({ error: 'Selecciona la cuenta desde la que prestaste el dinero.' })
+      }
+      const amount = Number(body.amount ?? body.originalAmount)
+      const outstanding = Number(body.outstandingAmount ?? amount)
+      const occurredOn = String(body.occurredOn || '').slice(0, 10)
+      const dueOn = body.dueOn ? String(body.dueOn).slice(0, 10) : null
+      if (!Number.isFinite(amount) || amount <= 0 || !Number.isFinite(outstanding) || outstanding < 0 || outstanding > amount ||
+          !/^\d{4}-\d{2}-\d{2}$/.test(occurredOn) || (dueOn && !/^\d{4}-\d{2}-\d{2}$/.test(dueOn))) {
+        return res.status(400).json({ error: 'Revisa los importes y las fechas del préstamo.' })
+      }
+      const categoryId = await findOrCreateCategory(supabase, user.id, 'Préstamos concedidos', 'expense')
+      const { data: created, error: createError } = await supabase.rpc('register_debt_creation', {
+        p_direction: 'receivable',
+        p_person_name: String(body.personName || '').trim(),
+        p_description: String(body.description || '').trim() || null,
+        p_original_amount: amount,
+        p_outstanding_amount: outstanding,
+        p_due_on: dueOn,
+        p_account_id: body.accountId,
+        p_occurred_on: occurredOn,
+        p_idempotency_key: body.idempotencyKey,
+        p_category_id: categoryId,
+      })
+      if (createError) throw createError
+      const { data: debt, error: readError } = await supabase.from('debts')
+        .select('id, direction, person_name, description, original_amount, outstanding_amount, due_on, status, account_id')
+        .eq('id', created.debtId).eq('user_id', user.id).single()
+      if (readError) throw readError
+      return res.status(201).json({ ...debtForUi(debt), alreadyRecorded: Boolean(created.alreadyRecorded), transactionId: created.transactionId || null })
     }
 
     if (req.method === 'POST' || req.method === 'PATCH') {
@@ -127,7 +162,7 @@ export default async function handler(req, res) {
         ? supabase.from('debts').insert({ user_id: user.id, ...patch })
         : supabase.from('debts').update(patch).eq('id', body.id).eq('user_id', user.id)
       const { data, error } = await query
-        .select('id, direction, person_name, description, original_amount, outstanding_amount, due_on, status')
+        .select('id, direction, person_name, description, original_amount, outstanding_amount, due_on, status, account_id')
         .single()
       if (error) throw error
       return res.status(req.method === 'POST' ? 201 : 200).json(debtForUi(data))
