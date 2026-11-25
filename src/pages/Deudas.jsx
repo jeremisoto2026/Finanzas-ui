@@ -50,7 +50,7 @@ export default function Deudas() {
       setDebts(Array.isArray(debtRows) ? debtRows : [])
       if (accountsResponse.ok) {
         const accountRows = await accountsResponse.json()
-        setAccounts(Array.isArray(accountRows) ? accountRows.filter((row) => row.currencyCode === 'EUR') : [])
+        setAccounts(Array.isArray(accountRows) ? accountRows.filter((row) => row.currencyCode === 'EUR' && row.isActive !== false) : [])
       }
     } catch (err) {
       setError(err.message || 'Error al cargar las deudas.')
@@ -128,7 +128,11 @@ export default function Deudas() {
       setForm(emptyForm)
       setEditingId(null)
       setFormOpen(false)
-      setNotice('La deuda se ha guardado correctamente.')
+      setNotice(result.alreadyRecorded
+        ? 'Este préstamo ya estaba registrado. No se ha duplicado el movimiento.'
+        : form.direction === 'receivable'
+          ? 'Préstamo guardado y gasto descontado de la cuenta seleccionada.'
+          : 'La deuda se ha guardado correctamente.')
     } catch (err) {
       setError(err.message || 'No se pudo guardar la deuda.')
     } finally {
