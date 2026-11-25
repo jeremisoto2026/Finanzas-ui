@@ -212,6 +212,15 @@ test('la clasificación de ingresos capturados usa reglas locales y deja transfe
   assert.equal(refund.category?.name, 'Devoluciones')
   assert.equal(refund.requiresReview, false)
 
+  const explicitRefund = classifyIncomeNotice('DEVOLUCION ABONADA 15 EUR', categories)
+  assert.equal(explicitRefund.category?.name, 'Devoluciones')
+  assert.equal(explicitRefund.confidence, 0.94)
+
+  const pluralInterest = classifyIncomeNotice('INTERESES ABONADOS 2 EUR', categories)
+  assert.equal(pluralInterest.category?.name, 'Ingresos financieros')
+  assert.equal(pluralInterest.confidence, 0.94)
+  assert.equal(pluralInterest.requiresReview, false)
+
   const ambiguous = classifyIncomeNotice('TRANSFERENCIA RECIBIDA - PAGO SERVICIOS', categories)
   assert.equal(ambiguous.category, null)
   assert.equal(ambiguous.confidence, 0)
