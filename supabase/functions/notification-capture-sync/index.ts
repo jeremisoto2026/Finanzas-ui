@@ -1,6 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2.119.0"
-import { classifyExpenseMerchant } from "./finance-intelligence.js"
-import { classifyUnknownWithOpenAI } from "./finance-ai.js"
+import { classifyExpenseMerchant, classifyIncomeNotice } from "./finance-intelligence.js"
 
 const ALLOWED_ORIGINS = new Set([
   "https://localhost",
@@ -522,28 +521,16 @@ Deno.serve(async (req: Request) => {
         ? categoryIds.get(normalizeText(capture.categorySuggestion)) || null
         : null
       const deterministic = classifyExpenseMerchant(capture.merchant, categories || [])
-      let aiSuggestion = null
-      if (!ruleCategoryId && !suggestedCategoryId && !deterministic.category) {
-        aiSuggestion = await classifyUnknownWithOpenAI({
-          direction: "expense",
-          description: capture.merchant,
-          categories: categories || [],
-        })
-      }
-      const aiCategoryId = aiSuggestion
-        ? categoryIds.get(normalizeText(aiSuggestion.category)) || null
-        : null
-      const categoryId = ruleCategoryId || suggestedCategoryId || deterministic.category?.id || aiCategoryId || null
-      // AI suggestions are capped below the auto-post threshold and stay in review.
+      // Unknown merchants stay in review. Real bank descriptions are never sent
+      // to a third-party AI provider during the free Preview phase.
+      const categoryId = ruleCategoryId || suggestedCategoryId || deterministic.category?.id || null
       const categoryConfidence = ruleCategoryId
         ? Number(savedRule?.confidence || 0)
         : suggestedCategoryId
           ? 0.86
           : deterministic.category
             ? deterministic.confidence
-            : aiCategoryId
-              ? Math.min(Number(aiSuggestion?.confidence || 0), 0.89)
-              : 0
+            : 0
 
       const account = resolveMappedAccount(
         capture,
@@ -739,15 +726,12 @@ Deno.serve(async (req: Request) => {
         let classificationConfidence = candidate.classificationConfidence
         let classificationSource = suggestedCategory ? "on_device_rules" : "none"
         if (!suggestedCategory) {
-          const aiSuggestion = await classifyUnknownWithOpenAI({
-            direction: "income",
-            description: candidate.reason,
-            categories: incomeCategories || [],
-          })
-          if (aiSuggestion) {
-            suggestedCategory = aiSuggestion.category
-            classificationConfidence = Math.min(aiSuggestion.confidence, 0.89)
-            classificationSource = "openai"
+          // Local, deterministic fallback only. The bank notice is not sent to Gemini.
+          const localSuggestion = classifyIncomeNotice(candidate.reason, incomeCategories || [])
+          if (localSuggestion.category) {
+            suggestedCategory = localSuggestion.category.name
+            classificationConfidence = localSuggestion.confidence
+            classificationSource = localSuggestion.source
           }
         }
         return {
