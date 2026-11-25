@@ -106,6 +106,8 @@ class LocalCapturesPlugin : Plugin() {
                     put("currencyCode", candidate.currencyCode)
                     put("occurredAtMillis", candidate.occurredAtMillis)
                     put("reason", candidate.reason)
+                    put("suggestedCategory", candidate.suggestedCategory ?: JSONObject.NULL)
+                    put("classificationConfidence", candidate.classificationConfidence)
                 })
             }
 
