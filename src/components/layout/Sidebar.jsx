@@ -2,6 +2,7 @@ import {
   ArrowDownCircle,
   ArrowLeftRight,
   BellRing,
+  BrainCircuit,
   CalendarDays,
   CircleDollarSign,
   Home,
@@ -10,6 +11,8 @@ import {
   Settings,
   Wallet,
 } from 'lucide-react'
+
+const showAiLab = import.meta.env.VITE_FINANCE_AI_LAB_ENABLED === 'true'
 
 const groups = [
   {
@@ -50,6 +53,7 @@ const groups = [
       { name: 'Compras pendientes', label: 'Compras por revisar', description: 'Revisa solo los movimientos dudosos', icon: ArrowLeftRight },
     ],
   },
+  ...(showAiLab ? [{ label: 'Inteligencia', items: [{ name: 'Laboratorio de IA', label: 'Laboratorio de IA', description: 'Prueba la clasificación con Gemini', icon: BrainCircuit }] }] : []),
   {
     label: 'Sistema',
     items: [
