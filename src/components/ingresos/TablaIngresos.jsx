@@ -725,7 +725,7 @@ export default function TablaIngresos() {
         <p role="alert" className="rounded-xl border border-rose-800/50 bg-rose-950/30 px-4 py-3 text-sm text-rose-200">{formError}</p>
       )}
       {/* CABECERA PREMIUM */}
-      <section className="relative isolate overflow-hidden rounded-[28px] border border-slate-800/90 bg-gradient-to-br from-[#101b2d] via-slate-900 to-[#102b2a] p-5 shadow-2xl shadow-black/20 sm:p-7">
+      <section className="relative isolate overflow-hidden rounded-2xl border border-slate-700/80 bg-[#101D2E] p-5 shadow-lg shadow-black/15 sm:p-7">
         <div className="pointer-events-none absolute -right-16 -top-24 h-64 w-64 rounded-full bg-emerald-500/10 blur-3xl" />
         <div className="pointer-events-none absolute -bottom-24 left-1/3 h-48 w-48 rounded-full bg-blue-500/5 blur-3xl" />
         <div className="relative flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
@@ -734,7 +734,7 @@ export default function TablaIngresos() {
             <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">Ingresos</h1>
             <p className="mt-1.5 max-w-xl text-sm text-slate-400">Todo lo que recibes, organizado para entender tu evolución financiera.</p>
             <div className="mt-6 flex flex-wrap items-end gap-x-8 gap-y-4">
-              <div><p className="mb-1 text-xs font-medium uppercase tracking-wider text-slate-500">{filtroMes ? formatearMesTexto(filtroMes) : 'Total histórico filtrado'}</p><p className="text-4xl font-bold tracking-tight tabular-nums text-emerald-300 sm:text-5xl">+€{total.toFixed(2)}</p></div>
+              <div><p className="mb-1 text-xs font-medium uppercase tracking-wider text-slate-500">{filtroMes ? formatearMesTexto(filtroMes) : 'Total registrado'}</p><p className="text-4xl font-bold tracking-tight tabular-nums text-emerald-300 sm:text-5xl">+€{total.toFixed(2)}</p></div>
               <div className="hidden h-12 w-px bg-slate-700 sm:block" />
               <div className="pb-1"><p className="text-xs font-medium uppercase tracking-wider text-slate-500">Movimientos</p><p className="mt-1 text-2xl font-semibold tabular-nums text-white">{ingresosFiltrados.length}</p></div>
               <div className="pb-1"><p className="text-xs font-medium uppercase tracking-wider text-slate-500">Promedio por ingreso</p><p className="mt-1 text-2xl font-semibold tabular-nums text-slate-200">€{(ingresosFiltrados.length ? total / ingresosFiltrados.length : 0).toFixed(2)}</p></div>
