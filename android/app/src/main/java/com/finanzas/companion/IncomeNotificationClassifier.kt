@@ -71,13 +71,13 @@ object IncomeNotificationClassifier {
         val amount = extractAmountCents(combined)
         val explicitInbound = inboundSignal.containsMatchIn(combined)
         val categorySuggestion = when {
-            Regex("\\\\b(n[oó]mina|salario|salary|payroll)\\\\b", RegexOption.IGNORE_CASE).containsMatchIn(combined) ->
+            Regex("\\b(n[oó]mina|salario|salary|payroll)\\b", RegexOption.IGNORE_CASE).containsMatchIn(combined) ->
                 "Nómina" to 0.97
-            Regex("\\\\b(cashback|reembolso|devoluci[oó]n|refund)\\\\b", RegexOption.IGNORE_CASE).containsMatchIn(combined) ->
+            Regex("\\b(cashback|reembolso|devoluci[oó]n|refund)\\b", RegexOption.IGNORE_CASE).containsMatchIn(combined) ->
                 "Devoluciones" to 0.94
-            Regex("\\\\b(inter[eé]s|interest)\\\\b", RegexOption.IGNORE_CASE).containsMatchIn(combined) ->
+            Regex("\\b(inter[eé]s|interest)\\b", RegexOption.IGNORE_CASE).containsMatchIn(combined) ->
                 "Ingresos financieros" to 0.94
-            Regex("\\\\b(pensi[oó]n|prestaci[oó]n|subsidio)\\\\b", RegexOption.IGNORE_CASE).containsMatchIn(combined) ->
+            Regex("\\b(pensi[oó]n|prestaci[oó]n|subsidio)\\b", RegexOption.IGNORE_CASE).containsMatchIn(combined) ->
                 "Prestaciones" to 0.90
             else -> null
         }
