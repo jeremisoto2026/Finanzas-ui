@@ -60,7 +60,7 @@ begin
         and direction in ('expense', 'both')
     ) then raise exception 'La categoría seleccionada no es válida.'; end if;
 
-    select * into v_debt from public.debts d
+    select d.* into v_debt from public.debts d
       join public.transactions t on t.external_source = 'debt_creation'
         and t.external_reference = d.id::text
       where t.user_id = v_user_id and t.idempotency_key = p_idempotency_key
