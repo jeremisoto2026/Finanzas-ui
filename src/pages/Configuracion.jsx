@@ -1377,9 +1377,9 @@ export default function Configuracion() {
           <div>
             <div className="flex items-center gap-3">
               <Wallet className="h-5 w-5 text-sky-400" />
-              <span className="font-semibold text-white">Presupuestos familiares</span>
+              <span className="font-semibold text-white">Presupuestos mensuales</span>
             </div>
-            <p className="mt-1 max-w-2xl text-xs leading-5 text-slate-400">El importe que queda se aparta del dinero libre. Cuando registras un gasto real de esa categoría, el saldo baja y la reserva pendiente se reduce por el mismo importe; así no se cuenta dos veces.</p>
+            <p className="mt-1 max-w-2xl text-xs leading-5 text-slate-400">El presupuesto es un límite de planificación: compara lo previsto con los gastos reales del mes. No aparta dinero, no modifica el saldo de una cuenta ni genera un movimiento. Para separar dinero real por objetivo, utiliza «Reservas».</p>
           </div>
           <div className="flex items-center gap-3"><span className="text-sm font-semibold text-sky-300">€{totalPresupuestoMesProximo.toFixed(2)} · {mesProximoTexto}</span><button onClick={abrirNuevoPresupuesto} className="rounded-lg bg-sky-600 px-3 py-2 text-xs font-semibold text-white hover:bg-sky-500">Nuevo presupuesto</button></div>
         </div>

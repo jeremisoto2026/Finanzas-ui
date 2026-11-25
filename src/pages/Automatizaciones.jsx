@@ -1,10 +1,8 @@
 import FinanceSelect from '@/components/ui/FinanceSelect'
 import { useEffect, useMemo, useState } from 'react'
 import { merchantKeyFromName } from '@/lib/merchant-classifier'
-import { getLocalCaptureState, isFinanzasAndroid, openNotificationAccessSettings } from '@/lib/native-captures'
 import {
   AlertCircle,
-  BellRing,
   CheckCircle2,
   ChevronRight,
   Globe2,
@@ -88,10 +86,6 @@ export default function Automatizaciones({ onNavigate }) {
   const [cloudRulesAvailable, setCloudRulesAvailable] = useState(false)
   const [notificationInboxAvailable, setNotificationInboxAvailable] = useState(false)
   const [captureEvents, setCaptureEvents] = useState([])
-  const [notificationPermissionEnabled, setNotificationPermissionEnabled] = useState(false)
-  const [localCaptureCount, setLocalCaptureCount] = useState(0)
-  const [openingNotificationSettings, setOpeningNotificationSettings] = useState(false)
-  const isNativeAndroid = isFinanzasAndroid()
   const pendingPurchaseCount = useMemo(() => {
     const keys = new Set(captureEvents
       .filter((event) => ['needs_review', 'paired'].includes(event.status))
@@ -148,31 +142,9 @@ export default function Automatizaciones({ onNavigate }) {
       }
     }
 
-    if (isNativeAndroid) {
-      getLocalCaptureState()
-        .then((state) => {
-          if (!active) return
-          setNotificationPermissionEnabled(Boolean(state?.permissionEnabled))
-          setLocalCaptureCount(Array.isArray(state?.captures) ? state.captures.length : 0)
-        })
-        .catch((captureError) => console.warn('No se pudo consultar el lector de pagos:', captureError?.message || captureError))
-    }
-
     load()
     return () => { active = false }
-  }, [isNativeAndroid])
-
-  async function openAndroidNotificationSettings() {
-    setOpeningNotificationSettings(true)
-    setError('')
-    try {
-      await openNotificationAccessSettings()
-    } catch (settingsError) {
-      setError(settingsError?.message || 'No se pudieron abrir los ajustes de Android.')
-    } finally {
-      setOpeningNotificationSettings(false)
-    }
-  }
+  }, [])
 
   async function searchMerchant(event) {
     event.preventDefault()
@@ -346,7 +318,7 @@ export default function Automatizaciones({ onNavigate }) {
         </div>
         <h1 className="mt-2 text-2xl font-bold tracking-tight text-white sm:text-3xl">Automatizaciones y reglas</h1>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">
-          Finanzas detecta avisos compatibles, identifica el banco y el comercio, y registra automáticamente las compras fiables. Solo te pedirá intervenir cuando no pueda determinar la cuenta o la categoría con seguridad.
+          Aquí configuras las reglas de los comercios y las categorías que Finanzas debe reutilizar. Los permisos de Android, las cuentas bancarias vinculadas y la confirmación de cargos dudosos se gestionan en un único lugar: «Compras pendientes».
         </p>
       </header>
 
@@ -547,36 +519,23 @@ export default function Automatizaciones({ onNavigate }) {
 
           <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
             <div className="flex items-center gap-3">
-              <div className="rounded-xl bg-violet-500/10 p-2.5 text-violet-300">
-                <Smartphone className="h-5 w-5" />
+              <div className="rounded-xl bg-emerald-500/10 p-2.5 text-emerald-300">
+                <CheckCircle2 className="h-5 w-5" />
               </div>
               <div className="min-w-0">
-                <h2 className="font-semibold text-white">Detección en segundo plano</h2>
-                <p className="mt-0.5 text-xs text-slate-500">Revolut · BBVA · Google Wallet</p>
+                <h2 className="font-semibold text-white">Centro de revisión</h2>
+                <p className="mt-0.5 text-xs text-slate-500">Compras que necesitan confirmación</p>
               </div>
-            </div>
-            <div className="mt-4 flex items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-950/60 px-3 py-3">
-              <div className="flex items-center gap-2 text-xs text-slate-300">
-                <BellRing className="h-4 w-4 text-slate-400" />
-                Permiso de notificaciones
-              </div>
-              <span className={notificationPermissionEnabled ? "text-xs font-semibold text-emerald-300" : "text-xs font-semibold text-amber-300"}>
-                {isNativeAndroid ? (notificationPermissionEnabled ? "Activado" : "Pendiente") : "Solo APK Android"}
-              </span>
             </div>
             <p className="mt-3 text-xs leading-5 text-slate-400">
-              Capturas cifradas en este móvil: {localCaptureCount}. Los avisos de otras aplicaciones se ignoran.
-              Una compra solo se registra sola cuando coinciden Google Wallet y el aviso del banco, existe una cuenta vinculada
-              y la categoría es fiable. Si falta un aviso o hay ambigüedad, queda pendiente de revisión.
+              Las reglas de comercios se mantienen en esta sección. Aquí solo ves cuántos cargos requieren revisión; los permisos de Android y las cuentas vinculadas se gestionan dentro de «Compras pendientes».
             </p>
-            <div className="mt-4 flex flex-wrap gap-2">
-              {isNativeAndroid && (
-                <button type="button" onClick={openAndroidNotificationSettings} disabled={openingNotificationSettings} className="rounded-lg border border-slate-700 px-3 py-2 text-xs font-semibold text-slate-200 hover:bg-slate-800 disabled:opacity-50">
-                  {openingNotificationSettings ? "Abriendo ajustes…" : "Permisos Android"}
-                </button>
-              )}
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-950/60 px-3 py-3">
+              <span className="text-xs text-slate-300">
+                {pendingPurchaseCount > 0 ? `${pendingPurchaseCount} compra(s) por revisar` : "No hay compras pendientes detectadas"}
+              </span>
               <button type="button" onClick={() => onNavigate?.("Compras pendientes")} className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-500">
-                {pendingPurchaseCount > 0 ? `Revisar ${pendingPurchaseCount} compra(s)` : "Ver compras pendientes"}
+                Abrir centro de revisión
                 <ChevronRight className="h-3.5 w-3.5" />
               </button>
             </div>

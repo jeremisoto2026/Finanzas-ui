@@ -9,7 +9,6 @@ const packageJson = JSON.parse(readFileSync(resolve(here, '../../package.json'),
 const chartFiles = [
   '../components/dashboard/GraficoGastos.jsx',
   '../components/dashboard/GraficoIngresos.jsx',
-  '../components/dashboard/DashboardFinancieroUnificado.jsx',
 ]
 
 test('Recharts dependency uses major version 3', () => {

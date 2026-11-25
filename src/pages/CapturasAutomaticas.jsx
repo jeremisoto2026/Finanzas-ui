@@ -759,9 +759,9 @@ export default function CapturasAutomaticas() {
     <section className="mx-auto max-w-4xl space-y-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-400">Automatización</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-400">Centro de revisión</p>
           <h1 className="mt-2 text-2xl font-bold text-white">Compras pendientes de revisión</h1>
-          <p className="mt-1 text-sm text-slate-400">Solo aparecen las compras que Finanzas no pudo registrar con suficiente seguridad.</p>
+          <p className="mt-1 text-sm text-slate-400">Confirma aquí los cargos que no se pudieron registrar con seguridad. Los permisos de Android y las cuentas vinculadas también se gestionan en esta pantalla; las reglas de comercios se configuran en «Automatizaciones».</p>
         </div>
         <button
           type="button"
