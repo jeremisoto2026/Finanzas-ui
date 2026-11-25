@@ -77,7 +77,7 @@ export default async function handler(req, res) {
       const occurredOn = String(body.occurredOn || '').slice(0, 10)
       const dueOn = body.dueOn ? String(body.dueOn).slice(0, 10) : null
       if (!Number.isFinite(amount) || amount <= 0 || !Number.isFinite(outstanding) || outstanding < 0 || outstanding > amount ||
-          !/^\d{4}-\d{2}-\d{2}$/.test(occurredOn) || (dueOn && !/^\\d{4}-\\d{2}-\\d{2}$/.test(dueOn))) {
+          !/^\d{4}-\d{2}-\d{2}$/.test(occurredOn) || (dueOn && !/^\d{4}-\d{2}-\d{2}$/.test(dueOn))) {
         return res.status(400).json({ error: 'Revisa los importes y las fechas del préstamo.' })
       }
       const categoryId = await findOrCreateCategory(supabase, user.id, 'Préstamos concedidos', 'expense')
