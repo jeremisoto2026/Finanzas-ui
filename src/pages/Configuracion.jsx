@@ -796,10 +796,10 @@ export default function Configuracion() {
               <div className="p-2 bg-blue-900/30 rounded-lg">
                 <Settings className="h-6 w-6 text-blue-400" />
               </div>
-              <h1 className="text-2xl font-bold text-white">Gestión Financiera</h1>
+              <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">Pagos y presupuestos</h1>
             </div>
             <p className="text-slate-400 mt-2">
-              Controla tus pagos fijos y compras a cuotas guardados en Supabase
+              Organiza pagos fijos, compras a cuotas y límites de gasto. El presupuesto sirve para planificar: no aparta dinero ni modifica los saldos de tus cuentas.
             </p>
           </div>
           

@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
-import { Home, Receipt, TrendingUp, Settings, CalendarDays } from 'lucide-react'
+import { Home, Receipt, TrendingUp, Landmark, MoreHorizontal, X, ChevronRight, ArrowLeftRight, Wallet, CalendarDays, CircleDollarSign, Sparkles, ArrowDownCircle, BellRing, Settings } from 'lucide-react'
 import Sidebar from './Sidebar'
 import Navbar from './Navbar'
 import { useSettingsAttention } from '@/hooks/useSettingsAttention'
@@ -23,8 +23,45 @@ const primaryItems = [
   { name: 'Dashboard', label: 'Inicio', icon: Home },
   { name: 'Gastos', label: 'Gastos', icon: Receipt },
   { name: 'Ingresos', label: 'Ingresos', icon: TrendingUp },
-  { name: 'Ajustes', label: 'Ajustes', icon: Settings },
-  { name: 'Calendario', label: 'Calendario', icon: CalendarDays },
+  { name: 'Cuentas', label: 'Cuentas', icon: Landmark },
+  { name: 'Mas', label: 'Más', icon: MoreHorizontal },
+]
+
+const mobileSections = [
+  {
+    title: 'Cuentas',
+    items: [
+      { name: 'Transferencias', description: 'Mueve dinero entre tus propias cuentas', icon: ArrowLeftRight },
+    ],
+  },
+  {
+    title: 'Planificación',
+    items: [
+      { name: 'Gestión financiera', description: 'Pagos fijos, cuotas y presupuestos', icon: Wallet },
+      { name: 'Calendario', description: 'Fechas importantes y vencimientos', icon: CalendarDays },
+    ],
+  },
+  {
+    title: 'Seguimiento',
+    items: [
+      { name: 'Deudas y reposiciones', description: 'Controla préstamos y dinero pendiente de recuperar', icon: CircleDollarSign },
+      { name: 'Reservas', description: 'Consulta el dinero que has apartado', icon: Wallet },
+    ],
+  },
+  {
+    title: 'Automatización',
+    items: [
+      { name: 'Automatizaciones', description: 'Configura reglas para tus movimientos', icon: Sparkles },
+      { name: 'Compras pendientes', description: 'Revisa movimientos detectados antes de confirmarlos', icon: ArrowDownCircle },
+    ],
+  },
+  {
+    title: 'Sistema',
+    items: [
+      { name: 'Recordatorios', description: 'Avisos de pagos y fechas importantes', icon: BellRing },
+      { name: 'Ajustes', description: 'Seguridad y protección de la aplicación', icon: Settings },
+    ],
+  },
 ]
 
 function PageContent({ activePage, onNavigate, attentionCounts }) {
@@ -61,6 +98,7 @@ function LoadingView() {
 
 export default function Layout({ onSignOut }) {
   const [activePage, setActivePage] = useState('Dashboard')
+  const [mobileMoreOpen, setMobileMoreOpen] = useState(false)
   const { counts: attentionCounts, total: attentionTotal, markViewed, ready: attentionReady } = useSettingsAttention()
 
   useEffect(() => {
@@ -69,6 +107,8 @@ export default function Layout({ onSignOut }) {
   }, [activePage, attentionReady, markViewed])
 
   const cambiarPagina = (page) => {
+    setMobileMoreOpen(false)
+    if (page === 'Mas') { setMobileMoreOpen(true); return }
     const legacyDebtRoute = page === 'Deudas'
     const legacyReplenishmentRoute = page === 'Compromisos'
     const targetPage = legacyDebtRoute || legacyReplenishmentRoute ? 'Deudas y reposiciones' : page
@@ -169,30 +209,74 @@ export default function Layout({ onSignOut }) {
         </main>
       </div>
 
+      {mobileMoreOpen && (
+        <div
+          className="mobile-more-backdrop lg:hidden"
+          onClick={() => setMobileMoreOpen(false)}
+          onKeyDown={(event) => { if (event.key === 'Escape') setMobileMoreOpen(false) }}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="mobile-more-title"
+            className="mobile-more-sheet"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <div>
+                <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-emerald-400">Menú principal</p>
+                <h2 id="mobile-more-title" className="mt-1 text-lg font-semibold text-white">Más secciones</h2>
+                <p className="mt-1 text-xs text-slate-400">Encuentra cada herramienta según lo que necesitas hacer.</p>
+              </div>
+              <button type="button" onClick={() => setMobileMoreOpen(false)} aria-label="Cerrar menú" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-700 bg-slate-800 text-slate-300">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="space-y-4">
+              {mobileSections.map((section) => (
+                <div key={section.title}>
+                  <h3 className="mb-2 px-1 text-[9px] font-bold uppercase tracking-[0.16em] text-slate-500">{section.title}</h3>
+                  <div className="grid grid-cols-1 gap-1.5">
+                    {section.items.map((item) => (
+                      <button
+                        key={item.name}
+                        type="button"
+                        onClick={() => cambiarPagina(item.name)}
+                        className="flex min-h-12 items-center gap-3 rounded-xl border border-slate-800/90 bg-slate-900/70 px-3 py-2.5 text-left transition-colors hover:border-emerald-500/25 hover:bg-slate-800/90"
+                      >
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-xs font-semibold text-slate-100">{item.name}</span>
+                          <span className="mt-0.5 block text-[10px] leading-4 text-slate-400">{item.description}</span>
+                        </span>
+                        <ChevronRight className="h-4 w-4 shrink-0 text-slate-500" />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        </div>
+      )}
+
       <nav aria-label="Navegación móvil" className="app-bottom-nav lg:hidden">
         {primaryItems.map((item) => {
           const Icon = item.icon
-          const active = activePage === item.name || (item.name === 'Ajustes' && [
-            'Recordatorios',
-            'Automatizaciones',
-            'Compras pendientes',
-            'Gestión financiera',
-            'Cuentas',
-            'Transferencias',
-            'Deudas y reposiciones',
-            'Reservas',
-          ].includes(activePage))
+          const active = item.name === 'Mas'
+            ? mobileMoreOpen || !['Dashboard', 'Gastos', 'Ingresos', 'Cuentas'].includes(activePage)
+            : activePage === item.name
           return (
             <button
               key={item.name}
               type="button"
               aria-current={active ? 'page' : undefined}
+              aria-expanded={item.name === 'Mas' ? mobileMoreOpen : undefined}
               onClick={() => cambiarPagina(item.name)}
               className={'mobile-nav-item ' + (active ? 'is-active' : '')}
             >
               <span className="relative inline-flex">
                 <Icon className="h-5 w-5" strokeWidth={active ? 2.4 : 1.8} />
-                {item.name === 'Ajustes' && attentionTotal > 0 && <span className="absolute -right-2 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[9px] font-bold leading-none text-white">{attentionTotal > 99 ? '99+' : attentionTotal}</span>}
+                {item.name === 'Mas' && attentionTotal > 0 && <span className="absolute -right-2 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[9px] font-bold leading-none text-white">{attentionTotal > 99 ? '99+' : attentionTotal}</span>}
               </span>
               <span>{item.label}</span>
             </button>
