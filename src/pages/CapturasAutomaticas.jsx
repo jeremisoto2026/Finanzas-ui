@@ -251,7 +251,7 @@ export default function CapturasAutomaticas() {
           .limit(200),
         supabase
           .from('notification_income_candidates')
-          .select('id, source_app, source_label, amount, currency_code, occurred_at, reason, status, account_id, matched_transaction_id')
+          .select('id, source_app, source_label, amount, currency_code, occurred_at, reason, status, account_id, matched_transaction_id, suggested_category, classification_confidence, classification_source')
           .eq('status', 'needs_review')
           .order('occurred_at', { ascending: false })
           .limit(100),
@@ -597,7 +597,7 @@ export default function CapturasAutomaticas() {
 
   const registerPendingIncome = async (item) => {
     const accountId = incomeAccountSelections[item.id] || item.account_id || accountMappings.find((mapping) => mapping.source_app === item.source_app)?.account_id || ''
-    const categoryName = incomeCategorySelections[item.id] || ''
+    const categoryName = incomeCategorySelections[item.id] || (incomeCategories.some((category) => category.name === item.suggested_category) ? item.suggested_category : '')
     if (!Number.isFinite(Number(item.amount)) || Number(item.amount) <= 0) {
       setError('Este aviso no contiene un importe inequívoco. No se puede registrar hasta disponer de una cantidad confirmada.')
       return
@@ -1131,6 +1131,7 @@ export default function CapturasAutomaticas() {
                 </div>
                 <p className="mt-3 text-2xl font-bold text-sky-300">{item.amount == null ? 'Importe no identificado' : formatAmount(item.amount, item.currency_code)}</p>
                 <p className="mt-2 text-xs text-slate-400">{item.reason}</p>
+                {item.suggested_category && <p className="mt-1 text-[11px] text-sky-300">Finanzas ha sugerido «{item.suggested_category}» ({Math.round(Number(item.classification_confidence || 0) * 100)}% de confianza). Confirma antes de registrar.</p>}
                 <div className="mt-4 grid gap-3 sm:grid-cols-2">
                   <label className="text-xs font-medium text-slate-300">Cuenta donde recibiste el dinero
                     <FinanceSelect value={incomeAccountSelections[item.id] ?? item.account_id ?? accountMappings.find((mapping) => mapping.source_app === item.source_app)?.account_id ?? ''} onChange={(event) => setIncomeAccountSelections((current) => ({ ...current, [item.id]: event.target.value }))} className="mt-1.5 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-white">
@@ -1138,8 +1139,8 @@ export default function CapturasAutomaticas() {
                       {accounts.map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}
                     </FinanceSelect>
                   </label>
-                  <label className="text-xs font-medium text-slate-300">Categoría del ingreso
-                    <FinanceSelect value={incomeCategorySelections[item.id] || ''} onChange={(event) => setIncomeCategorySelections((current) => ({ ...current, [item.id]: event.target.value }))} className="mt-1.5 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-white">
+                  <label className="text-xs font-medium text-slate-300">{item.suggested_category ? 'Categoría sugerida' : 'Categoría del ingreso'}
+                    <FinanceSelect value={incomeCategorySelections[item.id] || (incomeCategories.some((category) => category.name === item.suggested_category) ? item.suggested_category : '')} onChange={(event) => setIncomeCategorySelections((current) => ({ ...current, [item.id]: event.target.value }))} className="mt-1.5 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-white">
                       <option value="">Selecciona una categoría</option>
                       {incomeCategories.map((category) => <option key={category.name} value={category.name}>{category.name}</option>)}
                     </FinanceSelect>
