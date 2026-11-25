@@ -1,5 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2.119.0"
-import { classifyExpenseMerchant } from "../_shared/finance-intelligence.js"
+import { classifyExpenseMerchant } from "./finance-intelligence.js"
 
 const ALLOWED_ORIGINS = new Set([
   "https://localhost",
