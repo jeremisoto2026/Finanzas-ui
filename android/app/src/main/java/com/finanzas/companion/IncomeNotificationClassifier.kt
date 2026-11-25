@@ -21,7 +21,7 @@ object IncomeNotificationClassifier {
     )
     // "Bizum" alone describes a channel, not the direction of money.
     private val inboundSignal = Regex(
-        """\b(ingres\w*|abono|abonad\w*|recibid\w*|recibiste|recibimos|te\s+ha[n]?\s+enviado|enviado\s+a\s+tu\s+cuenta|a\s+tu\s+favor|transferencia\s+entrante|bizum\s+recibid\w*|n[oó]mina|salario|salary|payroll|cashback|reembolso|devoluci[oó]n|reintegro|recompensa|reward|prestaci[oó]n|pensi[oó]n|inter[eé]s|interest|liquidaci[oó]n|payment\s+received|money\s+received|credit(?:ed)?|deposit(?:ed)?|refund(?:ed)?|返金)\b""",
+        """\b(ingres\w*|abono|abonad\w*|recibid\w*|recibiste|recibimos|te\s+ha[n]?\s+enviado|enviado\s+a\s+tu\s+cuenta|a\s+tu\s+favor|transferencia\s+entrante|bizum\s+recibid\w*|n[oó]mina|salario|salary|payroll|cashback|reembolso|devoluci[oó]n|reintegro|recompensa|reward|prestaci[oó]n|pensi[oó]n|inter[eé]s(?:es)?|interest(?:s)?|liquidaci[oó]n|payment\s+received|money\s+received|credit(?:ed)?|deposit(?:ed)?|refund(?:ed)?|返金)\b""",
         RegexOption.IGNORE_CASE
     )
     private val strongAutomaticSignal = Regex(
@@ -75,7 +75,7 @@ object IncomeNotificationClassifier {
                 "Nómina" to 0.97
             Regex("\\b(cashback|reembolso|devoluci[oó]n|refund)\\b", RegexOption.IGNORE_CASE).containsMatchIn(combined) ->
                 "Devoluciones" to 0.94
-            Regex("\\b(inter[eé]s|interest)\\b", RegexOption.IGNORE_CASE).containsMatchIn(combined) ->
+            Regex("\\b(inter[eé]s(?:es)?|interest(?:s)?)\\b", RegexOption.IGNORE_CASE).containsMatchIn(combined) ->
                 "Ingresos financieros" to 0.94
             Regex("\\b(pensi[oó]n|prestaci[oó]n|subsidio)\\b", RegexOption.IGNORE_CASE).containsMatchIn(combined) ->
                 "Prestaciones" to 0.90
