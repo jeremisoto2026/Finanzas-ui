@@ -4,12 +4,12 @@ import { classifyExpenseMerchant, classifyIncomeNotice } from "../../../supabase
 
 const categories = [
   { id: "food", name: "Alimentación" },
-  { id: "health", name: "Salud e higiene" },
+  { id: "health", name: "Salud" },
   { id: "transport", name: "Transporte" },
   { id: "phone", name: "Telefonía" },
   { id: "subs", name: "Suscripciones" },
   { id: "salary", name: "Nómina" },
-  { id: "refund", name: "Devoluciones" },
+  { id: "refund", name: "Reembolsos" },
 ];
 
 test("classifies known supermarkets with high confidence", () => {
