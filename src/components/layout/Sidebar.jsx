@@ -46,10 +46,9 @@ const groups = [
     ],
   },
   {
-    label: 'Automatización',
+    label: 'Revisión',
     items: [
-      { name: 'Automatizaciones', label: 'Reglas automáticas', description: 'Reglas para organizar movimientos', icon: Sparkles },
-      { name: 'Compras pendientes', label: 'Compras por revisar', description: 'Revisa movimientos detectados', icon: ArrowLeftRight },
+      { name: 'Compras pendientes', label: 'Compras por revisar', description: 'Revisa solo los movimientos dudosos', icon: ArrowLeftRight },
     ],
   },
   {
