@@ -249,13 +249,13 @@ test('Dynamic account schema keeps ownership and supports account classification
   assert.doesNotMatch(api, /req\.method === 'DELETE'/)
 })
 
-test('User account management is available from settings and uses authenticated routes', () => {
+test('User account management is available from the main navigation and uses authenticated routes', () => {
   const page = read('src/pages/Cuentas.jsx')
-  const settings = read('src/pages/Ajustes.jsx')
+  const sidebar = read('src/components/layout/Sidebar.jsx')
   const layout = read('src/components/layout/Layout.jsx')
   const native = read('src/lib/supabase.js')
 
-  assert.match(settings, /page: 'Cuentas'/)
+  assert.match(sidebar, /name: 'Cuentas'/)
   assert.match(layout, /const Cuentas = lazy\(\(\) => import\('@\/pages\/Cuentas'\)\)/)
   assert.match(layout, /activePage === 'Cuentas'/)
   assert.match(page, /fetch\('\/api\/cuentas'/)
