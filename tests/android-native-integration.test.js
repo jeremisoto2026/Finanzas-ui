@@ -97,7 +97,7 @@ test('Automatic capture posts bank-only alerts to the app default and pairs Wall
   assert.match(sync, /const bankSources = capture\.sources\.filter/)
   assert.match(sync, /source\.sourceApp/)
   assert.match(sync, /android:/)
-  assert.match(sync, /else if \(account\?\.id && categoryId\)/)
+  assert.match(sync, /else if \(account\?\.id && categoryId && categoryConfidence >= 0\.9\)/)
   assert.match(sync, /bankSources\.length !== 1/)
   assert.match(sync, /source_label: source\.label/)
   assert.match(sync, /exactMatches\.length === 1/)
