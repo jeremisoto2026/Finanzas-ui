@@ -77,9 +77,9 @@
     z-index: 100;
     isolation: isolate;
     box-sizing: border-box;
-    padding-top: calc(0.65rem + var(--finance-safe-area-top));
+    padding-top: calc(0.75rem + var(--finance-safe-area-top));
     padding-bottom: 0.65rem;
-    min-height: calc(4.2rem + var(--finance-safe-area-top));
+    min-height: calc(4.25rem + var(--finance-safe-area-top));
     background: #0d1828;
     background-color: #0d1828;
     background-image: none;
