@@ -220,7 +220,6 @@ class IncomeNotificationClassifierTest {
         assertEquals(true, result.classificationConfidence >= 0.9)
     }
 
-}
 
     @Test
     fun recognizesExplicitRefundCreditWithEuroSymbolAndKeepsItForReview() {
@@ -255,3 +254,4 @@ class IncomeNotificationClassifierTest {
         assertEquals(IncomeNoticeDecision.IGNORE, result.decision)
         assertNull(result.amountCents)
     }
+}
