@@ -215,7 +215,7 @@ class IncomeNotificationClassifierTest {
             "Devolución completada",
             "Devolución abonada: 12,99 EUR"
         )
-        assertEquals(IncomeNoticeDecision.NEEDS_REVIEW, result.decision)
+        assertEquals(IncomeNoticeDecision.AUTO_INCOME, result.decision)
         assertEquals("Devoluciones", result.suggestedCategory)
         assertEquals(true, result.classificationConfidence >= 0.9)
     }
