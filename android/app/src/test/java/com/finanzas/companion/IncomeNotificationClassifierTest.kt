@@ -189,4 +189,35 @@ class IncomeNotificationClassifierTest {
         assertNull(result.amountCents)
     }
 
+    @Test
+    fun suggestsPayrollCategoryForExplicitPayrollCredit() {
+        val result = IncomeNotificationClassifier.classify(
+            "Nómina abonada",
+            "Hemos recibido tu nómina de 1.234,56 EUR"
+        )
+        assertEquals("Nómina", result.suggestedCategory)
+        assertEquals(true, result.classificationConfidence >= 0.9)
+    }
+
+    @Test
+    fun doesNotSuggestIncomeCategoryForAmbiguousTransfer() {
+        val result = IncomeNotificationClassifier.classify(
+            "Transferencia recibida",
+            "Has recibido una transferencia de 75,00 EUR"
+        )
+        assertNull(result.suggestedCategory)
+        assertEquals(0.0, result.classificationConfidence, 0.0)
+    }
+
+    @Test
+    fun suggestsRefundCategoryWithoutAutoPostingIt() {
+        val result = IncomeNotificationClassifier.classify(
+            "Devolución completada",
+            "Devolución abonada: 12,99 EUR"
+        )
+        assertEquals(IncomeNoticeDecision.NEEDS_REVIEW, result.decision)
+        assertEquals("Devoluciones", result.suggestedCategory)
+        assertEquals(true, result.classificationConfidence >= 0.9)
+    }
+
 }
