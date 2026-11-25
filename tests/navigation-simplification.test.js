@@ -42,3 +42,21 @@ test('la configuración de capturas y su revisión tienen un único centro', () 
   assert.doesNotMatch(automation, /Permisos Android/)
   assert.match(captures, /permisos de Android y las cuentas vinculadas/)
 })
+
+test('el rediseño móvil prioriza cuatro accesos y organiza el resto en Más', () => {
+  const layout = read('src/components/layout/Layout.jsx')
+  const styles = read('src/styles/globals.css')
+  const dashboard = read('src/pages/Dashboard.jsx')
+
+  for (const label of ["label: 'Inicio'", "label: 'Gastos'", "label: 'Ingresos'", "label: 'Cuentas'", "label: 'Más'"]) {
+    assert.ok(layout.includes(label), 'Falta el acceso móvil ' + label)
+  }
+  for (const page of ['Transferencias', 'Gestión financiera', 'Calendario', 'Reservas', 'Deudas y reposiciones', 'Compras pendientes', 'Automatizaciones', 'Recordatorios', 'Ajustes']) {
+    assert.ok(layout.includes("name: '" + page + "'"), 'Falta la sección móvil ' + page)
+  }
+  assert.match(layout, /role="dialog"/)
+  assert.match(styles, /\.mobile-more-sheet/)
+  assert.match(dashboard, /Saldo de tus cuentas/)
+  assert.match(dashboard, /Dinero reservado/)
+  assert.match(dashboard, /Presupuesto/)
+})
