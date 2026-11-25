@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2.119.0"
 import { classifyExpenseMerchant } from "./finance-intelligence.js"
+import { classifyUnknownWithOpenAI } from "./finance-ai.js"
 
 const ALLOWED_ORIGINS = new Set([
   "https://localhost",
@@ -466,6 +467,16 @@ Deno.serve(async (req: Request) => {
       .in("direction", ["expense", "both"])
     if (categoryError) throw categoryError
 
+    const { data: incomeCategories, error: incomeCategoryError } = incomeCandidates.length > 0
+      ? await supabase
+        .from("categories")
+        .select("id, name")
+        .eq("user_id", userId)
+        .eq("is_active", true)
+        .in("direction", ["income", "both"])
+      : { data: [], error: null }
+    if (incomeCategoryError) throw incomeCategoryError
+
     const { data: accounts, error: accountError } = await supabase
       .from("accounts")
       .select("id, name, institution, currency_code, is_active, account_type")
@@ -511,12 +522,28 @@ Deno.serve(async (req: Request) => {
         ? categoryIds.get(normalizeText(capture.categorySuggestion)) || null
         : null
       const deterministic = classifyExpenseMerchant(capture.merchant, categories || [])
-      const categoryId = ruleCategoryId || suggestedCategoryId || deterministic.category?.id || null
+      let aiSuggestion = null
+      if (!ruleCategoryId && !suggestedCategoryId && !deterministic.category) {
+        aiSuggestion = await classifyUnknownWithOpenAI({
+          direction: "expense",
+          description: capture.merchant,
+          categories: categories || [],
+        })
+      }
+      const aiCategoryId = aiSuggestion
+        ? categoryIds.get(normalizeText(aiSuggestion.category)) || null
+        : null
+      const categoryId = ruleCategoryId || suggestedCategoryId || deterministic.category?.id || aiCategoryId || null
+      // AI suggestions are capped below the auto-post threshold and stay in review.
       const categoryConfidence = ruleCategoryId
         ? Number(savedRule?.confidence || 0)
         : suggestedCategoryId
           ? 0.86
-          : deterministic.confidence
+          : deterministic.category
+            ? deterministic.confidence
+            : aiCategoryId
+              ? Math.min(Number(aiSuggestion?.confidence || 0), 0.89)
+              : 0
 
       const account = resolveMappedAccount(
         capture,
@@ -707,7 +734,23 @@ Deno.serve(async (req: Request) => {
 
     let syncedIncomeCandidates = 0
     if (incomeCandidates.length > 0) {
-      const incomeRows = await Promise.all(incomeCandidates.map(async (candidate) => ({
+      const incomeRows = await Promise.all(incomeCandidates.map(async (candidate) => {
+        let suggestedCategory = candidate.suggestedCategory
+        let classificationConfidence = candidate.classificationConfidence
+        let classificationSource = suggestedCategory ? "on_device_rules" : "none"
+        if (!suggestedCategory) {
+          const aiSuggestion = await classifyUnknownWithOpenAI({
+            direction: "income",
+            description: candidate.reason,
+            categories: incomeCategories || [],
+          })
+          if (aiSuggestion) {
+            suggestedCategory = aiSuggestion.category
+            classificationConfidence = Math.min(aiSuggestion.confidence, 0.89)
+            classificationSource = "openai"
+          }
+        }
+        return {
         user_id: userId,
         source_app: candidate.sourceApp,
         source_label: candidate.sourceLabel,
@@ -716,11 +759,12 @@ Deno.serve(async (req: Request) => {
         currency_code: "EUR",
         occurred_at: candidate.occurredAt,
         reason: candidate.reason,
-        suggested_category: candidate.suggestedCategory,
-        classification_confidence: candidate.classificationConfidence,
-        classification_source: candidate.suggestedCategory ? "on_device_rules" : "none",
+        suggested_category: suggestedCategory,
+        classification_confidence: classificationConfidence,
+        classification_source: classificationSource,
         status: "needs_review",
-      })))
+      }
+      }))
       const { data: savedIncomeRows, error: incomeSaveError } = await supabase
         .from("notification_income_candidates")
         .upsert(incomeRows, {
