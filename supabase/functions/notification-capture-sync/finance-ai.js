@@ -1,5 +1,8 @@
 const OPENAI_URL = "https://api.openai.com/v1/responses"
 
+// Explicitly disabled for the no-cost Preview phase. Change only after approval.
+const OPENAI_ENABLED = false
+
 function isEnabled() {
   return Deno.env.get("FINANCE_AI_ENABLED") === "true" &&
     Boolean(Deno.env.get("OPENAI_API_KEY")) &&
