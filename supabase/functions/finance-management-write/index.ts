@@ -522,7 +522,7 @@ async function replenishments(db: any, userId: string, method: string, body: any
 function mapDebt(row: any) {
   return { id: row.id, direction: row.direction, personName: row.person_name,
     description: row.description || "", originalAmount: Number(row.original_amount || 0),
-    outstandingAmount: Number(row.outstanding_amount || 0), dueOn: row.due_on || null, status: row.status };
+    outstandingAmount: Number(row.outstanding_amount || 0), dueOn: row.due_on || null, status: row.status, accountId: row.account_id || null };
 }
 async function debtCategoryId(db: any, userId: string, direction: string) {
   const income = direction === "receivable";
@@ -554,7 +554,7 @@ async function debtCategoryId(db: any, userId: string, direction: string) {
   return created.id;
 }
 async function debts(db: any, userId: string, method: string, body: any) {
-  const select = "id, direction, person_name, description, original_amount, outstanding_amount, due_on, status";
+  const select = "id, direction, person_name, description, original_amount, outstanding_amount, due_on, status, account_id";
   if (method === "POST" && body.action === "settle") {
     if (!body.id || !body.accountId || !body.idempotencyKey) throw new HttpError("Selecciona deuda, cuenta y confirma la operación.");
     const amount = Number(body.amount);
@@ -575,6 +575,31 @@ async function debts(db: any, userId: string, method: string, body: any) {
     if (updateError) throw updateError;
     return { status: 200, body: { success: true, debt: mapDebt(updated),
       transactionId: settlement?.transactionId || null, alreadyRecorded: Boolean(settlement?.alreadyRecorded) } };
+  }
+  if (method === "POST" && body.direction === "receivable") {
+    if (!body.accountId || !body.idempotencyKey) throw new HttpError("Selecciona la cuenta desde la que prestaste el dinero.");
+    const amount = Number(body.amount ?? body.originalAmount);
+    const outstanding = Number(body.outstandingAmount ?? amount);
+    const occurredOn = String(body.occurredOn || "").slice(0, 10);
+    const dueOn = body.dueOn ? String(body.dueOn).slice(0, 10) : null;
+    if (!Number.isFinite(amount) || amount <= 0 || !Number.isFinite(outstanding) || outstanding < 0 || outstanding > amount ||
+        !dateIsValid(occurredOn) || (dueOn && !dateIsValid(dueOn))) {
+      throw new HttpError("Revisa los importes y las fechas del préstamo.");
+    }
+    const category = await categoryId(db, userId, "Préstamos concedidos");
+    const { data: created, error: createError } = await db.rpc("register_debt_creation", {
+      p_direction: "receivable", p_person_name: String(body.personName || "").trim(),
+      p_description: String(body.description || "").trim() || null,
+      p_original_amount: amount, p_outstanding_amount: outstanding, p_due_on: dueOn,
+      p_account_id: body.accountId, p_occurred_on: occurredOn,
+      p_idempotency_key: body.idempotencyKey, p_category_id: category,
+    });
+    if (createError) throw createError;
+    const { data: debt, error: readError } = await db.from("debts").select(select)
+      .eq("id", created.debtId).eq("user_id", userId).single();
+    if (readError) throw readError;
+    return { status: 201, body: { ...mapDebt(debt), alreadyRecorded: Boolean(created.alreadyRecorded),
+      transactionId: created.transactionId || null } };
   }
   if (method === "POST" || method === "PATCH") {
     if (method === "PATCH" && !body.id) throw new HttpError("Falta el identificador de la deuda.");
