@@ -30,9 +30,9 @@ const CATEGORY_ALIASES = {
   "Restauración": ["restauracion", "restaurantes", "comida fuera"],
   "Ingresos laborales": ["ingresos laborales", "nomina", "salario"],
   "Nómina": ["nomina", "salario", "ingresos laborales"],
-  "Devoluciones": ["devoluciones", "reembolsos", "cashback"],
+  "Devoluciones": ["devoluciones", "reembolsos", "cashback", "devoluciones de compras", "cashback y recompensas"],
   "Ingresos financieros": ["ingresos financieros", "intereses"],
-  "Prestaciones": ["prestaciones", "ayudas", "subsidios"],
+  "Prestaciones": ["prestaciones", "ayudas", "subsidios", "prestaciones y ayudas"],
   "Otros ingresos": ["otros ingresos", "ingresos varios"],
 };
 
