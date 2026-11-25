@@ -154,6 +154,24 @@
     box-shadow: 0 16px 40px rgba(0, 0, 0, 0.14);
   }
 
+  .landing-page {
+    box-sizing: border-box;
+    min-height: 100vh;
+    min-height: 100dvh;
+    overflow-x: clip;
+    scroll-padding-top: calc(4rem + var(--finance-safe-area-top));
+    scroll-padding-bottom: var(--finance-safe-area-bottom);
+  }
+
+  .landing-header {
+    box-sizing: border-box;
+    padding-top: var(--finance-safe-area-top);
+  }
+
+  .landing-footer {
+    padding-bottom: var(--finance-safe-area-bottom);
+  }
+
   .mobile-more-backdrop {
     position: fixed;
     z-index: 70;
