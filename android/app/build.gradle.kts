@@ -74,6 +74,7 @@ android {
     buildTypes {
         // Debug APKs are always isolated from Production.
         getByName("debug") {
+            applicationIdSuffix = ".preview"
             versionNameSuffix = "-preview"
             if (hasPersistentPreviewSigning) {
                 signingConfig = signingConfigs.getByName("preview")
