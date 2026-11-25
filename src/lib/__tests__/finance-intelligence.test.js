@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { classifyExpenseMerchant, classifyIncomeNotice } from "../../supabase/functions/_shared/finance-intelligence.js";
+import { classifyExpenseMerchant, classifyIncomeNotice } from "../../../supabase/functions/notification-capture-sync/finance-intelligence.js";
 
 const categories = [
   { id: "food", name: "Alimentación" },
