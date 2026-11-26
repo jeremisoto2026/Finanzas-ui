@@ -39,7 +39,7 @@ const CATEGORY_ALIASES = {
   "Ingresos financieros": ["ingresos financieros", "intereses"],
   "Prestaciones": ["prestaciones", "ayudas", "subsidios", "prestaciones y ayudas"],
   "Otros ingresos": ["otros ingresos", "ingresos varios"],
-  "Devolución de préstamo": ["devolucion de prestamo", "prestamo devuelto", "devoluciones", "reembolsos"],
+  "Devolución de préstamo": ["cobros de prestamos", "prestamo devuelto", "devoluciones", "reembolsos"],
   "Hogar": ["hogar", "suministros", "electricidad", "agua", "gas", "servicios del hogar", "servicios"],
   "Vivienda": ["vivienda", "alquiler", "arrendamiento", "habitacion", "renta"],
   "Servicios": ["servicios", "suministros", "electricidad", "agua", "gas"],
@@ -75,7 +75,7 @@ export function classifyIncomeNotice(reason, categories = []) {
   let confidence = 0;
   if (/\b(nomina|salario|salary|payroll)\b/.test(value)) {
     wanted = "Nómina"; confidence = 0.97;
-  } else if (/\b(te ha devuelto|ha devuelto|devolucion (?:del )?prestamo|prestamo anterior|dinero prestado|prestamo que (?:le )?hiciste)\b/.test(value)) {
+  } else if (/\b(te ha devuelto|ha devuelto|devuelve|devolvio|devolucion (?:del )?prestamo|prestamo anterior|dinero prestado|prestamo que (?:le )?hiciste)\b/.test(value) && /\bprestamo\b/.test(value)) {
     wanted = "Devolución de préstamo"; confidence = 0.94;
   } else if (/\b(cashback|reembolso|devolucion|refund|reintegro|devuelto)\b/.test(value)) {
     wanted = "Devoluciones"; confidence = 0.94;
