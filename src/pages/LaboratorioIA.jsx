@@ -28,6 +28,9 @@ export default function LaboratorioIA() {
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState(null)
   const [error, setError] = useState('')
+  const [autoTesting, setAutoTesting] = useState(false)
+  const [autoResults, setAutoResults] = useState([])
+  const [autoProgress, setAutoProgress] = useState(0)
 
   useEffect(() => {
     let active = true
@@ -65,6 +68,65 @@ export default function LaboratorioIA() {
     }).slice(0, 60)
   }, [categories])
 
+  const AUTO_TESTS = [
+    { label: 'Nómina', description: 'NÓMINA RECIBIDA 740 €', direction: 'income', amount: 740 },
+    { label: 'Bizum recibido', description: 'BIZUM RECIBIDO DE UN AMIGO 50 €', direction: 'income', amount: 50 },
+    { label: 'Venta', description: 'VENTA DE PATINETE 300 €', direction: 'income', amount: 300 },
+    { label: 'Devolución', description: 'DEVOLUCIÓN DE COMPRA 32,99 €', direction: 'income', amount: 32.99 },
+    { label: 'Supermercado', description: 'COMPRA EN SUPERMERCADO 46,80 €', direction: 'expense', amount: 46.8 },
+    { label: 'Electricidad', description: 'RECIBO DE ELECTRICIDAD 87,75 €', direction: 'expense', amount: 87.75 },
+    { label: 'Suscripción', description: 'COBRO DE NETFLIX 12,99 €', direction: 'expense', amount: 12.99 },
+    { label: 'Transferencia propia', description: 'TRANSFERENCIA ENTRE MIS CUENTAS 100 €', direction: 'transfer', amount: 100 },
+    { label: 'Importe sin contexto', description: 'MOVIMIENTO DE 100 €', direction: 'unknown', amount: 100 },
+    { label: 'Dos movimientos juntos', description: 'AYER RECIBÍ 50 € Y HOY PAGUÉ 20 €', direction: 'unknown', amount: null },
+  ]
+
+  async function analyzeWithGemini(text) {
+    const { data, error: invokeError } = await supabase.functions.invoke('finance-ai-lab', {
+      body: { description: text, categories: uniqueCategories },
+    })
+    if (invokeError) {
+      let serverMessage = ''
+      try {
+        const payload = await invokeError.context?.json?.()
+        serverMessage = typeof payload?.error === 'string' ? payload.error : ''
+      } catch { /* Keep original client error. */ }
+      throw new Error(serverMessage || invokeError.message || 'No se pudo conectar con Gemini.')
+    }
+    if (!data?.ok) throw new Error(data?.error || 'La IA no pudo completar la prueba.')
+    return data.result
+  }
+
+  async function runAutomaticTests() {
+    if (!uniqueCategories.length || autoTesting || loading) return
+    setAutoTesting(true)
+    setAutoResults([])
+    setAutoProgress(0)
+    setError('')
+    const results = []
+    for (let index = 0; index < AUTO_TESTS.length; index += 1) {
+      const test = AUTO_TESTS[index]
+      try {
+        const analysis = await analyzeWithGemini(test.description)
+        const directionOk = analysis.direction === test.direction
+        const amountOk = test.amount === null
+          ? analysis.amount === null
+          : Number.isFinite(Number(analysis.amount)) && Math.abs(Number(analysis.amount) - test.amount) < 0.011
+        results.push({ ...test, analysis, passed: directionOk && amountOk, directionOk, amountOk })
+      } catch (err) {
+        results.push({ ...test, error: err?.message || 'Error de conexión', passed: false, directionOk: false, amountOk: false })
+        if (/límite gratuito|429|temporalmente/i.test(err?.message || '')) {
+          results.push(...AUTO_TESTS.slice(index + 1).map((remaining) => ({ ...remaining, skipped: true, passed: false })))
+          break
+        }
+      }
+      setAutoResults([...results])
+      setAutoProgress(index + 1)
+    }
+    setAutoResults(results)
+    setAutoTesting(false)
+  }
+
   async function runTest(event) {
     event.preventDefault()
     setError('')
@@ -80,21 +142,8 @@ export default function LaboratorioIA() {
     }
     setLoading(true)
     try {
-      const { data, error: invokeError } = await supabase.functions.invoke('finance-ai-lab', {
-        body: { description: clean, categories: uniqueCategories },
-      })
-      if (invokeError) {
-        let serverMessage = ''
-        try {
-          const payload = await invokeError.context?.json?.()
-          serverMessage = typeof payload?.error === 'string' ? payload.error : ''
-        } catch {
-          // Keep the original client error when the response body is unavailable.
-        }
-        throw new Error(serverMessage || invokeError.message || 'No se pudo conectar con Gemini.')
-      }
-      if (!data?.ok) throw new Error(data?.error || 'La IA no pudo completar la prueba.')
-      setResult(data.result)
+      const analysis = await analyzeWithGemini(clean)
+      setResult(analysis)
     } catch (err) {
       setError(err?.message || 'No se pudo conectar con Gemini.')
     } finally {
@@ -175,6 +224,36 @@ export default function LaboratorioIA() {
           </div>}
         </form>
 
+        <div className="lg:col-span-2 rounded-2xl border border-violet-400/20 bg-slate-900/70 p-4 sm:p-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-base font-semibold text-white">Pruebas automáticas</h2>
+              <p className="mt-1 text-xs leading-5 text-slate-400">Gemini analizará 10 casos ficticios. Se comparan tipo e importe esperados. No se crean movimientos ni se modifican saldos.</p>
+            </div>
+            <button type="button" onClick={runAutomaticTests} disabled={autoTesting || loading || loadingCategories || !uniqueCategories.length} className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-violet-500 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-violet-400 disabled:cursor-not-allowed disabled:opacity-50">
+              {autoTesting ? <><Loader2 className="h-4 w-4 animate-spin" /> Ejecutando {autoProgress}/{AUTO_TESTS.length}</> : <><BrainCircuit className="h-4 w-4" /> Ejecutar pruebas automáticas</>}
+            </button>
+          </div>
+          {autoResults.length > 0 && <div className="mt-4 space-y-3">
+            <div className="flex flex-wrap gap-2 text-xs">
+              <span className="rounded-full border border-emerald-400/20 bg-emerald-400/5 px-3 py-1.5 text-emerald-200">Correctas: {autoResults.filter((item) => item.passed).length}</span>
+              <span className="rounded-full border border-rose-400/20 bg-rose-400/5 px-3 py-1.5 text-rose-200">Fallidas: {autoResults.filter((item) => !item.passed && !item.skipped).length}</span>
+              {autoResults.some((item) => item.skipped) && <span className="rounded-full border border-amber-400/20 bg-amber-400/5 px-3 py-1.5 text-amber-200">Sin ejecutar: {autoResults.filter((item) => item.skipped).length}</span>}
+            </div>
+            <div className="space-y-2">
+              {autoResults.map((item) => <div key={item.label} className="flex flex-col gap-1 rounded-xl border border-slate-800 bg-slate-950/50 p-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold text-white">{item.label} <span className="font-normal text-slate-500">· {item.description}</span></p>
+                  <p className="mt-1 text-[11px] text-slate-400">{item.error || (item.skipped ? 'No ejecutada por interrupción o límite del servicio.' : 'Detectado: ' + (DIRECTION_LABELS[item.analysis?.direction] || 'No identificado') + ' · ' + formatAmount(item.analysis?.amount) + (item.analysis?.category ? ' · ' + item.analysis.category : ''))}</p>
+                </div>
+                <span className={'inline-flex shrink-0 items-center gap-1 text-xs font-semibold ' + (item.skipped ? 'text-amber-300' : item.passed ? 'text-emerald-300' : 'text-rose-300')}>
+                  {item.skipped ? 'Pendiente' : item.passed ? <><CheckCircle2 className="h-4 w-4" /> Correcta</> : <><AlertCircle className="h-4 w-4" /> Revisar</>}
+                </span>
+              </div>)}
+            </div>
+            <p className="text-[10px] leading-4 text-slate-500">La categoría detectada se muestra como información; el aprobado automático exige coincidencia de tipo e importe. Cada caso es una llamada independiente a Gemini y puede estar sujeto a límites gratuitos.</p>
+          </div>}
+        </div>
         <aside className="space-y-4">
           <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
             <h3 className="text-sm font-semibold text-white">Pruebas rápidas</h3>
