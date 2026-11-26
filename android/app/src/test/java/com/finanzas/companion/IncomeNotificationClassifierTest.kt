@@ -254,10 +254,8 @@ class IncomeNotificationClassifierTest {
         assertEquals(IncomeNoticeDecision.IGNORE, result.decision)
         assertNull(result.amountCents)
     }
-}
 
-
-    @Test
+@Test
     fun incomingTransferFromOwnBankAccountIsIgnoredAsAnInternalMove() {
         val result = IncomeNotificationClassifier.classify(
             "Revolut",
@@ -317,3 +315,4 @@ class IncomeNotificationClassifierTest {
         assertEquals(2990L, result.amountCents)
         assertEquals("Devoluciones", result.suggestedCategory)
     }
+}
