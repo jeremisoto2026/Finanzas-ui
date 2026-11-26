@@ -199,6 +199,54 @@ Deno.serve(async (req: Request) => {
         }
       }
 
+      if (/\b(alquiler|arrendamiento|rent|alquiler de habitacion)\b/.test(value)) {
+        return {
+          direction: "expense",
+          category: findAllowedCategory("expense", ["Vivienda", "Alquiler", "Hogar", "Servicios"]) || "__none__",
+          amount: explicitAmount,
+          confidence: 0.89,
+          explanation: "Pago de alquiler o vivienda.",
+          classificationSource: "bank-notification-rule",
+          ruleOverride: true,
+        }
+      }
+
+      if (/\b(mantenimiento de la moto|reparacion de la moto|taller de motos|taller mecanico|motocicleta)\b/.test(value)) {
+        return {
+          direction: "expense",
+          category: findAllowedCategory("expense", ["Transporte", "Servicios"]) || "__none__",
+          amount: explicitAmount,
+          confidence: 0.89,
+          explanation: "Mantenimiento o reparación de un vehículo.",
+          classificationSource: "bank-notification-rule",
+          ruleOverride: true,
+        }
+      }
+
+      if (/\b(casco|guantes|chaqueta|equipamiento|accesorios)\b/.test(value) && /\b(moto|motocicleta)\b/.test(value)) {
+        return {
+          direction: "expense",
+          category: findAllowedCategory("expense", ["Transporte", "Equipamiento", "Ropa"]) || "__none__",
+          amount: explicitAmount,
+          confidence: 0.89,
+          explanation: "Equipamiento o accesorios para la motocicleta.",
+          classificationSource: "bank-notification-rule",
+          ruleOverride: true,
+        }
+      }
+
+      if (/\b(comida|alimentacion|supermercado)\b/.test(value) && /\b(pago|compra|pagado|gastado)\b/.test(value)) {
+        return {
+          direction: "expense",
+          category: findAllowedCategory("expense", ["Alimentación", "Supermercado"]) || "__none__",
+          amount: explicitAmount,
+          confidence: 0.89,
+          explanation: "Compra de alimentos.",
+          classificationSource: "bank-notification-rule",
+          ruleOverride: true,
+        }
+      }
+
       if (/\b(farmacia|farmacia central|pharmacy)\b/.test(value)) {
         return {
           direction: "expense",
