@@ -89,8 +89,8 @@ Deno.serve(async (req: Request) => {
     const categoryOptions = categories.map((item: any) => item.name + " [" + item.direction + "]")
 
     function normalizeSignal(value: string) {
-      return String(value || "").normalize("NFD").replace(/[\\u0300-\\u036f]/g, "")
-        .toLocaleLowerCase("es").replace(/[^\\p{L}\\p{N}]+/gu, " ").trim().replace(/\\s+/g, " ")
+      return String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+        .toLocaleLowerCase("es").replace(/[^\p{L}\p{N}]+/gu, " ").trim().replace(/\s+/g, " ")
     }
 
     function findAllowedCategory(direction: "income" | "expense", aliases: string[]) {
@@ -108,12 +108,12 @@ Deno.serve(async (req: Request) => {
 
     function explicitNotificationRule(raw: string) {
       const value = normalizeSignal(raw)
-      const amountMatches = [...String(raw || "").matchAll(/(?<![\\p{L}\\d])(?:[-−]\\s*)?((?:\\d{1,3}(?:[ .\\u00A0,]\\d{3})+|\\d+)(?:[,.]\\d{1,2})?)\\s*(?:€|EUR)(?![\\p{L}])/giu)]
+      const amountMatches = [...String(raw || "").matchAll(/(?<![\p{L}\d])(?:[-−]\s*)?((?:\d{1,3}(?:[ .\u00A0,]\d{3})+|\d+)(?:[,.]\d{1,2})?)\s*(?:€|EUR)(?![\p{L}])/giu)]
       let explicitAmount: number | null = null
       if (amountMatches.length === 1) {
-        const source = amountMatches[0][1].replace(/\\s/g, "")
+        const source = amountMatches[0][1].replace(/\s/g, "")
         const normalized = source.includes(",")
-          ? source.replace(/\\./g, "").replace(",", ".")
+          ? source.replace(/\./g, "").replace(",", ".")
           : source
         const parsedAmount = Number(normalized)
         if (Number.isFinite(parsedAmount) && parsedAmount > 0 && parsedAmount <= 10000000) {
@@ -121,9 +121,9 @@ Deno.serve(async (req: Request) => {
         }
       }
 
-      const ownTransfer = /\\b(transferencia .* desde tu cuenta|transferencia .* a tu cuenta|desde tu cuenta \\w+|a tu cuenta \\w+|entre mis cuentas|cuenta propia|misma titularidad|transferencia interna)\\b/.test(value)
-      const cashWithdrawal = /\\b(has retirado|has sacado|retirada de efectivo|retirado .* cajero|cajero automatico|cash withdrawal|withdrawal at an atm)\\b/.test(value)
-      const cashDeposit = /\\b(ingresad[oa].*efectivo.*cuenta|ingreso de efectivo.*cuenta|cash deposit|deposited cash)\\b/.test(value)
+      const ownTransfer = /\b(transferencia .* desde tu cuenta|transferencia .* a tu cuenta|desde tu cuenta \w+|a tu cuenta \w+|entre mis cuentas|cuenta propia|misma titularidad|transferencia interna)\b/.test(value)
+      const cashWithdrawal = /\b(has retirado|has sacado|retirada de efectivo|retirado .* cajero|cajero automatico|cash withdrawal|withdrawal at an atm)\b/.test(value)
+      const cashDeposit = /\b(ingresad[oa].*efectivo.*cuenta|ingreso de efectivo.*cuenta|cash deposit|deposited cash)\b/.test(value)
       if (ownTransfer || cashWithdrawal || cashDeposit) {
         return {
           direction: "transfer",
@@ -140,8 +140,8 @@ Deno.serve(async (req: Request) => {
         }
       }
 
-      const loanReturn = /\\b(te ha devuelto|ha devuelto|devolucion de prestamo|prestamo anterior|dinero prestado)\\b/.test(value)
-      const refund = loanReturn || /\\b(reembolso|devolucion|reintegro|refund|cashback|importe devuelto|dinero devuelto)\\b/.test(value)
+      const loanReturn = /\b(te ha devuelto|ha devuelto|devolucion de prestamo|prestamo anterior|dinero prestado)\b/.test(value)
+      const refund = loanReturn || /\b(reembolso|devolucion|reintegro|refund|cashback|importe devuelto|dinero devuelto)\b/.test(value)
       if (refund) {
         const aliases = loanReturn
           ? ["Devolución de préstamo", "Préstamos devueltos", "Devoluciones", "Reembolsos"]
@@ -159,7 +159,7 @@ Deno.serve(async (req: Request) => {
         }
       }
 
-      if (/\\b(nomina|salario|payroll|salary)\\b/.test(value)) {
+      if (/\b(nomina|salario|payroll|salary)\b/.test(value)) {
         return {
           direction: "income",
           category: findAllowedCategory("income", ["Nómina", "Ingresos laborales", "Salario"]) || "__none__",
@@ -171,7 +171,7 @@ Deno.serve(async (req: Request) => {
         }
       }
 
-      if (/\\b(has recibido|transferencia recibida|bizum recibido|recibido de|recibida de)\\b/.test(value)) {
+      if (/\b(has recibido|transferencia recibida|bizum recibido|recibido de|recibida de)\b/.test(value)) {
         return {
           direction: "income",
           category: "__none__",
@@ -183,7 +183,7 @@ Deno.serve(async (req: Request) => {
         }
       }
 
-      if (/\\b(electricidad|recibo de la luz|recibo de luz|suministro electrico)\\b/.test(value)) {
+      if (/\b(electricidad|recibo de la luz|recibo de luz|suministro electrico)\b/.test(value)) {
         return {
           direction: "expense",
           category: findAllowedCategory("expense", ["Hogar", "Suministros", "Servicios", "Vivienda"]) || "__none__",
@@ -195,7 +195,7 @@ Deno.serve(async (req: Request) => {
         }
       }
 
-      if (/\\b(farmacia|farmacia central|pharmacy)\\b/.test(value)) {
+      if (/\b(farmacia|farmacia central|pharmacy)\b/.test(value)) {
         return {
           direction: "expense",
           category: findAllowedCategory("expense", ["Salud e higiene", "Salud", "Farmacia", "Servicios"]) || "__none__",
@@ -207,8 +207,8 @@ Deno.serve(async (req: Request) => {
         }
       }
 
-      if (/\\b(mercadona|consum|lidl|aldi|carrefour|eroski|alcampo|supermercado)\\b/.test(value) &&
-          /\\b(pago|compra|pagado|realizado)\\b/.test(value)) {
+      if (/\b(mercadona|consum|lidl|aldi|carrefour|eroski|alcampo|supermercado)\b/.test(value) &&
+          /\b(pago|compra|pagado|realizado)\b/.test(value)) {
         return {
           direction: "expense",
           category: findAllowedCategory("expense", ["Alimentación", "Supermercado"]) || "__none__",
@@ -220,8 +220,8 @@ Deno.serve(async (req: Request) => {
         }
       }
 
-      if (explicitAmount !== null && /(?:^|\\s)[-−]\\s*\\d/.test(String(raw)) &&
-          /\\b(pagado|pago|compra|cargo)\\b/.test(value)) {
+      if (explicitAmount !== null && /(?:^|\s)[-−]\s*\d/.test(String(raw)) &&
+          /\b(pagado|pago|compra|cargo)\b/.test(value)) {
         return {
           direction: "expense",
           category: "__none__",
@@ -541,7 +541,10 @@ Deno.serve(async (req: Request) => {
       const byId = new Map(parsed.map((item: any) => [String(item?.id), item]))
       const results = batchItems.map((item: any) => {
         const candidate: any = byId.get(item.id)
-        return candidate ? { id: item.id, ...normalizeResult(candidate) } : { id: item.id, error: "Gemini no devolvió este caso." }
+        if (!candidate) return { id: item.id, error: "El proveedor de IA no devolvió este caso." }
+        const notificationRule = explicitNotificationRule(item.description)
+        const classified = notificationRule ? { ...candidate, ...notificationRule } : candidate
+        return { id: item.id, ...normalizeResult(classified) }
       })
       return response({ ok: true, results }, 200, origin)
     }
