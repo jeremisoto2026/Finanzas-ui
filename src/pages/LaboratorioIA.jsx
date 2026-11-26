@@ -81,7 +81,7 @@ export default function LaboratorioIA() {
     { label: 'Pago farmacia', description: 'Revolut: Has realizado un pago con tarjeta de 18,75 EUR en FARMACIA CENTRAL.', direction: 'expense', amount: 18.75, categoryCandidates: ['Salud e higiene', 'Salud', 'Farmacia'] },
   ]
 
-  async function analyzeWithGemini(text) {
+  async function analyzeWithAIProvider(text) {
     const { data, error: invokeError } = await supabase.functions.invoke('finance-ai-lab', {
       body: { description: text, categories: uniqueCategories },
     })
@@ -97,7 +97,7 @@ export default function LaboratorioIA() {
     return data.result
   }
 
-  async function analyzeBatchWithGemini(tests) {
+  async function analyzeBatchWithAIProvider(tests) {
     const { data, error: invokeError } = await supabase.functions.invoke('finance-ai-lab', {
       body: {
         batch: tests.map((test, index) => ({ id: String(index), description: test.description })),
@@ -110,7 +110,7 @@ export default function LaboratorioIA() {
         const payload = await invokeError.context?.json?.()
         serverMessage = typeof payload?.error === 'string' ? payload.error : ''
       } catch { /* Keep original client error. */ }
-      throw new Error(serverMessage || invokeError.message || 'No se pudo conectar con Gemini.')
+      throw new Error(serverMessage || invokeError.message || 'No se pudo conectar con el proveedor de IA.')
     }
     if (!data?.ok || !Array.isArray(data?.results)) {
       throw new Error(data?.error || 'El proveedor de IA no devolvió los resultados de las pruebas.')
@@ -126,11 +126,11 @@ export default function LaboratorioIA() {
     setError('')
     let results = []
     try {
-      const analyses = await analyzeBatchWithGemini(AUTO_TESTS)
+      const analyses = await analyzeBatchWithAIProvider(AUTO_TESTS)
       results = AUTO_TESTS.map((test, index) => {
         const analysis = analyses.find((item) => String(item.id) === String(index)) || analyses[index]
         if (!analysis || analysis.error) {
-          return { ...test, serviceError: analysis?.error || 'Gemini no devolvió este caso.', passed: false }
+          return { ...test, serviceError: analysis?.error || 'El proveedor de IA no devolvió este caso.', passed: false }
         }
         const directionOk = analysis.direction === test.direction
         const amountOk = test.amount === null
@@ -145,7 +145,7 @@ export default function LaboratorioIA() {
         return { ...test, analysis, passed: directionOk && amountOk && categoryOk, directionOk, amountOk, categoryOk }
       })
     } catch (err) {
-      const message = err?.message || 'No se pudo conectar con Gemini.'
+      const message = err?.message || 'No se pudo conectar con el proveedor de IA.'
       results = AUTO_TESTS.map((test) => ({ ...test, serviceError: message, passed: false }))
     }
     setAutoResults(results)
@@ -168,10 +168,10 @@ export default function LaboratorioIA() {
     }
     setLoading(true)
     try {
-      const analysis = await analyzeWithGemini(clean)
+      const analysis = await analyzeWithAIProvider(clean)
       setResult(analysis)
     } catch (err) {
-      setError(err?.message || 'No se pudo conectar con Gemini.')
+      setError(err?.message || 'No se pudo conectar con el proveedor de IA.')
     } finally {
       setLoading(false)
     }
