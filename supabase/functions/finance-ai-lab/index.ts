@@ -56,8 +56,12 @@ Deno.serve(async (req: Request) => {
     const { data: authData, error: authError } = await supabase.auth.getUser(token)
     if (authError || !authData?.user) return response({ error: "Tu sesión no es válida. Vuelve a iniciar sesión." }, 401, origin)
 
+    // Preview remains Cloudflare-forced until the bank-notification test battery is accepted.
+    const forceCloudflarePreviewTest = true
     const apiKey = Deno.env.get("GEMINI_API_KEY")
-    if (!apiKey) return response({ error: "Gemini todavía no está conectado. Añade GEMINI_API_KEY a los secretos de Supabase Preview." }, 503, origin)
+    if (!forceCloudflarePreviewTest && !apiKey) {
+      return response({ error: "El proveedor Gemini no está configurado en Supabase Preview." }, 503, origin)
+    }
 
     const body = await req.json().catch(() => null)
     if (!body || typeof body !== "object" || Array.isArray(body)) {
@@ -237,27 +241,26 @@ Deno.serve(async (req: Request) => {
     }
     const freeModelPreference = ["gemini-3.8-flash", "gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-2.5-flash-lite"]
     let availableModels = new Set<string>()
-    const listController = new AbortController()
-    const listTimeout = setTimeout(() => listController.abort(), 5000)
-    try {
-      const listResponse = await fetch("https://generativelanguage.googleapis.com/v1beta/models?key=" + encodeURIComponent(apiKey), { signal: listController.signal })
-      if (listResponse.ok) {
-        const listPayload = await listResponse.json()
-        availableModels = new Set((Array.isArray(listPayload?.models) ? listPayload.models : [])
-          .filter((item: any) => Array.isArray(item?.supportedGenerationMethods) && item.supportedGenerationMethods.includes("generateContent"))
-          .map((item: any) => String(item?.name || "").replace("models/", ""))
-          .filter((name: string) => freeModelPreference.includes(name)))
-      } else {
-        console.warn("Gemini models.list unavailable", { status: listResponse.status })
+    if (!forceCloudflarePreviewTest && apiKey) {
+      const listController = new AbortController()
+      const listTimeout = setTimeout(() => listController.abort(), 5000)
+      try {
+        const listResponse = await fetch("https://generativelanguage.googleapis.com/v1beta/models?key=" + encodeURIComponent(apiKey), { signal: listController.signal })
+        if (listResponse.ok) {
+          const listPayload = await listResponse.json()
+          availableModels = new Set((Array.isArray(listPayload?.models) ? listPayload.models : [])
+            .filter((item: any) => Array.isArray(item?.supportedGenerationMethods) && item.supportedGenerationMethods.includes("generateContent"))
+            .map((item: any) => String(item?.name || "").replace("models/", ""))
+            .filter((name: string) => freeModelPreference.includes(name)))
+        } else {
+          console.warn("Gemini models.list unavailable", { status: listResponse.status })
+        }
+      } catch (error) {
+        console.warn("Gemini models.list failed; using restricted fallback list", error instanceof Error ? error.message : String(error))
+      } finally {
+        clearTimeout(listTimeout)
       }
-    } catch (error) {
-      console.warn("Gemini models.list failed; using restricted fallback list", error instanceof Error ? error.message : String(error))
-    } finally {
-      clearTimeout(listTimeout)
     }
-
-    // TEMPORARY PREVIEW TEST: force Cloudflare so we can verify the fallback without using Gemini.
-    const forceCloudflarePreviewTest = true
     const candidateModels = forceCloudflarePreviewTest
       ? []
       : freeModelPreference.filter((name) => availableModels.size === 0 || availableModels.has(name))
@@ -537,7 +540,7 @@ Deno.serve(async (req: Request) => {
     }
 
     if (batchMode) {
-      if (!Array.isArray(parsed)) return response({ error: "Gemini devolvió un lote que no se pudo interpretar." }, 502, origin)
+      if (!Array.isArray(parsed)) return response({ error: "El proveedor de IA devolvió un lote que no se pudo interpretar." }, 502, origin)
       const byId = new Map(parsed.map((item: any) => [String(item?.id), item]))
       const results = batchItems.map((item: any) => {
         const candidate: any = byId.get(item.id)
@@ -556,7 +559,7 @@ Deno.serve(async (req: Request) => {
   } catch (error) {
     console.error("finance-ai-lab execution error", error instanceof Error ? error.message : String(error))
     const message = error instanceof Error && error.name === "AbortError"
-      ? "Gemini tardó demasiado en responder. Vuelve a intentarlo."
+      ? "El proveedor de IA tardó demasiado en responder. Vuelve a intentarlo."
       : "No se pudo completar la prueba de IA."
     return response({ error: message }, 500, origin || "null")
   }
