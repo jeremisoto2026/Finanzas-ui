@@ -21,7 +21,7 @@ object IncomeNotificationClassifier {
     )
     // "Bizum" alone describes a channel, not the direction of money.
     private val inboundSignal = Regex(
-        """\b(ingres\w*|abono|abonad\w*|recibid\w*|recibiste|recibimos|te\s+ha[n]?\s+enviado|enviado\s+a\s+tu\s+cuenta|a\s+tu\s+favor|transferencia\s+entrante|bizum\s+recibid\w*|n[oó]mina|salario|salary|payroll|cashback|reembolso|devoluci[oó]n|reintegro|recompensa|reward|prestaci[oó]n|pensi[oó]n|inter[eé]s(?:es)?|interest(?:s)?|liquidaci[oó]n|payment\s+received|money\s+received|credit(?:ed)?|deposit(?:ed)?|refund(?:ed)?|返金)\b""",
+        """\b(ingres\w*|abono|abonad\w*|recibid\w*|recibiste|recibimos|te\s+ha[n]?\s+enviado|te\s+ha\s+devuelto|ha\s+devuelto|devuelt\w*|enviado\s+a\s+tu\s+cuenta|a\s+tu\s+favor|transferencia\s+entrante|bizum\s+recibid\w*|n[oó]mina|salario|salary|payroll|cashback|reembolso|devoluci[oó]n|reintegro|recompensa|reward|prestaci[oó]n|pensi[oó]n|inter[eé]s(?:es)?|interest(?:s)?|liquidaci[oó]n|payment\s+received|money\s+received|credit(?:ed)?|deposit(?:ed)?|refund(?:ed)?|返金)\b""",
         RegexOption.IGNORE_CASE
     )
     private val strongAutomaticSignal = Regex(
@@ -32,12 +32,26 @@ object IncomeNotificationClassifier {
         """\b(transferencia|bizum|te\s+ha[n]?\s+enviado|incoming\s+transfer|payment\s+received)\b""",
         RegexOption.IGNORE_CASE
     )
+    // Movements between the user's own accounts (including bank-to-cash).
+    // These must never enter the income or expense queues.
     private val ownTransferSignal = Regex(
-        """\b(entre\s+(?:mis\s+)?cuentas|traspaso\s+(?:entre\s+)?cuentas|cuenta\s+propia|misma\s+titularidad|transferencia\s+interna|own\s+account|between\s+(?:my\s+)?accounts|internal\s+transfer)\b""",
+        """\b(entre\s+(?:mis\s+)?cuentas|traspaso\s+(?:entre\s+)?cuentas|cuenta\s+propia|misma\s+titularidad|transferencia\s+interna|transferencia\s+(?:recibida\s+)?desde\s+tu\s+cuenta|transferencia\s+(?:enviada\s+)?(?:a|hacia)\s+tu\s+cuenta|desde\s+tu\s+cuenta\s+\w+|(?:a|hacia)\s+tu\s+cuenta\s+\w+|ingresad[oa].{0,100}efectivo.{0,100}cuenta|cash\s+deposit|deposited\s+cash|own\s+account|between\s+(?:my\s+)?accounts|internal\s+transfer)\b""",
+        RegexOption.IGNORE_CASE
+    )
+    private val cashWithdrawalSignal = Regex(
+        """\b(has\s+retirado|has\s+sacado|retirad[oa]\s+\w*.{0,40}cajero|retirada\s+de\s+efectivo|cajero\s+autom[aá]tico|cash\s+withdrawal|withdrawal\s+at\s+an\s+atm)\b""",
+        RegexOption.IGNORE_CASE
+    )
+    private val explicitRefundSignal = Regex(
+        """\b(reembolso|devoluci[oó]n|reintegro|refund|returned\s+to\s+your\s+account)\b""",
+        RegexOption.IGNORE_CASE
+    )
+    private val loanReturnSignal = Regex(
+        """\b(te\s+ha\s+devuelto|ha\s+devuelto|devuelto\s+de\s+un\s+pr[eé]stamo|devoluci[oó]n\s+de\s+pr[eé]stamo|pr[eé]stamo\s+anterior)\b""",
         RegexOption.IGNORE_CASE
     )
     private val outgoingSignal = Regex(
-        """\b(pago\s+aceptado|aceptado\s+el\s+pago|pago\s+(?:realizado|enviado|emitido|con\s+tarjeta)|pago\s+(?:aceptado|de)|has\s+pagado|pagaste|ha[s]?\s+realizado\s+(?:un\s+)?(?:pago|compra)|compra(?:s)?(?:\s+(?:realizada|realizadas|con\s+tarjeta))?|cargo(?:s)?(?:\s+(?:realizado|en\s+tu\s+cuenta))?|se\s+ha\s+cargado|tarjeta\s+(?:utilizada|usada)|retirada(?:s)?|retiraste|enviaste|has\s+enviado|transferencia\s+enviada|bizum\s+enviado|domiciliaci[oó]n|recibo\s+pagado|debit(?:ed)?|purchase(?:s)?(?:\s+at)?|card\s+(?:payment|purchase|used)|you\s+paid|you\s+spent|spent\s+at|withdrawal|cash\s+withdrawal|payment\s+at|sent\s+(?:a\s+)?payment|money\s+sent|outgoing\s+transfer)\b""",
+        """\b(pago\s+aceptado|aceptado\s+el\s+pago|pago\s+(?:realizado|enviado|emitido|con\s+tarjeta)|pago\s+(?:aceptado|de)|has\s+pagado|pagaste|ha[s]?\s+realizado\s+(?:un\s+)?(?:pago|compra)|compra(?:s)?(?:\s+(?:realizada|realizadas|con\s+tarjeta))?|cargo(?:s)?(?:\s+(?:realizado|en\s+tu\s+cuenta))?|se\s+ha\s+cargado|tarjeta\s+(?:utilizada|usada)|retirada(?:s)?|retiraste|has\s+retirado|has\s+sacado|enviaste|has\s+enviado|transferencia\s+enviada|bizum\s+enviado|domiciliaci[oó]n|recibo\s+pagado|debit(?:ed)?|purchase(?:s)?(?:\s+at)?|card\s+(?:payment|purchase|used)|you\s+paid|you\s+spent|spent\s+at|withdrawal|cash\s+withdrawal|payment\s+at|sent\s+(?:a\s+)?payment|money\s+sent|outgoing\s+transfer)\b""",
         RegexOption.IGNORE_CASE
     )
     private val failedSignal = Regex(
@@ -49,8 +63,11 @@ object IncomeNotificationClassifier {
         RegexOption.IGNORE_CASE
     )
 
-    fun shouldSkipExpense(title: String?, text: String?): Boolean =
-        ownTransferSignal.containsMatchIn(combine(title, text))
+    fun shouldSkipExpense(title: String?, text: String?): Boolean {
+        val combined = combine(title, text)
+        return ownTransferSignal.containsMatchIn(combined) ||
+            cashWithdrawalSignal.containsMatchIn(combined)
+    }
 
     fun classify(title: String?, text: String?): IncomeNoticeClassification =
         classify(title, text, isFinancialSource = true)
@@ -58,8 +75,30 @@ object IncomeNotificationClassifier {
     fun classify(title: String?, text: String?, isFinancialSource: Boolean): IncomeNoticeClassification {
         val combined = combine(title, text)
         if (combined.isBlank()) return ignored("Notificación vacía")
+        if (ownTransferSignal.containsMatchIn(combined)) {
+            return ignored("Movimiento entre cuentas propias o ingreso/retirada de efectivo")
+        }
+        if (cashWithdrawalSignal.containsMatchIn(combined)) {
+            return ignored("Retirada de efectivo: no es un gasto")
+        }
+
+        // An explicit refund takes priority over the word "cancelled" in a
+        // notice that confirms the amount was actually returned.
+        if (explicitRefundSignal.containsMatchIn(combined) &&
+            (inboundSignal.containsMatchIn(combined) || loanReturnSignal.containsMatchIn(combined))
+        ) {
+            val amount = extractAmountCents(combined)
+            val loanReturn = loanReturnSignal.containsMatchIn(combined)
+            return IncomeNoticeClassification(
+                IncomeNoticeDecision.NEEDS_REVIEW,
+                amountCents = amount,
+                reason = if (loanReturn) "Devolución de préstamo recibida: confirmar origen"
+                    else "Reembolso o devolución recibida: confirmar movimiento",
+                suggestedCategory = if (loanReturn) "Devolución de préstamo" else "Devoluciones",
+                classificationConfidence = if (amount != null) 0.94 else 0.0
+            )
+        }
         if (failedSignal.containsMatchIn(combined)) return ignored("Operación fallida o cancelada")
-        if (ownTransferSignal.containsMatchIn(combined)) return ignored("Transferencia entre cuentas propias")
 
         // Direction is resolved before amount or generic financial-channel words.
         // This prevents "Pago aceptado ... con Bizum" becoming an income candidate.
@@ -73,6 +112,8 @@ object IncomeNotificationClassifier {
         val categorySuggestion = when {
             Regex("\\b(n[oó]mina|salario|salary|payroll)\\b", RegexOption.IGNORE_CASE).containsMatchIn(combined) ->
                 "Nómina" to 0.97
+            loanReturnSignal.containsMatchIn(combined) ->
+                "Devolución de préstamo" to 0.94
             Regex("\\b(cashback|reembolso|devoluci[oó]n|refund)\\b", RegexOption.IGNORE_CASE).containsMatchIn(combined) ->
                 "Devoluciones" to 0.94
             Regex("\\b(inter[eé]s(?:es)?|interest(?:s)?)\\b", RegexOption.IGNORE_CASE).containsMatchIn(combined) ->
