@@ -74,3 +74,10 @@ test("classifies motorcycle workshop expenses as transport", () => {
   const result = classifyExpenseMerchant("Taller de motos", categories);
   assert.equal(result.category?.name, "Transporte");
 });
+
+
+test("recognizes loan repayment phrased as devolución del préstamo", () => {
+  const result = classifyIncomeNotice("Has recibido 85 EUR. Concepto: devolución del préstamo que le hiciste anteriormente.", categories);
+  assert.equal(result.category?.name, "Devolución de préstamo");
+  assert.equal(result.requiresReview, false);
+});
