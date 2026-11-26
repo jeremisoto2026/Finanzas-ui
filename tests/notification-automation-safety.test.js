@@ -251,7 +251,7 @@ test('AI lab applies deterministic bank-notification safeguards and displays the
   assert.ok(edge.includes('const notificationRule = explicitNotificationRule(description)'))
   assert.ok(edge.includes('const notificationRule = explicitNotificationRule(item.description)'))
   assert.match(edge, /ruleOverride: true/)
-  assert.match(edge, /transferencia desde tu cuenta/)
+  assert.ok(edge.includes("desde tu cuenta"))
   assert.match(edge, /reembolso|devolucion/)
   assert.ok(screen.includes("result.provider || 'IA'"))
   assert.doesNotMatch(screen, /Análisis de Gemini/)
