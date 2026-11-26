@@ -34,6 +34,9 @@ const CATEGORY_ALIASES = {
   "Ingresos financieros": ["ingresos financieros", "intereses"],
   "Prestaciones": ["prestaciones", "ayudas", "subsidios", "prestaciones y ayudas"],
   "Otros ingresos": ["otros ingresos", "ingresos varios"],
+  "Devolución de préstamo": ["devolucion de prestamo", "prestamo devuelto", "devoluciones", "reembolsos"],
+  "Hogar": ["hogar", "suministros", "electricidad", "agua", "gas", "servicios del hogar", "servicios"],
+  "Servicios": ["servicios", "suministros", "electricidad", "agua", "gas"],
 };
 
 function resolveCategory(wanted, categories = []) {
