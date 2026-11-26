@@ -725,14 +725,21 @@ Deno.serve(async (req: Request) => {
         let suggestedCategory = candidate.suggestedCategory
         let classificationConfidence = candidate.classificationConfidence
         let classificationSource = suggestedCategory ? "on_device_rules" : "none"
-        if (!suggestedCategory) {
-          // Local, deterministic fallback only. The bank notice is not sent to Gemini.
-          const localSuggestion = classifyIncomeNotice(candidate.reason, incomeCategories || [])
-          if (localSuggestion.category) {
-            suggestedCategory = localSuggestion.category.name
-            classificationConfidence = localSuggestion.confidence
-            classificationSource = localSuggestion.source
-          }
+        // Always validate/refine on-device suggestions against this user's actual
+        // income categories. This also maps loan repayments to an available
+        // Devoluciones/Reembolsos category instead of persisting a made-up label.
+        const localSuggestion = classifyIncomeNotice(candidate.reason, incomeCategories || [])
+        if (localSuggestion.category) {
+          suggestedCategory = localSuggestion.category.name
+          classificationConfidence = localSuggestion.confidence
+          classificationSource = localSuggestion.source
+        } else if (
+          suggestedCategory &&
+          !(incomeCategories || []).some((category) => category.name === suggestedCategory)
+        ) {
+          suggestedCategory = null
+          classificationConfidence = 0
+          classificationSource = "none"
         }
         return {
         user_id: userId,
