@@ -89,8 +89,9 @@ object IncomeNotificationClassifier {
         ) {
             val amount = extractAmountCents(combined)
             val loanReturn = loanReturnSignal.containsMatchIn(combined)
+            val strongRefund = amount != null && strongAutomaticSignal.containsMatchIn(combined)
             return IncomeNoticeClassification(
-                IncomeNoticeDecision.NEEDS_REVIEW,
+                if (strongRefund) IncomeNoticeDecision.AUTO_INCOME else IncomeNoticeDecision.NEEDS_REVIEW,
                 amountCents = amount,
                 reason = if (loanReturn) "Devolución de préstamo recibida: confirmar origen"
                     else "Reembolso o devolución recibida: confirmar movimiento",
