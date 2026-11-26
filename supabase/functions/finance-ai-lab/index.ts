@@ -144,11 +144,11 @@ Deno.serve(async (req: Request) => {
         }
       }
 
-      const loanReturn = /\b(te ha devuelto|ha devuelto|devolucion (?:del )?prestamo|prestamo anterior|dinero prestado|prestamo que (?:le )?hiciste)\b/.test(value)
+      const loanReturn = /\b(te ha devuelto|ha devuelto|devuelve|devolvio|devolucion (?:del )?prestamo|prestamo anterior|dinero prestado|prestamo que (?:le )?hiciste)\b/.test(value) && /\bprestamo\b/.test(value)
       const refund = loanReturn || /\b(reembolso|devolucion|reintegro|refund|cashback|importe devuelto|dinero devuelto)\b/.test(value)
       if (refund) {
         const aliases = loanReturn
-          ? ["Devolución de préstamo", "Préstamos devueltos", "Devoluciones", "Reembolsos", "Otros ingresos"]
+          ? ["Cobros de préstamos", "Devolución de préstamo", "Préstamos devueltos", "Devoluciones", "Reembolsos", "Otros ingresos"]
           : ["Devoluciones", "Reembolsos", "Devolución de compra", "Otros ingresos"]
         return {
           direction: "income",
