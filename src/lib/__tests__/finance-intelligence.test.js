@@ -90,6 +90,15 @@ test("recognizes present-tense loan repayment", () => {
   assert.equal(result.requiresReview, false);
 });
 
+test("does not force loan repayments into payroll when no suitable income category exists", () => {
+  const result = classifyIncomeNotice("Juan devuelve 85 € del préstamo.", [
+    { id: "salary", name: "Nómina" },
+  ]);
+  assert.equal(result.category, null);
+  assert.equal(result.categoryName, null);
+  assert.equal(result.requiresReview, true);
+});
+
 test("maps loan repayment to Cobros de préstamos when that is the available category", () => {
   const result = classifyIncomeNotice("Juan devuelve 85 € del préstamo.", [
     { id: "loan-collections", name: "Cobros de préstamos" },
