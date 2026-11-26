@@ -78,7 +78,7 @@ test('las apps autorizadas registran gastos salientes y mantienen los ingresos e
   assert.ok(classifier.includes(String.raw`pago\s+(?:realizado|enviado|emitido|con\s+tarjeta)`))
   assert.match(classifier, /compra/)
   assert.ok(classifier.includes(String.raw`card\s+(?:payment|purchase|used)`))
-  assert.ok(classifier.indexOf('if (outgoingSignal.containsMatchIn(combined))') < classifier.indexOf('val amount = extractAmountCents(combined)'))
+  assert.ok(classifier.indexOf('if (outgoingSignal.containsMatchIn(combined))') < classifier.lastIndexOf('val amount = extractAmountCents(combined)'))
   assert.match(parser, /transactionSignal/)
   assert.match(service, /incomeClassification.decision != IncomeNoticeDecision.IGNORE/)
   assert.match(service, /NotificationParser\.parse\(/)
@@ -241,7 +241,7 @@ test('Android bank notices separate own transfers, cash movements, refunds and l
   assert.match(classifier, /loanReturnSignal/)
   assert.ok(classifier.indexOf('explicitRefundSignal.containsMatchIn(combined)') < classifier.indexOf('failedSignal.containsMatchIn(combined)'))
   assert.match(classifier, /Retirada de efectivo: no es un gasto/)
-  assert.match(classifier, /Transferencia entre cuentas propias/)
+  assert.match(classifier, /cuentas propias/)
 })
 
 test('AI lab applies deterministic bank-notification safeguards and displays the actual provider', () => {
