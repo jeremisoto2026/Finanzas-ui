@@ -255,3 +255,65 @@ class IncomeNotificationClassifierTest {
         assertNull(result.amountCents)
     }
 }
+
+
+    @Test
+    fun incomingTransferFromOwnBankAccountIsIgnoredAsAnInternalMove() {
+        val result = IncomeNotificationClassifier.classify(
+            "Revolut",
+            "Has recibido 150,00 EUR mediante transferencia desde tu cuenta BBVA"
+        )
+        assertEquals(IncomeNoticeDecision.IGNORE, result.decision)
+        assertNull(result.amountCents)
+    }
+
+    @Test
+    fun outgoingTransferToOwnBankAccountIsIgnoredAsAnInternalMove() {
+        val result = IncomeNotificationClassifier.classify(
+            "BBVA",
+            "Has enviado una transferencia de 200,00 EUR a tu cuenta Revolut"
+        )
+        assertEquals(IncomeNoticeDecision.IGNORE, result.decision)
+        assertNull(result.amountCents)
+    }
+
+    @Test
+    fun atmWithdrawalIsNotCapturedAsAnExpenseOrIncome() {
+        val title = "Revolut"
+        val body = "Has retirado 60,00 EUR en efectivo en un cajero automático"
+        val result = IncomeNotificationClassifier.classify(title, body)
+        assertEquals(IncomeNoticeDecision.IGNORE, result.decision)
+        assertEquals(true, IncomeNotificationClassifier.shouldSkipExpense(title, body))
+    }
+
+    @Test
+    fun cashDepositIntoOwnAccountIsNotANewIncome() {
+        val result = IncomeNotificationClassifier.classify(
+            "BBVA",
+            "Has ingresado 120,00 EUR en efectivo en tu cuenta bancaria"
+        )
+        assertEquals(IncomeNoticeDecision.IGNORE, result.decision)
+        assertNull(result.amountCents)
+    }
+
+    @Test
+    fun loanRepaymentIsIncomeCandidateWithLoanRefundSuggestion() {
+        val result = IncomeNotificationClassifier.classify(
+            "Revolut",
+            "Juan te ha devuelto 85,00 EUR de un préstamo anterior"
+        )
+        assertEquals(IncomeNoticeDecision.NEEDS_REVIEW, result.decision)
+        assertEquals(8500L, result.amountCents)
+        assertEquals("Devolución de préstamo", result.suggestedCategory)
+    }
+
+    @Test
+    fun refundedCancelledPurchaseTakesPriorityOverCancellationSignal() {
+        val result = IncomeNotificationClassifier.classify(
+            "BBVA",
+            "Compra con tarjeta de 29,90 EUR anulada. El importe ha sido devuelto a tu cuenta."
+        )
+        assertEquals(IncomeNoticeDecision.NEEDS_REVIEW, result.decision)
+        assertEquals(2990L, result.amountCents)
+        assertEquals("Devoluciones", result.suggestedCategory)
+    }
