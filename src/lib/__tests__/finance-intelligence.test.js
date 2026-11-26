@@ -12,6 +12,7 @@ const categories = [
   { id: "refund", name: "Reembolsos" },
   { id: "loan-refund", name: "Devolución de préstamo" },
   { id: "home", name: "Hogar" },
+  { id: "housing", name: "Vivienda" },
   { id: "services", name: "Servicios" },
 ];
 
@@ -61,4 +62,15 @@ test("classifies electricity receipts as household supplies", () => {
   const result = classifyExpenseMerchant("Recibo de electricidad", categories);
   assert.equal(result.category?.name, "Hogar");
   assert.ok(result.confidence >= 0.9);
+});
+
+
+test("classifies rent as housing rather than generic services", () => {
+  const result = classifyExpenseMerchant("Alquiler de habitación", categories);
+  assert.equal(result.category?.name, "Vivienda");
+});
+
+test("classifies motorcycle workshop expenses as transport", () => {
+  const result = classifyExpenseMerchant("Taller de motos", categories);
+  assert.equal(result.category?.name, "Transporte");
 });
