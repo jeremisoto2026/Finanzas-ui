@@ -126,7 +126,7 @@ Deno.serve(async (req: Request) => {
       }
 
       const ownTransfer = /\b(transferencia .* desde tu cuenta|transferencia .* a tu cuenta|desde tu cuenta \w+|a tu cuenta \w+|entre mis cuentas|cuenta propia|misma titularidad|transferencia interna)\b/.test(value)
-      const cashWithdrawal = /\b(has retirado|has sacado|retirada de efectivo|retirado .* cajero|cajero automatico|cash withdrawal|withdrawal at an atm)\b/.test(value)
+      const cashWithdrawal = /\b(has retirado|has sacado|retirada de efectivo|retirado .* cajero|cash withdrawal|withdrawal at an atm)\b/.test(value)
       const cashDeposit = /\b(ingresad[oa].*efectivo.*cuenta|ingreso de efectivo.*cuenta|cash deposit|deposited cash)\b/.test(value)
       if (ownTransfer || cashWithdrawal || cashDeposit) {
         return {
@@ -137,18 +137,18 @@ Deno.serve(async (req: Request) => {
           explanation: cashWithdrawal
             ? "Retirada de efectivo: cambia la ubicación del dinero y no constituye un gasto."
             : cashDeposit
-              ? "Ingreso de efectivo en una cuenta propia: no es un ingreso nuevo."
+              ? "Ingreso de efectivo en una cuenta propia: el dinero pasa del efectivo a la cuenta y no es un ingreso nuevo."
               : "Transferencia entre cuentas propias: no crea un ingreso ni un gasto nuevo.",
           classificationSource: "bank-notification-rule",
           ruleOverride: true,
         }
       }
 
-      const loanReturn = /\b(te ha devuelto|ha devuelto|devolucion de prestamo|prestamo anterior|dinero prestado)\b/.test(value)
+      const loanReturn = /\b(te ha devuelto|ha devuelto|devolucion (?:del )?prestamo|prestamo anterior|dinero prestado|prestamo que (?:le )?hiciste)\b/.test(value)
       const refund = loanReturn || /\b(reembolso|devolucion|reintegro|refund|cashback|importe devuelto|dinero devuelto)\b/.test(value)
       if (refund) {
         const aliases = loanReturn
-          ? ["Devolución de préstamo", "Préstamos devueltos", "Devoluciones", "Reembolsos"]
+          ? ["Devolución de préstamo", "Préstamos devueltos", "Devoluciones", "Reembolsos", "Otros ingresos"]
           : ["Devoluciones", "Reembolsos", "Devolución de compra", "Otros ingresos"]
         return {
           direction: "income",
@@ -193,7 +193,7 @@ Deno.serve(async (req: Request) => {
           category: findAllowedCategory("expense", ["Hogar", "Suministros", "Servicios", "Vivienda"]) || "__none__",
           amount: explicitAmount,
           confidence: 0.89,
-          explanation: "Recibo de electricidad: corresponde a un gasto de suministros del hogar.",
+          explanation: "Recibo de electricidad: gasto de suministros del hogar (electricidad).",
           classificationSource: "bank-notification-rule",
           ruleOverride: true,
         }
