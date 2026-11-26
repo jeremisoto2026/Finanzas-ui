@@ -97,34 +97,54 @@ export default function LaboratorioIA() {
     return data.result
   }
 
+  async function analyzeBatchWithGemini(tests) {
+    const { data, error: invokeError } = await supabase.functions.invoke('finance-ai-lab', {
+      body: {
+        batch: tests.map((test, index) => ({ id: String(index), description: test.description })),
+        categories: uniqueCategories,
+      },
+    })
+    if (invokeError) {
+      let serverMessage = ''
+      try {
+        const payload = await invokeError.context?.json?.()
+        serverMessage = typeof payload?.error === 'string' ? payload.error : ''
+      } catch { /* Keep original client error. */ }
+      throw new Error(serverMessage || invokeError.message || 'No se pudo conectar con Gemini.')
+    }
+    if (!data?.ok || !Array.isArray(data?.results)) {
+      throw new Error(data?.error || 'Gemini no devolvió los resultados de las pruebas.')
+    }
+    return data.results
+  }
+
   async function runAutomaticTests() {
     if (!uniqueCategories.length || autoTesting || loading) return
     setAutoTesting(true)
     setAutoResults([])
     setAutoProgress(0)
     setError('')
-    const results = []
-    for (let index = 0; index < AUTO_TESTS.length; index += 1) {
-      const test = AUTO_TESTS[index]
-      try {
-        const analysis = await analyzeWithGemini(test.description)
+    let results = []
+    try {
+      const analyses = await analyzeBatchWithGemini(AUTO_TESTS)
+      results = AUTO_TESTS.map((test, index) => {
+        const analysis = analyses.find((item) => String(item.id) === String(index)) || analyses[index]
+        if (!analysis || analysis.error) {
+          return { ...test, serviceError: analysis?.error || 'Gemini no devolvió este caso.', passed: false }
+        }
         const directionOk = analysis.direction === test.direction
         const amountOk = test.amount === null
           ? analysis.amount === null
           : Number.isFinite(Number(analysis.amount)) && Math.abs(Number(analysis.amount) - test.amount) < 0.011
-        results.push({ ...test, analysis, passed: directionOk && amountOk, directionOk, amountOk })
-      } catch (err) {
-        results.push({ ...test, error: err?.message || 'Error de conexión', passed: false, directionOk: false, amountOk: false })
-        if (/límite gratuito|429|temporalmente/i.test(err?.message || '')) {
-          results.push(...AUTO_TESTS.slice(index + 1).map((remaining) => ({ ...remaining, skipped: true, passed: false })))
-          break
-        }
-      }
-      setAutoResults([...results])
-      setAutoProgress(index + 1)
+        return { ...test, analysis, passed: directionOk && amountOk, directionOk, amountOk }
+      })
+    } catch (err) {
+      const message = err?.message || 'No se pudo conectar con Gemini.'
+      results = AUTO_TESTS.map((test) => ({ ...test, serviceError: message, passed: false }))
     }
     setAutoResults(results)
-    setAutoTesting(false)
+    setAutoProgress(AUTO_TESTS.length)
+
   }
 
   async function runTest(event) {
@@ -237,21 +257,21 @@ export default function LaboratorioIA() {
           {autoResults.length > 0 && <div className="mt-4 space-y-3">
             <div className="flex flex-wrap gap-2 text-xs">
               <span className="rounded-full border border-emerald-400/20 bg-emerald-400/5 px-3 py-1.5 text-emerald-200">Correctas: {autoResults.filter((item) => item.passed).length}</span>
-              <span className="rounded-full border border-rose-400/20 bg-rose-400/5 px-3 py-1.5 text-rose-200">Fallidas: {autoResults.filter((item) => !item.passed && !item.skipped).length}</span>
-              {autoResults.some((item) => item.skipped) && <span className="rounded-full border border-amber-400/20 bg-amber-400/5 px-3 py-1.5 text-amber-200">Sin ejecutar: {autoResults.filter((item) => item.skipped).length}</span>}
+              <span className="rounded-full border border-rose-400/20 bg-rose-400/5 px-3 py-1.5 text-rose-200">Fallidas: {autoResults.filter((item) => !item.passed && !item.skipped && !item.serviceError).length}</span>
+              {autoResults.some((item) => item.serviceError) && <span className="rounded-full border border-amber-400/20 bg-amber-400/5 px-3 py-1.5 text-amber-200">No evaluadas: {autoResults.filter((item) => item.serviceError).length}</span>}
             </div>
             <div className="space-y-2">
               {autoResults.map((item) => <div key={item.label} className="flex flex-col gap-1 rounded-xl border border-slate-800 bg-slate-950/50 p-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="min-w-0">
                   <p className="text-xs font-semibold text-white">{item.label} <span className="font-normal text-slate-500">· {item.description}</span></p>
-                  <p className="mt-1 text-[11px] text-slate-400">{item.error || (item.skipped ? 'No ejecutada por interrupción o límite del servicio.' : 'Detectado: ' + (DIRECTION_LABELS[item.analysis?.direction] || 'No identificado') + ' · ' + formatAmount(item.analysis?.amount) + (item.analysis?.category ? ' · ' + item.analysis.category : ''))}</p>
+                  <p className="mt-1 text-[11px] text-slate-400">{item.serviceError || ('Detectado: ' + (DIRECTION_LABELS[item.analysis?.direction] || 'No identificado') + ' · ' + formatAmount(item.analysis?.amount) + (item.analysis?.category ? ' · ' + item.analysis.category : ''))}</p>
                 </div>
-                <span className={'inline-flex shrink-0 items-center gap-1 text-xs font-semibold ' + (item.skipped ? 'text-amber-300' : item.passed ? 'text-emerald-300' : 'text-rose-300')}>
-                  {item.skipped ? 'Pendiente' : item.passed ? <><CheckCircle2 className="h-4 w-4" /> Correcta</> : <><AlertCircle className="h-4 w-4" /> Revisar</>}
+                <span className={'inline-flex shrink-0 items-center gap-1 text-xs font-semibold ' + (item.serviceError ? 'text-amber-300' : item.passed ? 'text-emerald-300' : 'text-rose-300')}>
+                  {item.serviceError ? 'No evaluada' : item.passed ? <><CheckCircle2 className="h-4 w-4" /> Correcta</> : <><AlertCircle className="h-4 w-4" /> Revisar</>}
                 </span>
               </div>)}
             </div>
-            <p className="text-[10px] leading-4 text-slate-500">La categoría detectada se muestra como información; el aprobado automático exige coincidencia de tipo e importe. Cada caso es una llamada independiente a Gemini y puede estar sujeto a límites gratuitos.</p>
+            <p className="text-[10px] leading-4 text-slate-500">La categoría detectada se muestra como información; el aprobado automático exige coincidencia de tipo e importe. Los 10 casos se envían en una sola llamada a Gemini; aun así, pueden aplicarse límites del servicio.</p>
           </div>}
         </div>
         <aside className="space-y-4">
