@@ -249,6 +249,7 @@ test('AI lab applies deterministic bank-notification safeguards and displays the
   const screen = read('src/pages/LaboratorioIA.jsx')
   assert.match(edge, /function explicitNotificationRule/)
   assert.ok(edge.includes('const notificationRule = explicitNotificationRule(description)'))
+  assert.ok(edge.includes('const notificationRule = explicitNotificationRule(item.description)'))
   assert.match(edge, /ruleOverride: true/)
   assert.match(edge, /transferencia desde tu cuenta/)
   assert.match(edge, /reembolso|devolucion/)
