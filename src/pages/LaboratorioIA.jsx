@@ -3,10 +3,10 @@ import { AlertCircle, ArrowDownCircle, ArrowUpCircle, BrainCircuit, CheckCircle2
 import { supabase } from '@/lib/supabase'
 
 const EXAMPLES = [
-  { label: 'Nómina recibida', value: 'NÓMINA RECIBIDA 740 €' },
-  { label: 'Compra con tarjeta', value: 'PAGO TARJETA - PANADERÍA EL MOLINO 12,50 €' },
-  { label: 'Bizum recibido', value: 'BIZUM RECIBIDO DE JUAN 50 €' },
-  { label: 'Recibo de electricidad', value: 'RECIBO ELECTRICIDAD 68 €' },
+  { label: 'Nómina recibida', value: 'BBVA: Tu nómina de 740,00 EUR ha sido abonada en tu cuenta.' },
+  { label: 'Compra con tarjeta', value: 'Revolut: Has realizado un pago con tarjeta de 12,95 EUR en MERCADONA.' },
+  { label: 'Transferencia propia', value: 'Revolut: Has recibido 150,00 EUR mediante transferencia desde tu cuenta BBVA.' },
+  { label: 'Reembolso', value: 'Revolut: Se ha abonado un reembolso de 32,50 EUR por una compra en MERCADONA.' },
 ]
 
 const DIRECTION_LABELS = {
@@ -69,16 +69,16 @@ export default function LaboratorioIA() {
   }, [categories])
 
   const AUTO_TESTS = [
-    { label: 'Nómina', description: 'NÓMINA RECIBIDA 740 €', direction: 'income', amount: 740 },
-    { label: 'Bizum recibido', description: 'BIZUM RECIBIDO DE UN AMIGO 50 €', direction: 'income', amount: 50 },
-    { label: 'Venta', description: 'VENTA DE PATINETE 300 €', direction: 'income', amount: 300 },
-    { label: 'Devolución', description: 'DEVOLUCIÓN DE COMPRA 32,99 €', direction: 'income', amount: 32.99 },
-    { label: 'Supermercado', description: 'COMPRA EN SUPERMERCADO 46,80 €', direction: 'expense', amount: 46.8 },
-    { label: 'Electricidad', description: 'RECIBO DE ELECTRICIDAD 87,75 €', direction: 'expense', amount: 87.75 },
-    { label: 'Suscripción', description: 'COBRO DE NETFLIX 12,99 €', direction: 'expense', amount: 12.99 },
-    { label: 'Transferencia propia', description: 'TRANSFERENCIA ENTRE MIS CUENTAS 100 €', direction: 'transfer', amount: 100 },
-    { label: 'Importe sin contexto', description: 'MOVIMIENTO DE 100 €', direction: 'unknown', amount: 100 },
-    { label: 'Dos movimientos juntos', description: 'AYER RECIBÍ 50 € Y HOY PAGUÉ 20 €', direction: 'unknown', amount: null },
+    { label: 'Nómina explícita', description: 'BBVA: Tu nómina de 740,00 EUR ha sido abonada en tu cuenta.', direction: 'income', amount: 740, categoryCandidates: ['Nómina', 'Ingresos laborales'] },
+    { label: 'Pago supermercado', description: 'Revolut: Has realizado un pago con tarjeta de 12,95 EUR en MERCADONA.', direction: 'expense', amount: 12.95, categoryCandidates: ['Alimentación'] },
+    { label: 'Transferencia recibida de tercero', description: 'BBVA: Has recibido 85,00 EUR de Juan mediante transferencia bancaria.', direction: 'income', amount: 85, categoryMustBeEmpty: true },
+    { label: 'Devolución de préstamo', description: 'Revolut: Juan te ha devuelto 85,00 EUR de un préstamo anterior.', direction: 'income', amount: 85, categoryCandidates: ['Devolución de préstamo', 'Devoluciones', 'Reembolsos'] },
+    { label: 'Reembolso de compra', description: 'Revolut: Se ha abonado un reembolso de 32,50 EUR por una compra en MERCADONA.', direction: 'income', amount: 32.5, categoryCandidates: ['Devoluciones', 'Reembolsos'] },
+    { label: 'Transferencia propia', description: 'BBVA: Has enviado una transferencia de 200,00 EUR a tu cuenta Revolut.', direction: 'transfer', amount: 200, categoryMustBeEmpty: true },
+    { label: 'Retirada de efectivo', description: 'Revolut: Has retirado 60,00 EUR en efectivo en un cajero automático.', direction: 'transfer', amount: 60, categoryMustBeEmpty: true },
+    { label: 'Ingreso de efectivo', description: 'BBVA: Has ingresado 120,00 EUR en efectivo en tu cuenta bancaria.', direction: 'transfer', amount: 120, categoryMustBeEmpty: true },
+    { label: 'Recibo electricidad', description: 'BBVA: Se ha cargado en tu cuenta un recibo de electricidad de 87,75 EUR.', direction: 'expense', amount: 87.75, categoryCandidates: ['Hogar', 'Suministros', 'Servicios', 'Vivienda'] },
+    { label: 'Pago farmacia', description: 'Revolut: Has realizado un pago con tarjeta de 18,75 EUR en FARMACIA CENTRAL.', direction: 'expense', amount: 18.75, categoryCandidates: ['Salud e higiene', 'Salud', 'Farmacia'] },
   ]
 
   async function analyzeWithGemini(text) {
@@ -91,7 +91,7 @@ export default function LaboratorioIA() {
         const payload = await invokeError.context?.json?.()
         serverMessage = typeof payload?.error === 'string' ? payload.error : ''
       } catch { /* Keep original client error. */ }
-      throw new Error(serverMessage || invokeError.message || 'No se pudo conectar con Gemini.')
+      throw new Error(serverMessage || invokeError.message || 'No se pudo conectar con el proveedor de IA.')
     }
     if (!data?.ok) throw new Error(data?.error || 'La IA no pudo completar la prueba.')
     return data.result
@@ -113,7 +113,7 @@ export default function LaboratorioIA() {
       throw new Error(serverMessage || invokeError.message || 'No se pudo conectar con Gemini.')
     }
     if (!data?.ok || !Array.isArray(data?.results)) {
-      throw new Error(data?.error || 'Gemini no devolvió los resultados de las pruebas.')
+      throw new Error(data?.error || 'El proveedor de IA no devolvió los resultados de las pruebas.')
     }
     return data.results
   }
@@ -136,7 +136,13 @@ export default function LaboratorioIA() {
         const amountOk = test.amount === null
           ? analysis.amount === null
           : Number.isFinite(Number(analysis.amount)) && Math.abs(Number(analysis.amount) - test.amount) < 0.011
-        return { ...test, analysis, passed: directionOk && amountOk, directionOk, amountOk }
+        const categoryExpected = test.categoryCandidates?.find((name) =>
+          uniqueCategories.some((category) => category.name.toLocaleLowerCase('es') === name.toLocaleLowerCase('es'))
+        )
+        const categoryOk = test.categoryMustBeEmpty
+          ? !analysis.category
+          : !categoryExpected || String(analysis.category || '').toLocaleLowerCase('es') === categoryExpected.toLocaleLowerCase('es')
+        return { ...test, analysis, passed: directionOk && amountOk && categoryOk, directionOk, amountOk, categoryOk }
       })
     } catch (err) {
       const message = err?.message || 'No se pudo conectar con Gemini.'
@@ -188,7 +194,7 @@ export default function LaboratorioIA() {
             <Sparkles className="h-3.5 w-3.5" /> Inteligencia artificial · Preview
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">Laboratorio de IA</h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">Escribe un concepto y Gemini intentará identificar por sí solo si es un gasto o un ingreso, su categoría y el importe. El resultado es una sugerencia: no se guarda en tus movimientos.</p>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">Escribe un concepto y La IA intentará identificar por sí solo si es un gasto o un ingreso, su categoría y el importe. El resultado es una sugerencia: no se guarda en tus movimientos.</p>
         </div>
         <div className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-emerald-400/20 bg-emerald-400/5 px-3 py-2 text-xs font-medium text-emerald-200">
           <ShieldCheck className="h-4 w-4" /> Sin acceso a tus saldos
@@ -221,7 +227,7 @@ export default function LaboratorioIA() {
           {error && <div role="alert" className="mt-4 flex gap-2 rounded-xl border border-rose-400/20 bg-rose-400/5 p-3 text-xs leading-5 text-rose-200"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />{error}</div>}
 
           {result && <div className="mt-5 rounded-xl border border-emerald-400/25 bg-emerald-400/[0.06] p-4">
-            <div className="flex items-center gap-2 text-xs font-semibold text-emerald-200"><CheckCircle2 className="h-4 w-4" /> Análisis de Gemini</div>
+            <div className="flex items-center gap-2 text-xs font-semibold text-emerald-200"><CheckCircle2 className="h-4 w-4" /> Análisis de {result.provider || 'IA'}{result.ruleOverride ? ' · reglas de seguridad aplicadas' : ''}</div>
             <div className="mt-4 grid gap-3 sm:grid-cols-3">
               <div className="rounded-xl border border-slate-700 bg-slate-950/60 p-3">
                 <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Tipo detectado</p>
@@ -248,7 +254,7 @@ export default function LaboratorioIA() {
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="text-base font-semibold text-white">Pruebas automáticas</h2>
-              <p className="mt-1 text-xs leading-5 text-slate-400">Gemini analizará 10 casos ficticios. Se comparan tipo e importe esperados. No se crean movimientos ni se modifican saldos.</p>
+              <p className="mt-1 text-xs leading-5 text-slate-400">El proveedor de IA analizará 10 notificaciones bancarias ficticias. Se comparan tipo e importe esperados. No se crean movimientos ni se modifican saldos.</p>
             </div>
             <button type="button" onClick={runAutomaticTests} disabled={autoTesting || loading || loadingCategories || !uniqueCategories.length} className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-violet-500 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-violet-400 disabled:cursor-not-allowed disabled:opacity-50">
               {autoTesting ? <><Loader2 className="h-4 w-4 animate-spin" /> Ejecutando {autoProgress}/{AUTO_TESTS.length}</> : <><BrainCircuit className="h-4 w-4" /> Ejecutar pruebas automáticas</>}
@@ -271,7 +277,7 @@ export default function LaboratorioIA() {
                 </span>
               </div>)}
             </div>
-            <p className="text-[10px] leading-4 text-slate-500">La categoría detectada se muestra como información; el aprobado automático exige coincidencia de tipo e importe. Los 10 casos se envían en una sola llamada a Gemini; aun así, pueden aplicarse límites del servicio.</p>
+            <p className="text-[10px] leading-4 text-slate-500">La categoría detectada se muestra como información; el aprobado automático exige coincidencia de tipo e importe. Los 10 casos se envían en una sola llamada al proveedor de IA; aun así, pueden aplicarse límites del servicio.</p>
           </div>}
         </div>
         <aside className="space-y-4">
@@ -285,11 +291,11 @@ export default function LaboratorioIA() {
           <div className="rounded-2xl border border-amber-400/15 bg-amber-400/[0.04] p-4">
             <h3 className="text-xs font-semibold text-amber-100">Privacidad y seguridad</h3>
             <ul className="mt-2 space-y-2 text-[11px] leading-5 text-slate-400">
-              <li>• Solo se envían a Gemini la descripción escrita y los nombres de categorías permitidas.</li>
+              <li>• Solo se envían al proveedor configurado en Preview la descripción escrita y los nombres de categorías permitidas.</li>
               <li>• No se envían fechas, datos de cuentas ni saldos.</li>
               <li>• No registra ni modifica movimientos.</li>
               <li>• La respuesta siempre requiere revisión humana.</li>
-              <li>• En el nivel gratuito de Gemini, Google puede usar el contenido para mejorar sus productos.</li>
+              <li>• La solicitud se procesa con el proveedor indicado en el resultado. No se envían saldos ni identificadores de cuentas.</li>
             </ul>
           </div>
         </aside>
