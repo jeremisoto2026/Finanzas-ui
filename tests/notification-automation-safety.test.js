@@ -230,3 +230,29 @@ test('la clasificación de ingresos capturados usa reglas locales y deja transfe
   assert.match(edge, /classifyIncomeNotice\(candidate\.reason, incomeCategories/)
   assert.doesNotMatch(edge, /classifyUnknownWithOpenAI|generativelanguage\.googleapis\.com/)
 })
+
+
+test('Android bank notices separate own transfers, cash movements, refunds and loan repayments', () => {
+  const classifier = read('android/app/src/main/java/com/finanzas/companion/IncomeNotificationClassifier.kt')
+  assert.match(classifier, /transferencia\\s+\\(\?:recibida/)
+  assert.match(classifier, /cashWithdrawalSignal/)
+  assert.match(classifier, /cashDeposit|ingresad/)
+  assert.match(classifier, /explicitRefundSignal/)
+  assert.match(classifier, /loanReturnSignal/)
+  assert.ok(classifier.indexOf('explicitRefundSignal.containsMatchIn(combined)') < classifier.indexOf('failedSignal.containsMatchIn(combined)'))
+  assert.match(classifier, /Retirada de efectivo: no es un gasto/)
+  assert.match(classifier, /Transferencia entre cuentas propias/)
+})
+
+test('AI lab applies deterministic bank-notification safeguards and displays the actual provider', () => {
+  const edge = read('supabase/functions/finance-ai-lab/index.ts')
+  const screen = read('src/pages/LaboratorioIA.jsx')
+  assert.match(edge, /function explicitNotificationRule/)
+  assert.match(edge, /const notificationRule = explicitNotificationRule\\(description\\)/)
+  assert.match(edge, /ruleOverride: true/)
+  assert.match(edge, /transferencia desde tu cuenta/)
+  assert.match(edge, /reembolso|devolucion/)
+  assert.match(screen, /result\\.provider \\|\\| 'IA'/)
+  assert.doesNotMatch(screen, /Análisis de Gemini/)
+  assert.match(screen, /Devolución de préstamo/)
+})
