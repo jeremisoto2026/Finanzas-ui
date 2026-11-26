@@ -234,7 +234,7 @@ test('la clasificación de ingresos capturados usa reglas locales y deja transfe
 
 test('Android bank notices separate own transfers, cash movements, refunds and loan repayments', () => {
   const classifier = read('android/app/src/main/java/com/finanzas/companion/IncomeNotificationClassifier.kt')
-  assert.match(classifier, /transferencia\\s+\\(\?:recibida/)
+  assert.ok(classifier.includes(String.raw`transferencia\s+(?:recibida`))
   assert.match(classifier, /cashWithdrawalSignal/)
   assert.match(classifier, /cashDeposit|ingresad/)
   assert.match(classifier, /explicitRefundSignal/)
