@@ -75,7 +75,7 @@ export function classifyIncomeNotice(reason, categories = []) {
   let confidence = 0;
   if (/\b(nomina|salario|salary|payroll)\b/.test(value)) {
     wanted = "Nómina"; confidence = 0.97;
-  } else if (/\b(te ha devuelto|ha devuelto|devolucion de prestamo|prestamo anterior|dinero prestado)\b/.test(value)) {
+  } else if (/\b(te ha devuelto|ha devuelto|devolucion (?:del )?prestamo|prestamo anterior|dinero prestado|prestamo que (?:le )?hiciste)\b/.test(value)) {
     wanted = "Devolución de préstamo"; confidence = 0.94;
   } else if (/\b(cashback|reembolso|devolucion|refund|reintegro|devuelto)\b/.test(value)) {
     wanted = "Devoluciones"; confidence = 0.94;
