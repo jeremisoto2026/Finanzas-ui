@@ -41,8 +41,11 @@ const CATEGORY_ALIASES = {
 
 function resolveCategory(wanted, categories = []) {
   const candidates = [wanted, ...(CATEGORY_ALIASES[wanted] || [])].map(normalizeFinanceText);
-  const match = categories.find((category) => candidates.includes(normalizeFinanceText(category.name)));
-  return match || null;
+  for (const candidate of candidates) {
+    const match = categories.find((category) => normalizeFinanceText(category.name) === candidate);
+    if (match) return match;
+  }
+  return null;
 }
 
 export function classifyExpenseMerchant(merchant, categories = []) {
