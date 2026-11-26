@@ -11,6 +11,8 @@ export function normalizeFinanceText(value) {
 const EXPENSE_RULES = [
   { pattern: /\b(mercadona|consum|lidl|aldi|carrefour|eroski|alcampo|dia|spar|supercor|ahorramas|mas y mas|masymas|hipercor)\b/i, category: "Alimentación", confidence: 0.97 },
   { pattern: /\b(farmacia|farmacias|farmacia central|farmacia\s+\w+|druni|primor)\b/i, category: "Salud e higiene", confidence: 0.94 },
+  { pattern: /\b(recibo de electricidad|electricidad|recibo de la luz|recibo de luz|suministro electrico)\b/i, category: "Hogar", confidence: 0.93 },
+  { pattern: /\b(recibo de agua|suministro de agua|recibo de gas|suministro de gas|gas natural)\b/i, category: "Hogar", confidence: 0.91 },
   { pattern: /\b(repsol|cepsa|bp|shell|galp|petronor|gasolinera|estacion de servicio)\b/i, category: "Transporte", confidence: 0.96 },
   { pattern: /\b(orange|vodafone|movistar|digi|yoigo|masmovil|lowi)\b/i, category: "Telefonía", confidence: 0.96 },
   { pattern: /\b(netflix|spotify|disney\+?|hbo|max|prime video|youtube premium|icloud|google one)\b/i, category: "Suscripciones", confidence: 0.95 },
@@ -69,7 +71,9 @@ export function classifyIncomeNotice(reason, categories = []) {
   let confidence = 0;
   if (/\b(nomina|salario|salary|payroll)\b/.test(value)) {
     wanted = "Nómina"; confidence = 0.97;
-  } else if (/\b(cashback|reembolso|devolucion|refund)\b/.test(value)) {
+  } else if (/\b(te ha devuelto|ha devuelto|devolucion de prestamo|prestamo anterior|dinero prestado)\b/.test(value)) {
+    wanted = "Devolución de préstamo"; confidence = 0.94;
+  } else if (/\b(cashback|reembolso|devolucion|refund|reintegro|devuelto)\b/.test(value)) {
     wanted = "Devoluciones"; confidence = 0.94;
   } else if (/\b(interes(?:es)?|interest(?:s)?)\b/.test(value)) {
     wanted = "Ingresos financieros"; confidence = 0.94;
