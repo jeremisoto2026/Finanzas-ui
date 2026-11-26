@@ -87,6 +87,154 @@ Deno.serve(async (req: Request) => {
     }
 
     const categoryOptions = categories.map((item: any) => item.name + " [" + item.direction + "]")
+
+    function normalizeSignal(value: string) {
+      return String(value || "").normalize("NFD").replace(/[\\u0300-\\u036f]/g, "")
+        .toLocaleLowerCase("es").replace(/[^\\p{L}\\p{N}]+/gu, " ").trim().replace(/\\s+/g, " ")
+    }
+
+    function findAllowedCategory(direction: "income" | "expense", aliases: string[]) {
+      const allowed = categories.filter((item: any) =>
+        direction === "income" ? ["income", "both"].includes(item.direction)
+          : ["expense", "both"].includes(item.direction)
+      )
+      for (const alias of aliases) {
+        const normalizedAlias = normalizeSignal(alias)
+        const found = allowed.find((item: any) => normalizeSignal(item.name) === normalizedAlias)
+        if (found) return found.name
+      }
+      return null
+    }
+
+    function explicitNotificationRule(raw: string) {
+      const value = normalizeSignal(raw)
+      const amountMatches = [...String(raw || "").matchAll(/(?<![\\p{L}\\d])(?:[-−]\\s*)?((?:\\d{1,3}(?:[ .\\u00A0,]\\d{3})+|\\d+)(?:[,.]\\d{1,2})?)\\s*(?:€|EUR)(?![\\p{L}])/giu)]
+      let explicitAmount: number | null = null
+      if (amountMatches.length === 1) {
+        const source = amountMatches[0][1].replace(/\\s/g, "")
+        const normalized = source.includes(",")
+          ? source.replace(/\\./g, "").replace(",", ".")
+          : source
+        const parsedAmount = Number(normalized)
+        if (Number.isFinite(parsedAmount) && parsedAmount > 0 && parsedAmount <= 10000000) {
+          explicitAmount = Math.round(parsedAmount * 100) / 100
+        }
+      }
+
+      const ownTransfer = /\\b(transferencia .* desde tu cuenta|transferencia .* a tu cuenta|desde tu cuenta \\w+|a tu cuenta \\w+|entre mis cuentas|cuenta propia|misma titularidad|transferencia interna)\\b/.test(value)
+      const cashWithdrawal = /\\b(has retirado|has sacado|retirada de efectivo|retirado .* cajero|cajero automatico|cash withdrawal|withdrawal at an atm)\\b/.test(value)
+      const cashDeposit = /\\b(ingresad[oa].*efectivo.*cuenta|ingreso de efectivo.*cuenta|cash deposit|deposited cash)\\b/.test(value)
+      if (ownTransfer || cashWithdrawal || cashDeposit) {
+        return {
+          direction: "transfer",
+          category: "__none__",
+          amount: explicitAmount,
+          confidence: 0.89,
+          explanation: cashWithdrawal
+            ? "Retirada de efectivo: cambia la ubicación del dinero y no constituye un gasto."
+            : cashDeposit
+              ? "Ingreso de efectivo en una cuenta propia: no es un ingreso nuevo."
+              : "Transferencia entre cuentas propias: no crea un ingreso ni un gasto nuevo.",
+          classificationSource: "bank-notification-rule",
+          ruleOverride: true,
+        }
+      }
+
+      const loanReturn = /\\b(te ha devuelto|ha devuelto|devolucion de prestamo|prestamo anterior|dinero prestado)\\b/.test(value)
+      const refund = loanReturn || /\\b(reembolso|devolucion|reintegro|refund|cashback|importe devuelto|dinero devuelto)\\b/.test(value)
+      if (refund) {
+        const aliases = loanReturn
+          ? ["Devolución de préstamo", "Préstamos devueltos", "Devoluciones", "Reembolsos"]
+          : ["Devoluciones", "Reembolsos", "Devolución de compra", "Otros ingresos"]
+        return {
+          direction: "income",
+          category: findAllowedCategory("income", aliases) || "__none__",
+          amount: explicitAmount,
+          confidence: 0.89,
+          explanation: loanReturn
+            ? "Devolución de un préstamo: es dinero recuperado, no una nómina."
+            : "Reembolso o devolución recibido: el dinero vuelve a la cuenta y no es un gasto nuevo.",
+          classificationSource: "bank-notification-rule",
+          ruleOverride: true,
+        }
+      }
+
+      if (/\\b(nomina|salario|payroll|salary)\\b/.test(value)) {
+        return {
+          direction: "income",
+          category: findAllowedCategory("income", ["Nómina", "Ingresos laborales", "Salario"]) || "__none__",
+          amount: explicitAmount,
+          confidence: 0.89,
+          explanation: "La notificación identifica expresamente una nómina o salario.",
+          classificationSource: "bank-notification-rule",
+          ruleOverride: true,
+        }
+      }
+
+      if (/\\b(has recibido|transferencia recibida|bizum recibido|recibido de|recibida de)\\b/.test(value)) {
+        return {
+          direction: "income",
+          category: "__none__",
+          amount: explicitAmount,
+          confidence: 0.89,
+          explanation: "Transferencia recibida de otra persona o entidad. No hay evidencia de que sea una nómina.",
+          classificationSource: "bank-notification-rule",
+          ruleOverride: true,
+        }
+      }
+
+      if (/\\b(electricidad|recibo de la luz|recibo de luz|suministro electrico)\\b/.test(value)) {
+        return {
+          direction: "expense",
+          category: findAllowedCategory("expense", ["Hogar", "Suministros", "Servicios", "Vivienda"]) || "__none__",
+          amount: explicitAmount,
+          confidence: 0.89,
+          explanation: "Recibo de electricidad: corresponde a un gasto de suministros del hogar.",
+          classificationSource: "bank-notification-rule",
+          ruleOverride: true,
+        }
+      }
+
+      if (/\\b(farmacia|farmacia central|pharmacy)\\b/.test(value)) {
+        return {
+          direction: "expense",
+          category: findAllowedCategory("expense", ["Salud e higiene", "Salud", "Farmacia", "Servicios"]) || "__none__",
+          amount: explicitAmount,
+          confidence: 0.89,
+          explanation: "Pago identificado en una farmacia.",
+          classificationSource: "bank-notification-rule",
+          ruleOverride: true,
+        }
+      }
+
+      if (/\\b(mercadona|consum|lidl|aldi|carrefour|eroski|alcampo|supermercado)\\b/.test(value) &&
+          /\\b(pago|compra|pagado|realizado)\\b/.test(value)) {
+        return {
+          direction: "expense",
+          category: findAllowedCategory("expense", ["Alimentación", "Supermercado"]) || "__none__",
+          amount: explicitAmount,
+          confidence: 0.89,
+          explanation: "Pago con tarjeta en un supermercado.",
+          classificationSource: "bank-notification-rule",
+          ruleOverride: true,
+        }
+      }
+
+      if (explicitAmount !== null && /(?:^|\\s)[-−]\\s*\\d/.test(String(raw)) &&
+          /\\b(pagado|pago|compra|cargo)\\b/.test(value)) {
+        return {
+          direction: "expense",
+          category: "__none__",
+          amount: explicitAmount,
+          confidence: 0.89,
+          explanation: "Importe negativo explícito en una notificación de pago; se interpreta como el importe del gasto.",
+          classificationSource: "bank-notification-rule",
+          ruleOverride: true,
+        }
+      }
+
+      return null
+    }
     const freeModelPreference = ["gemini-3.8-flash", "gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-2.5-flash-lite"]
     let availableModels = new Set<string>()
     const listController = new AbortController()
@@ -125,7 +273,7 @@ Deno.serve(async (req: Request) => {
             "Eres un analista de movimientos de una aplicación de finanzas personales. Interpreta el movimiento completo a partir del texto, sin que el usuario te indique si es ingreso o gasto.",
             "Responde en español y devuelve exclusivamente los campos del esquema JSON.",
             "Determina direction como income si entra dinero desde fuera, expense si sale dinero, transfer si es un movimiento entre cuentas propias, o unknown si no hay información suficiente.",
-            "No confundas una transferencia entre cuentas propias con un ingreso o un gasto. Un Bizum recibido de otra persona normalmente es income; un Bizum enviado o un pago con tarjeta normalmente es expense.",
+            "Reglas prioritarias para notificaciones bancarias: reembolso, devolución, reintegro o importe devuelto significan dinero recuperado (income), nunca un gasto; una devolución de préstamo es income y nunca nómina; solo clasifica como nómina si aparece explícitamente nómina, salario o payroll; una transferencia desde o hacia tu propia cuenta, una retirada de cajero o un ingreso de efectivo en tu propia cuenta son transfer, no income ni expense; una transferencia recibida de otra persona es income pero nunca nómina sin señal explícita; una compra anulada con importe devuelto es un reembolso, no una operación fallida.",
             "Extrae amount solo cuando el importe aparezca explícitamente en el texto. Devuelve 0 si no aparece; nunca inventes ni calcules importes.",
             "Si una descripción contiene dos o más movimientos distintos, direction debe ser unknown y amount debe ser 0; no elijas ni sumes uno de los importes.",
             "Elige una categoría exacta de la lista permitida y compatible con el tipo: income solo admite categorías income o both; expense solo admite expense o both. Para transfer o unknown, o si no hay coincidencia, usa __none__.",
@@ -351,8 +499,12 @@ Deno.serve(async (req: Request) => {
 
     let parsed: any
     try { parsed = JSON.parse(text) } catch {
-      return response({ error: "Gemini devolvió una respuesta que no se pudo interpretar." }, 502, origin)
+      return response({ error: "El proveedor de IA devolvió una respuesta que no se pudo interpretar." }, 502, origin)
     }
+
+    // Deterministic safeguards override model guesses for unambiguous bank alerts.
+    const notificationRule = explicitNotificationRule(description)
+    if (notificationRule) parsed = { ...parsed, ...notificationRule }
 
     function normalizeResult(item: any) {
       const direction = ["income", "expense", "transfer", "unknown"].includes(item.direction) ? item.direction : "unknown"
@@ -378,6 +530,8 @@ Deno.serve(async (req: Request) => {
         explanation,
         provider,
         model,
+        classificationSource: item.classificationSource || "model",
+        ruleOverride: item.ruleOverride === true,
         requiresReview: true,
       }
     }
