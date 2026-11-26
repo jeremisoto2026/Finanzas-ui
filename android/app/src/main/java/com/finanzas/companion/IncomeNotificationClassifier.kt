@@ -43,7 +43,7 @@ object IncomeNotificationClassifier {
         RegexOption.IGNORE_CASE
     )
     private val explicitRefundSignal = Regex(
-        """\b(reembolso|devoluci[oó]n|reintegro|refund|returned\s+to\s+your\s+account)\b""",
+        """\b(reembolso|devoluci[oó]n|reintegro|devuelt\w*|refund|returned\s+to\s+your\s+account)\b""",
         RegexOption.IGNORE_CASE
     )
     private val loanReturnSignal = Regex(
