@@ -10,6 +10,9 @@ const categories = [
   { id: "subs", name: "Suscripciones" },
   { id: "salary", name: "Nómina" },
   { id: "refund", name: "Reembolsos" },
+  { id: "loan-refund", name: "Devolución de préstamo" },
+  { id: "home", name: "Hogar" },
+  { id: "services", name: "Servicios" },
 ];
 
 test("classifies known supermarkets with high confidence", () => {
@@ -45,4 +48,17 @@ test("does not misclassify generic incoming transfers", () => {
 test("suggests refund category without changing the movement direction", () => {
   const result = classifyIncomeNotice("Devolución abonada; requiere confirmación", categories);
   assert.equal(result.category.id, "refund");
+});
+
+
+test("recognizes repayments of loans without assigning payroll", () => {
+  const result = classifyIncomeNotice("Juan te ha devuelto 85 EUR de un préstamo anterior", categories);
+  assert.equal(result.category?.name, "Devolución de préstamo");
+  assert.equal(result.requiresReview, false);
+});
+
+test("classifies electricity receipts as household supplies", () => {
+  const result = classifyExpenseMerchant("Recibo de electricidad", categories);
+  assert.equal(result.category?.name, "Hogar");
+  assert.ok(result.confidence >= 0.9);
 });
