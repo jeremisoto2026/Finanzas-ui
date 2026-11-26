@@ -11,6 +11,7 @@ const categories = [
   { id: "salary", name: "Nómina" },
   { id: "refund", name: "Reembolsos" },
   { id: "loan-refund", name: "Devolución de préstamo" },
+  { id: "loan-collections", name: "Cobros de préstamos" },
   { id: "home", name: "Hogar" },
   { id: "housing", name: "Vivienda" },
   { id: "services", name: "Servicios" },
@@ -79,5 +80,20 @@ test("classifies motorcycle workshop expenses as transport", () => {
 test("recognizes loan repayment phrased as devolución del préstamo", () => {
   const result = classifyIncomeNotice("Has recibido 85 EUR. Concepto: devolución del préstamo que le hiciste anteriormente.", categories);
   assert.equal(result.category?.name, "Devolución de préstamo");
+  assert.equal(result.requiresReview, false);
+});
+
+
+test("recognizes present-tense loan repayment", () => {
+  const result = classifyIncomeNotice("Juan devuelve 85 € del préstamo.", categories);
+  assert.equal(result.category?.name, "Devolución de préstamo");
+  assert.equal(result.requiresReview, false);
+});
+
+test("maps loan repayment to Cobros de préstamos when that is the available category", () => {
+  const result = classifyIncomeNotice("Juan devuelve 85 € del préstamo.", [
+    { id: "loan-collections", name: "Cobros de préstamos" },
+  ]);
+  assert.equal(result.category?.name, "Cobros de préstamos");
   assert.equal(result.requiresReview, false);
 });
