@@ -144,7 +144,7 @@ export default function LaboratorioIA() {
     }
     setAutoResults(results)
     setAutoProgress(AUTO_TESTS.length)
-
+    setAutoTesting(false)
   }
 
   async function runTest(event) {
