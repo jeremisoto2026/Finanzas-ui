@@ -43,7 +43,7 @@ export async function classifyUnknownWithOpenAI({
   if (cleanDescription.length < 2 || allowedCategories.length === 0) return null
 
   const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), 8000)
+  const timeout = setTimeout(() => controller.abort(), 5000)
   try {
     const response = await fetch(OPENAI_URL, {
       method: "POST",
