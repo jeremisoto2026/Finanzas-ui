@@ -95,6 +95,7 @@ data class NotificationSource(
                     val pkg = packageName.orEmpty().ifBlank {
                         key.removePrefix("android:")
                     }
+                    if (pkg == GOOGLE_WALLET_PACKAGE) return null
                     if (key.startsWith("android:") && pkg.isNotBlank()) {
                         fromPackage(pkg, label) ?: NotificationSource(
                             key,
