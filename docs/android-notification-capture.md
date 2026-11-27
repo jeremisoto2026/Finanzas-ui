@@ -33,7 +33,7 @@ La creación del gasto requiere una cuenta activa y una categoría válida. Se u
 
 - El permiso de lectura de notificaciones lo concede el usuario desde los ajustes de Android.
 - Se procesan Revolut, BBVA, Google Wallet y otras apps Android candidatas, filtrando localmente los avisos que no parecen pagos.
-- El texto original de la notificación se interpreta localmente y no se sincroniza.
+- El texto original de la notificación se interpreta localmente y no se sincroniza. Para comercios desconocidos, la Edge Function puede enviar a Cloudflare Workers AI únicamente el nombre del comercio y los nombres de las categorías de gasto permitidas por el usuario; nunca envía el texto original, importe, fecha, cuenta ni datos de tarjeta. La sugerencia de IA queda siempre pendiente de revisión y nunca provoca un registro automático.
 - No se extraen, solicitan, envían ni almacenan sufijos o números de tarjetas.
 - La cola local permanece cifrada con Android Keystore. Al leer capturas guardadas por versiones anteriores, la APK nueva reescribe la cola sin el campo retirado.
 - La Edge Function valida la sesión del usuario y usa su JWT con RLS; no usa la clave `service_role`.
