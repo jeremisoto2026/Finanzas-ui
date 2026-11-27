@@ -1,4 +1,5 @@
 name: Android APK CI
+# Rebuild Preview APK to validate the current notification-capture AI integration.
 
 on:
   push:
