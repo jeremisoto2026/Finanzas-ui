@@ -14,14 +14,16 @@ class BankAppAuthorizationStore(context: Context) {
             val array = JSONArray(raw)
             buildSet { for (i in 0 until array.length()) {
                 val value = array.optString(i).trim()
-                if (PACKAGE_PATTERN.matches(value)) add(value)
+                if (PACKAGE_PATTERN.matches(value) && value != NotificationSource.GOOGLE_WALLET_PACKAGE) add(value)
             } }
         } catch (_: Exception) { emptySet() }
     }
 
     @Synchronized fun setAuthorizedPackages(packages: Set<String>) {
         val array = JSONArray()
-        packages.filter(PACKAGE_PATTERN::matches).distinct().sorted().forEach(array::put)
+        packages.filter(PACKAGE_PATTERN::matches)
+            .filter { it != NotificationSource.GOOGLE_WALLET_PACKAGE }
+            .distinct().sorted().forEach(array::put)
         encrypted.putString(KEY, array.toString())
     }
 
