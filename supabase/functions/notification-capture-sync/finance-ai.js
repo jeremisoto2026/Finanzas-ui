@@ -78,7 +78,7 @@ export async function classifyUnknownWithOpenAI({
             schema: {
               type: "object",
               properties: {
-                category: { type: ["string", "null"] },
+                category: { type: "string", enum: [...allowedCategories, "__none__"] },
                 confidence: { type: "number" },
               },
               required: ["category", "confidence"],
@@ -193,7 +193,7 @@ export async function classifyUnknownMerchantWithCloudflare({ merchant, categori
       try { output = JSON.parse(cleaned) } catch { return null }
     }
     if (!output || typeof output !== "object" || Array.isArray(output)) return null
-    const categoryName = typeof output.category === "string" ? output.category.trim() : ""
+    const categoryName = typeof output.category === "string" && output.category !== "__none__" ? output.category.trim() : ""
     const allowed = allowedCategories.find((name) =>
       name.toLocaleLowerCase("es") === categoryName.toLocaleLowerCase("es")
     )
