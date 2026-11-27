@@ -21,6 +21,8 @@ class NotificationCaptureService : NotificationListenerService() {
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
+        // Google Wallet is intentionally excluded: only bank applications may feed capture.
+        if (sbn.packageName == NotificationSource.GOOGLE_WALLET_PACKAGE) return
         // Resolve the app against the financial-source allowlist before reading any
         // notification extras (including messaging-style android.messages). Personal
         // and unknown apps are ignored without inspecting their notification content.
