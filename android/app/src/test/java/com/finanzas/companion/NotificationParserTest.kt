@@ -46,21 +46,6 @@ class NotificationParserTest {
     }
 
     @Test
-    fun parsesWalletWithoutReadingCardDetails() {
-        val result = NotificationParser.parse(
-            source = NotificationSource.GOOGLE_WALLET,
-            title = "SUPERMERCADO ALTET",
-            text = "2,50 € con Aqua debito",
-            occurredAtMillis = 1794958925000L
-        )
-
-        assertNotNull(result)
-        assertEquals("SUPERMERCADO ALTET", result?.merchant)
-        assertEquals(250L, result?.amountCents)
-        assertEquals("Alimentación", result?.categorySuggestion)
-    }
-
-    @Test
     fun doesNotParsePocketBalanceAloneAsPurchase() {
         val result = NotificationParser.parse(
             source = NotificationSource.REVOLUT,
@@ -69,6 +54,19 @@ class NotificationParserTest {
             occurredAtMillis = 1794958920000L
         )
         assertNull(result)
+    }
+
+    @Test
+    fun excludesGoogleWalletFromKnownAndPersistedSources() {
+        assertNull(NotificationSource.fromPackage(
+            NotificationSource.GOOGLE_WALLET_PACKAGE,
+            "Google Wallet"
+        ))
+        assertNull(NotificationSource.fromPersisted(
+            "google_wallet",
+            NotificationSource.GOOGLE_WALLET_PACKAGE,
+            "Google Wallet"
+        ))
     }
 
     @Test
@@ -347,38 +345,11 @@ class NotificationParserTest {
     }
 
     @Test
-    fun walletAndAnyBankSourceShareMerchantKeyForMatchingPayment() {
-        val source = NotificationSource.fromPackage(
-            "es.caixabank.mobile.android",
-            "CaixaBank"
-        )!!
-        val bank = NotificationParser.parse(
-            source = source,
-            title = "Pago aceptado",
-            text = "Pago aceptado de 2,50 EUR en SUPERMER-CADO ALTET con tu tarjeta",
-            occurredAtMillis = 1795033320000L
-        )
-        val wallet = NotificationParser.parse(
-            source = NotificationSource.GOOGLE_WALLET,
-            title = "SUPERMERCADO ALTET",
-            text = "2,50 € con Aqua debito",
-            occurredAtMillis = 1795033321000L
-        )
-
-        assertNotNull(bank)
-        assertNotNull(wallet)
-        assertEquals(bank?.merchantKey, wallet?.merchantKey)
-    }
-
-    @Test
     fun readsLegacySourceNamesFromStoredCaptures() {
         assertEquals(
             NotificationSource.REVOLUT,
             NotificationSource.fromPersisted("REVOLUT", null, null)
         )
-        assertEquals(
-            NotificationSource.GOOGLE_WALLET,
-            NotificationSource.fromPersisted("GOOGLE_WALLET", null, null)
-        )
+        assertNull(NotificationSource.fromPersisted("GOOGLE_WALLET", null, null))
     }
 }
