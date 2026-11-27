@@ -8,19 +8,21 @@ import { classifyIncomeNotice } from '../supabase/functions/notification-capture
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const read = (path) => readFileSync(resolve(root, path), 'utf8')
 
-test('cada app bancaria se asigna directamente a una cuenta y Wallet no adivina si hay varias', () => {
+test('cada app bancaria se asigna a una cuenta y Google Wallet se rechaza', () => {
   const source = read('supabase/functions/notification-capture-sync/index.ts')
-  assert.match(source, /function resolveMappedAccount/)
-  assert.match(source, /const bankSources = capture\.sources\.filter\(\(source\) => !source\.isWallet\)/)
-  assert.match(source, /mapping\.source_app === bankSource\.sourceApp/)
-  assert.match(source, /if \(bankSources\.length === 1\)/)
-  assert.match(source, /if \(activeMappings\.length !== 1\) return null/)
-  assert.match(source, /else if \(account\?\.id && categoryId && categoryConfidence >= 0\.9\)/)
-  assert.match(source, /const autoPost = Boolean\(transactionId && transactionAccountId && resolvedCategoryId\)/)
-  assert.doesNotMatch(source, /capture\.isPaired\s*&&/)
+  assert.ok(source.includes('function resolveMappedAccount'))
+  assert.ok(source.includes('const bankSources = capture.sources.filter((source) => !source.isWallet)'))
+  assert.ok(source.includes('const activeMappings = mappings.filter((mapping) => mapping.is_active)'))
+  assert.ok(source.includes('mapping.source_app === bankSource.sourceApp'))
+  assert.ok(source.includes('if (bankSources.length === 1)'))
+  assert.ok(source.includes('if (activeMappings.length !== 1) return null'))
+  assert.ok(source.includes('if (walletSources.length > 0)'))
+  assert.ok(source.includes('Google Wallet no está autorizada como fuente de capturas.'))
+  assert.ok(source.includes('Automatic posting is disabled: every newly captured expense requires manual confirmation.'))
+  assert.ok(source.includes('const autoPost = Boolean(transactionId && transactionAccountId && resolvedCategoryId)'))
+  assert.doesNotMatch(source, /capture\\.isPaired\\s*&&/)
   assert.doesNotMatch(source, /card_last4|cardLast4/)
 })
-
 test('la pantalla vincula solo aplicación y cuenta y explica el tratamiento de datos', () => {
   const screen = read('src/pages/CapturasAutomaticas.jsx')
   assert.match(screen, /Vincular bancos con tus cuentas/)
@@ -146,23 +148,15 @@ test('el módulo de capturas no figura como apartado principal y centraliza perm
 })
 
 
-test('el aviso solo se devuelve cuando se inserta un gasto automático nuevo', () => {
+test('las capturas nuevas quedan en revisión y no generan gastos ni avisos automáticos', () => {
   const edge = read('supabase/functions/notification-capture-sync/index.ts')
-  const worker = read('android/app/src/main/java/com/finanzas/companion/NotificationCaptureSyncWorker.kt')
-  const notifier = read('android/app/src/main/java/com/finanzas/companion/ExpenseRegisteredNotifier.kt')
-  assert.match(edge, /const registeredExpenses: Record<string, unknown>\[\] = \[\]/)
-  assert.match(edge, /let wasInserted = false/)
-  assert.match(edge, /wasInserted = true/)
-  assert.match(edge, /if \(wasInserted && autoPost && transactionId\)/)
-  assert.match(edge, /registeredExpenses,/)
-  assert.match(worker, /optJSONArray\("registeredExpenses"\)/)
-  assert.match(worker, /ExpenseRegisteredNotifier\.show\(applicationContext, expense\)/)
-  assert.match(notifier, /CHANNEL_ID = "finanzas-expense-registered"/)
-  assert.match(notifier, /setContentTitle\("Gasto registrado"\)/)
-  assert.match(notifier, /VISIBILITY_PRIVATE/)
-  assert.match(notifier, /areNotificationsEnabled\(\)/)
+  assert.ok(edge.includes('Automatic posting is disabled: every newly captured expense requires manual confirmation.'))
+  assert.ok(edge.includes('let transactionId: string | null = null'))
+  assert.ok(edge.includes('const autoPost = Boolean(transactionId && transactionAccountId && resolvedCategoryId)'))
+  assert.ok(edge.includes('status: autoPost ? "posted" : "needs_review"'))
+  assert.doesNotMatch(edge, /from\\("transactions"\\)\\s*\\.insert/)
+  assert.doesNotMatch(edge, /registeredExpenses/)
 })
-
 test('el aviso llega tanto desde la sincronización en segundo plano como desde la app abierta', () => {
   const worker = read('android/app/src/main/java/com/finanzas/companion/NotificationCaptureSyncWorker.kt')
   const plugin = read('android/app/src/main/java/com/finanzas/companion/LocalCapturesPlugin.kt')
