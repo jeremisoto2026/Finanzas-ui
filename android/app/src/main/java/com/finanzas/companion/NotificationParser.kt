@@ -13,6 +13,7 @@ data class NotificationSource(
 
     companion object {
         const val GOOGLE_WALLET_KEY = "google_wallet"
+        const val GOOGLE_WALLET_PACKAGE = "com.google.android.apps.walletnfcrel"
 
         val REVOLUT = NotificationSource(
             "revolut", "com.revolut.revolut", "Revolut", true
@@ -20,13 +21,6 @@ data class NotificationSource(
         val BBVA = NotificationSource(
             "bbva", "com.bbva.bbvacontigo", "BBVA", true
         )
-        val GOOGLE_WALLET = NotificationSource(
-            GOOGLE_WALLET_KEY,
-            "com.google.android.apps.walletnfcrel",
-            "Google Wallet",
-            false
-        )
-
         private val excludedPackages = setOf(
             "com.finanzas.mobile",
             "com.android.systemui",
@@ -57,7 +51,6 @@ data class NotificationSource(
             when (normalizedPackage) {
                 REVOLUT.packageName -> return REVOLUT
                 BBVA.packageName -> return BBVA
-                GOOGLE_WALLET.packageName -> return GOOGLE_WALLET
             }
 
             if (
@@ -97,7 +90,7 @@ data class NotificationSource(
             return when (key) {
                 "REVOLUT", "revolut" -> REVOLUT
                 "BBVA", "bbva" -> BBVA
-                "GOOGLE_WALLET", "google_wallet" -> GOOGLE_WALLET
+                "GOOGLE_WALLET", "google_wallet" -> null
                 else -> {
                     val pkg = packageName.orEmpty().ifBlank {
                         key.removePrefix("android:")
