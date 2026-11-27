@@ -363,12 +363,13 @@ function validateCapture(value: unknown): ValidCapture {
 
   const walletSources = sources.filter((source) => source.isWallet)
   const bankSources = sources.filter((source) => !source.isWallet)
-  if (
-    walletSources.length > 1 ||
-    bankSources.length > 1 ||
-    (sources.length === 2 && (walletSources.length !== 1 || bankSources.length !== 1))
-  ) {
-    throw new Error("Solo se permite cruzar una app bancaria con Google Wallet.")
+  // Enforce bank-only capture server-side as well as in Android. Reject legacy
+  // clients and forged payloads containing Google Wallet before any DB writes.
+  if (walletSources.length > 0) {
+    throw new Error("Google Wallet no está autorizada como fuente de capturas.")
+  }
+  if (bankSources.length !== sources.length || bankSources.length > 1) {
+    throw new Error("Una captura debe proceder de una única aplicación bancaria autorizada.")
   }
 
   const rawCategory = String(item.categorySuggestion || "").trim()
