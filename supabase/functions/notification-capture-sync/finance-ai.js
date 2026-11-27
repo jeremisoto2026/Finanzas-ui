@@ -118,3 +118,97 @@ export async function classifyUnknownWithOpenAI({
     clearTimeout(timeout)
   }
 }
+
+
+/**
+ * Free Preview classification for an unknown merchant.
+ * Only the merchant label and the user's allowed expense category names are
+ * sent to Cloudflare Workers AI. Never send notification text, amount, date,
+ * account identifiers, or card data. The result is advisory and capped below
+ * the automatic-post threshold so the user must review it.
+ */
+export async function classifyUnknownMerchantWithCloudflare({ merchant, categories }) {
+  const accountId = Deno.env.get("CLOUDFLARE_ACCOUNT_ID")?.trim()
+  const apiToken = Deno.env.get("CLOUDFLARE_API_TOKEN")?.trim()
+  if (!accountId || !apiToken) return null
+
+  const cleanMerchant = String(merchant || "").replace(/\\s+/g, " ").trim().slice(0, 120)
+  const allowedCategories = [...new Set((categories || [])
+    .map((item) => String(item?.name || "").trim())
+    .filter(Boolean))].slice(0, 80)
+  if (cleanMerchant.length < 2 || allowedCategories.length === 0) return null
+
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 8000)
+  try {
+    const response = await fetch(
+      "https://api.cloudflare.com/client/v4/accounts/" + encodeURIComponent(accountId) +
+        "/ai/run/@cf/meta/llama-3.1-8b-instruct-fast",
+      {
+        method: "POST",
+        signal: controller.signal,
+        headers: {
+          "Authorization": "Bearer " + apiToken,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          messages: [
+            {
+              role: "system",
+              content: "Clasifica únicamente el nombre de un comercio en una categoría de gasto. No infieras importes, fechas, cuentas ni datos personales. Si no hay coincidencia clara, devuelve category null y confidence 0. Devuelve exclusivamente JSON.",
+            },
+            {
+              role: "user",
+              content: JSON.stringify({
+                merchant: cleanMerchant,
+                allowed_categories: allowedCategories,
+              }),
+            },
+          ],
+          max_tokens: 120,
+          temperature: 0.1,
+          response_format: {
+            type: "json_schema",
+            json_schema: {
+              type: "object",
+              properties: {
+                category: { type: ["string", "null"] },
+                confidence: { type: "number" },
+              },
+              required: ["category", "confidence"],
+              additionalProperties: false,
+            },
+          },
+        }),
+      },
+    )
+    if (!response.ok) return null
+    const payload = await response.json()
+    let output = payload?.result?.response
+      ?? payload?.result?.choices?.[0]?.message?.content
+      ?? payload?.response
+      ?? payload?.choices?.[0]?.message?.content
+    if (typeof output === "string") {
+      const cleaned = output.trim().replace(/^\x60{3}(?:json)?\\s*/i, "").replace(/\\s*\x60{3}$/, "")
+      try { output = JSON.parse(cleaned) } catch { return null }
+    }
+    if (!output || typeof output !== "object" || Array.isArray(output)) return null
+    const categoryName = typeof output.category === "string" ? output.category.trim() : ""
+    const allowed = allowedCategories.find((name) =>
+      name.toLocaleLowerCase("es") === categoryName.toLocaleLowerCase("es")
+    )
+    const confidence = Number(output.confidence)
+    if (!allowed || !Number.isFinite(confidence) || confidence < 0.65) return null
+    return {
+      category: allowed,
+      confidence: Math.min(confidence, 0.89),
+      source: "cloudflare-workers-ai",
+      requiresReview: true,
+    }
+  } catch {
+    // AI/provider failures must never block capture synchronization.
+    return null
+  } finally {
+    clearTimeout(timeout)
+  }
+}
