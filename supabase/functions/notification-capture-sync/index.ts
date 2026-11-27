@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2.119.0"
 import { classifyExpenseMerchant, classifyIncomeNotice } from "./finance-intelligence.js"
+import { classifyUnknownMerchantWithCloudflare } from "./finance-ai.js"
 
 const ALLOWED_ORIGINS = new Set([
   "https://localhost",
@@ -521,16 +522,31 @@ Deno.serve(async (req: Request) => {
         ? categoryIds.get(normalizeText(capture.categorySuggestion)) || null
         : null
       const deterministic = classifyExpenseMerchant(capture.merchant, categories || [])
-      // Unknown merchants stay in review. Real bank descriptions are never sent
-      // to a third-party AI provider during the free Preview phase.
-      const categoryId = ruleCategoryId || suggestedCategoryId || deterministic.category?.id || null
+      // For unknown merchants, Cloudflare Workers AI receives only the merchant
+      // label and this user's allowed expense category names. The original alert,
+      // amount, date, account and card data never leave the device.
+      const aiSuggestion = !ruleCategoryId && !suggestedCategoryId && !deterministic.category
+        ? await classifyUnknownMerchantWithCloudflare({
+            merchant: capture.merchant,
+            categories: categories || [],
+          })
+        : null
+      const aiCategoryId = aiSuggestion
+        ? categoryIds.get(normalizeText(aiSuggestion.category)) || null
+        : null
+      // AI suggestions are capped below 0.90 and therefore always remain in
+      // manual review; only trusted rules at >= 0.90 can auto-post.
+      const categoryId = ruleCategoryId || suggestedCategoryId ||
+        deterministic.category?.id || aiCategoryId || null
       const categoryConfidence = ruleCategoryId
         ? Number(savedRule?.confidence || 0)
         : suggestedCategoryId
           ? 0.86
           : deterministic.category
             ? deterministic.confidence
-            : 0
+            : aiCategoryId
+              ? Math.min(Number(aiSuggestion?.confidence || 0), 0.89)
+              : 0
 
       const account = resolveMappedAccount(
         capture,
