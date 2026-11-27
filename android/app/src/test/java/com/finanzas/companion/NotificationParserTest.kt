@@ -67,6 +67,11 @@ class NotificationParserTest {
             NotificationSource.GOOGLE_WALLET_PACKAGE,
             "Google Wallet"
         ))
+        assertNull(NotificationSource.fromPersisted(
+            "android:com.google.android.apps.walletnfcrel",
+            NotificationSource.GOOGLE_WALLET_PACKAGE,
+            "Google Wallet"
+        ))
     }
 
     @Test
