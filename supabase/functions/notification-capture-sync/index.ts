@@ -508,6 +508,8 @@ Deno.serve(async (req: Request) => {
     const registeredExpenses: Record<string, unknown>[] = []
     let autoPosted = 0
     let pendingReview = 0
+    let aiClassificationsUsed = 0
+    const MAX_AI_CLASSIFICATIONS_PER_SYNC = 3
 
     for (const capture of captures) {
       const pairKey = await sha256(userId + "|" + capture.id)
@@ -525,7 +527,10 @@ Deno.serve(async (req: Request) => {
       // For unknown merchants, Cloudflare Workers AI receives only the merchant
       // label and this user's allowed expense category names. The original alert,
       // amount, date, account and card data never leave the device.
-      const aiSuggestion = !ruleCategoryId && !suggestedCategoryId && !deterministic.category
+      const canUseAi = !ruleCategoryId && !suggestedCategoryId && !deterministic.category &&
+        aiClassificationsUsed < MAX_AI_CLASSIFICATIONS_PER_SYNC
+      if (canUseAi) aiClassificationsUsed += 1
+      const aiSuggestion = canUseAi
         ? await classifyUnknownMerchantWithCloudflare({
             merchant: capture.merchant,
             categories: categories || [],
