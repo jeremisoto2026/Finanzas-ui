@@ -505,7 +505,6 @@ Deno.serve(async (req: Request) => {
     ]))
 
     const rows: Record<string, unknown>[] = []
-    const registeredExpenses: Record<string, unknown>[] = []
     let autoPosted = 0
     let pendingReview = 0
     let aiClassificationsUsed = 0
@@ -539,8 +538,7 @@ Deno.serve(async (req: Request) => {
       const aiCategoryId = aiSuggestion
         ? categoryIds.get(normalizeText(aiSuggestion.category)) || null
         : null
-      // AI suggestions are capped below 0.90 and therefore always remain in
-      // manual review; only trusted rules at >= 0.90 can auto-post.
+      // Automatic posting is disabled: every newly captured expense requires manual confirmation.
       const categoryId = ruleCategoryId || suggestedCategoryId ||
         deterministic.category?.id || aiCategoryId || null
       const categoryConfidence = ruleCategoryId
@@ -591,7 +589,6 @@ Deno.serve(async (req: Request) => {
       let transactionId: string | null = null
       let transactionAccountId: string | null = null
       let transactionCategoryId: string | null = null
-      let wasInserted = false
 
       const { data: existingByPair, error: existingPairError } = await supabase
         .from("transactions")
@@ -631,50 +628,6 @@ Deno.serve(async (req: Request) => {
             .eq("id", existingByPair.id)
           if (merchantUpdateError) throw merchantUpdateError
         }
-      } else if (account?.id && categoryId && categoryConfidence >= 0.9) {
-        const occurredOn = new Intl.DateTimeFormat("sv-SE", {
-          timeZone: "Europe/Madrid",
-          year: "numeric",
-          month: "2-digit",
-          day: "2-digit",
-        }).format(new Date(capture.occurredAt))
-        const { data: inserted, error: insertError } = await supabase
-          .from("transactions")
-          .insert({
-            user_id: userId,
-            account_id: account.id,
-            category_id: categoryId,
-            kind: "expense",
-            status: "posted",
-            amount: Math.round((capture.amountCents / 100 + Number.EPSILON) * 100) / 100,
-            occurred_on: occurredOn,
-            description: capture.merchant,
-            payment_method: "Tarjeta",
-            idempotency_key: pairKey,
-          })
-          .select("id")
-          .single()
-
-        if (insertError && insertError.code === "23505") {
-          const { data: replay, error: replayError } = await supabase
-            .from("transactions")
-            .select("id, account_id, category_id")
-            .eq("user_id", userId)
-            .eq("idempotency_key", pairKey)
-            .eq("kind", "expense")
-            .single()
-          if (replayError) throw replayError
-          transactionId = replay.id
-          transactionAccountId = replay.account_id
-          transactionCategoryId = replay.category_id
-        } else if (insertError) {
-          throw insertError
-        } else {
-          transactionId = inserted.id
-          transactionAccountId = account.id
-          transactionCategoryId = categoryId
-          wasInserted = true
-        }
       }
 
       const resolvedCategoryId = transactionCategoryId || categoryId
@@ -685,19 +638,6 @@ Deno.serve(async (req: Request) => {
       const accountLabel = (accounts || []).find((item) => item.id === transactionAccountId)?.name ||
         account?.name || capture.accountLabel || null
       const amountLabel = (capture.amountCents / 100).toFixed(2).replace(".", ",")
-      if (wasInserted && autoPost && transactionId) {
-        const categoryLabel = (categories || []).find((item) => item.id === resolvedCategoryId)?.name || ""
-        registeredExpenses.push({
-          captureId: capture.id,
-          transactionId,
-          merchant: capture.merchant,
-          amountCents: capture.amountCents,
-          currencyCode: capture.currencyCode,
-          categoryLabel,
-          accountLabel: accountLabel || "",
-          occurredAt: capture.occurredAt,
-        })
-      }
       for (const source of capture.sources) {
         const fingerprint = await sha256(userId + "|" + capture.id + "|" + source.sourceApp)
         rows.push({
@@ -795,7 +735,6 @@ Deno.serve(async (req: Request) => {
       syncedIncomeCandidates,
       autoPosted,
       pendingReview,
-      registeredExpenses,
     }, 200, origin)
   } catch (error) {
     console.error("notification-capture-sync error:", error)
