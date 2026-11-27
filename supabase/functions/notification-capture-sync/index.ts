@@ -541,15 +541,7 @@ Deno.serve(async (req: Request) => {
       // Automatic posting is disabled: every newly captured expense requires manual confirmation.
       const categoryId = ruleCategoryId || suggestedCategoryId ||
         deterministic.category?.id || aiCategoryId || null
-      const categoryConfidence = ruleCategoryId
-        ? Number(savedRule?.confidence || 0)
-        : suggestedCategoryId
-          ? 0.86
-          : deterministic.category
-            ? deterministic.confidence
-            : aiCategoryId
-              ? Math.min(Number(aiSuggestion?.confidence || 0), 0.89)
-              : 0
+
 
       const account = resolveMappedAccount(
         capture,
