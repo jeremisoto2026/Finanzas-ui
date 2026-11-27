@@ -132,7 +132,7 @@ export async function classifyUnknownMerchantWithCloudflare({ merchant, categori
   const apiToken = Deno.env.get("CLOUDFLARE_API_TOKEN")?.trim()
   if (!accountId || !apiToken) return null
 
-  const cleanMerchant = String(merchant || "").replace(/\\s+/g, " ").trim().slice(0, 120)
+  const cleanMerchant = String(merchant || "").replace(/\s+/g, " ").trim().slice(0, 120)
   const allowedCategories = [...new Set((categories || [])
     .map((item) => String(item?.name || "").trim())
     .filter(Boolean))].slice(0, 80)
@@ -189,7 +189,7 @@ export async function classifyUnknownMerchantWithCloudflare({ merchant, categori
       ?? payload?.response
       ?? payload?.choices?.[0]?.message?.content
     if (typeof output === "string") {
-      const cleaned = output.trim().replace(/^\x60{3}(?:json)?\\s*/i, "").replace(/\\s*\x60{3}$/, "")
+      const cleaned = output.trim().replace(/^\x60{3}(?:json)?\s*/i, "").replace(/\s*\x60{3}$/, "")
       try { output = JSON.parse(cleaned) } catch { return null }
     }
     if (!output || typeof output !== "object" || Array.isArray(output)) return null
