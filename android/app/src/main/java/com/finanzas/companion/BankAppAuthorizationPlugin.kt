@@ -32,7 +32,9 @@ class BankAppAuthorizationPlugin : Plugin() {
             val rows = JSArray()
             resolved.mapNotNull { item ->
                 val app = item.activityInfo?.applicationInfo ?: return@mapNotNull null
-                if (app.packageName == getContext().packageName) return@mapNotNull null
+                if (app.packageName == getContext().packageName ||
+                    app.packageName == NotificationSource.GOOGLE_WALLET_PACKAGE
+                ) return@mapNotNull null
                 val label = pm.getApplicationLabel(app)?.toString()?.trim().orEmpty()
                 if (label.isBlank()) null else Triple(app.packageName, label, app.packageName in authorized)
             }.distinctBy { it.first }.sortedBy { it.second.lowercase(java.util.Locale.ROOT) }
