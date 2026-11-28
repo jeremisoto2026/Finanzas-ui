@@ -48,7 +48,7 @@ class NotificationParserTest {
     @Test
     fun parsesExactRevolutHasGastadoPurchaseAndIgnoresAccountBalance() {
         val title = "Tienda De Alimentacion"
-        val text = "🛒 Has gastado 2,90 €\\nSaldo de EUR: 94,06 €"
+        val text = "🛒 Has gastado 2,90 €\nSaldo de EUR: 94,06 €"
         val income = IncomeNotificationClassifier.classify(title, text)
         val result = NotificationParser.parse(
             source = NotificationSource.REVOLUT,
