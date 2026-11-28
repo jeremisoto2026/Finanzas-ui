@@ -361,7 +361,7 @@ object NotificationParser {
     private fun suggestCategory(merchant: String): String? {
         val normalized = normalizeMerchantKey(merchant)
         val supermarketTerms = listOf(
-            "SUPERMERCADO", "HIPERMERCADO", "MERCADONA", "LIDL", "ALDI",
+            "SUPERMERCADO", "HIPERMERCADO", "ALIMENTACION", "ALIMENTACIÓN", "MERCADONA", "LIDL", "ALDI",
             "CONSUM", "CARREFOUR", "EROSKI", "ALCAMPO", "DIA", "SPAR",
             "GROCERY", "SUPERMARKET"
         )
