@@ -254,6 +254,7 @@ export default function Configuracion() {
 
   const abrirPagoFijoDialog = (pago) => {
     if (!pago.fechaInicio) { setError('Este pago fijo no tiene una fecha de vencimiento configurada.'); return }
+    if (pago.periodoBloqueado) { setError(`El siguiente periodo estará disponible el ${pago.fechaInicio}. No puedes adelantar otro pago.`); return }
     setPagoFijoDialog({ pago, accountId: cuentasDisponibles[0]?.id || '', paidOn: localDateInputValue() })
   }
 
@@ -1383,7 +1384,9 @@ export default function Configuracion() {
                           <div className="flex items-center gap-2">
                             {pago.activo && (pago.pagadoPeriodo
                               ? <span className="rounded-lg bg-emerald-900/30 px-2 py-1 text-xs font-medium text-emerald-300">Periodo pagado</span>
-                              : <button onClick={() => abrirPagoFijoDialog(pago)} className="rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-500">Marcar como pagado</button>)}
+                              : pago.periodoBloqueado
+                                ? <span className="rounded-lg bg-slate-800 px-2 py-1 text-xs text-slate-400">Disponible {pago.fechaInicio}</span>
+                                : <button onClick={() => abrirPagoFijoDialog(pago)} className="rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-500">Marcar como pagado</button>)}
                             <button
                               onClick={() => toggleActivoPagoFijo(pago.id, pago.activo)}
                               className={`p-1.5 rounded-lg transition ${
