@@ -1,6 +1,7 @@
 package com.finanzas.companion
 
 import android.app.Notification
+import android.content.ComponentName
 import android.os.Bundle
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
@@ -122,5 +123,16 @@ class NotificationCaptureService : NotificationListenerService() {
     override fun onListenerConnected() {
         super.onListenerConnected()
         CaptureEvents.onChanged?.invoke()
+    }
+
+    override fun onListenerDisconnected() {
+        super.onListenerDisconnected()
+        // HyperOS/Android can disconnect notification listeners when reclaiming
+        // background processes. Ask the system to bind this listener again.
+        runCatching {
+            NotificationListenerService.requestRebind(
+                ComponentName(this, NotificationCaptureService::class.java)
+            )
+        }
     }
 }
