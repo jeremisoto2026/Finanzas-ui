@@ -62,6 +62,9 @@ export default function Configuracion() {
   const [cuentasDisponibles, setCuentasDisponibles] = useState([])
   const [gastosRegistrados, setGastosRegistrados] = useState([])
   const [pagoCuotaDialog, setPagoCuotaDialog] = useState(null)
+  const [pagoFijoDialog, setPagoFijoDialog] = useState(null)
+  const [guardandoPagoFijo, setGuardandoPagoFijo] = useState(false)
+  const guardandoPagoFijoRef = useRef(false)
   const [guardandoPagoCuota, setGuardandoPagoCuota] = useState(false)
   const [guardandoCompraCuotas, setGuardandoCompraCuotas] = useState(false)
   const guardandoCompraCuotasRef = useRef(false)
@@ -247,6 +250,37 @@ export default function Configuracion() {
     } catch (err) {
       alert(err.message || 'No se pudo guardar el pago fijo.')
     }
+  }
+
+  const abrirPagoFijoDialog = (pago) => {
+    if (!pago.fechaInicio) { setError('Este pago fijo no tiene una fecha de vencimiento configurada.'); return }
+    setPagoFijoDialog({ pago, accountId: cuentasDisponibles[0]?.id || '', paidOn: localDateInputValue() })
+  }
+
+  const registrarPagoFijo = async (event) => {
+    event.preventDefault()
+    if (guardandoPagoFijoRef.current || !pagoFijoDialog) return
+    if (!pagoFijoDialog.accountId) { setError('Selecciona la cuenta desde la que pagaste.'); return }
+    guardandoPagoFijoRef.current = true
+    setGuardandoPagoFijo(true)
+    try {
+      setError(null)
+      const response = await fetch('/api/pagos-fijos', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'mark_paid', id: pagoFijoDialog.pago.id,
+          accountId: pagoFijoDialog.accountId, paidOn: pagoFijoDialog.paidOn,
+          periodKey: pagoFijoDialog.pago.fechaInicio }),
+      })
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.error || 'No se pudo registrar el pago fijo.')
+      const refreshed = await fetch('/api/pagos-fijos', { cache: 'no-store' })
+      if (refreshed.ok) setPagosFijos(await refreshed.json())
+      setPagoFijoDialog(null)
+      setMensajeCuotas({ type: 'success', message: result.alreadyRecorded
+        ? 'Este periodo ya estaba registrado. No se ha creado otro gasto.'
+        : 'Pago fijo registrado: el gasto ya está en el historial y se ha actualizado el saldo.' })
+    } catch (err) { setError(err.message || 'No se pudo registrar el pago fijo.') }
+    finally { guardandoPagoFijoRef.current = false; setGuardandoPagoFijo(false) }
   }
 
   const toggleActivoPagoFijo = async (id, activoActual) => {
@@ -731,6 +765,31 @@ export default function Configuracion() {
         <div role="alert" className="flex items-start justify-between gap-3 rounded-xl border border-rose-700/60 bg-rose-950/30 px-4 py-3 text-sm text-rose-200">
           <span>{error}</span>
           <button type="button" onClick={() => setError(null)} className="shrink-0 font-medium text-rose-100 underline underline-offset-2">Cerrar</button>
+        </div>
+      )}
+      {pagoFijoDialog && (
+        <div className="fixed inset-0 z-[85] flex items-center justify-center bg-black/70 p-4" role="presentation">
+          <form onSubmit={registrarPagoFijo} className="w-full max-w-lg space-y-4 rounded-2xl border border-slate-700 bg-slate-900 p-5 shadow-2xl">
+            <div className="flex items-start justify-between gap-4">
+              <div><p className="text-xs font-semibold uppercase tracking-wider text-amber-400">Registrar gasto real</p>
+                <h2 className="mt-1 text-lg font-bold text-white">{pagoFijoDialog.pago.nombre}</h2>
+                <p className="mt-1 text-sm text-slate-400">€{Number(pagoFijoDialog.pago.monto).toFixed(2)} · Vencimiento {pagoFijoDialog.pago.fechaInicio}</p></div>
+              <button type="button" onClick={() => setPagoFijoDialog(null)} className="rounded-lg p-2 text-slate-400 hover:bg-slate-800" aria-label="Cerrar"><X className="h-5 w-5" /></button>
+            </div>
+            <label className="block text-sm text-slate-300">Cuenta desde la que pagaste
+              <FinanceSelect required value={pagoFijoDialog.accountId} onChange={(event) => setPagoFijoDialog((current) => ({ ...current, accountId: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2.5 text-white">
+                <option value="">Seleccionar cuenta</option>{cuentasDisponibles.map((cuenta) => <option key={cuenta.id} value={cuenta.id}>{cuenta.name}</option>)}
+              </FinanceSelect>
+            </label>
+            <label className="block text-sm text-slate-300">Fecha real del pago
+              <input required type="date" value={pagoFijoDialog.paidOn} onChange={(event) => setPagoFijoDialog((current) => ({ ...current, paidOn: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2.5 text-white" />
+            </label>
+            <p className="text-xs leading-5 text-slate-500">Se registrará un gasto real por el importe del pago fijo. Puedes pagarlo antes del vencimiento. El mismo periodo no podrá descontarse dos veces.</p>
+            <div className="flex justify-end gap-2 border-t border-slate-800 pt-4">
+              <button type="button" onClick={() => setPagoFijoDialog(null)} className="rounded-lg bg-slate-800 px-4 py-2 text-sm text-slate-300">Cancelar</button>
+              <button type="submit" disabled={guardandoPagoFijo || cuentasDisponibles.length === 0} className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{guardandoPagoFijo ? 'Registrando…' : 'Marcar como pagado'}</button>
+            </div>
+          </form>
         </div>
       )}
       {pagoCuotaDialog && (
@@ -1303,6 +1362,8 @@ export default function Configuracion() {
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap">
                           <div className="text-sm font-bold text-red-400">€{pago.monto.toFixed(2)}</div>
+                          <div className="mt-1 text-xs text-slate-500">Vence: {pago.fechaInicio || 'Sin fecha'}</div>
+                          {(pago.historialPagos || []).slice(0, 3).map((registro) => <div key={registro.id} className="mt-1 text-xs text-emerald-400">Pagado {registro.fechaPago} · {registro.cuenta}</div>)}
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap">
                           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-800 text-slate-300">
@@ -1320,6 +1381,9 @@ export default function Configuracion() {
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap">
                           <div className="flex items-center gap-2">
+                            {pago.activo && (pago.pagadoPeriodo
+                              ? <span className="rounded-lg bg-emerald-900/30 px-2 py-1 text-xs font-medium text-emerald-300">Periodo pagado</span>
+                              : <button onClick={() => abrirPagoFijoDialog(pago)} className="rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-500">Marcar como pagado</button>)}
                             <button
                               onClick={() => toggleActivoPagoFijo(pago.id, pago.activo)}
                               className={`p-1.5 rounded-lg transition ${
