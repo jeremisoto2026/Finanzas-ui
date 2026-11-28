@@ -46,6 +46,26 @@ class NotificationParserTest {
     }
 
     @Test
+    fun parsesExactRevolutHasGastadoPurchaseAndIgnoresAccountBalance() {
+        val title = "Tienda De Alimentacion"
+        val text = "🛒 Has gastado 2,90 €\\nSaldo de EUR: 94,06 €"
+        val income = IncomeNotificationClassifier.classify(title, text)
+        val result = NotificationParser.parse(
+            source = NotificationSource.REVOLUT,
+            title = title,
+            text = text,
+            occurredAtMillis = 1795823940000L
+        )
+
+        assertEquals(IncomeNoticeDecision.IGNORE, income.decision)
+        assertNotNull(result)
+        assertEquals("Tienda De Alimentacion", result?.merchant)
+        assertEquals(290L, result?.amountCents)
+        assertEquals("Alimentación", result?.categorySuggestion)
+        assertEquals("Revolut", result?.accountName)
+    }
+
+    @Test
     fun doesNotParsePocketBalanceAloneAsPurchase() {
         val result = NotificationParser.parse(
             source = NotificationSource.REVOLUT,
