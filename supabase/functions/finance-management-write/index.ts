@@ -190,6 +190,17 @@ async function budgets(db: any, userId: string, method: string, body: any) {
 }
 
 async function fixedPayments(db: any, userId: string, method: string, body: any) {
+  if (method === "POST" && body.action === "mark_paid") {
+    if (!body.id || !body.accountId || !dateIsValid(body.paidOn) || !dateIsValid(body.periodKey)) {
+      throw new HttpError("Selecciona la cuenta y la fecha real del pago.");
+    }
+    const { data, error } = await db.rpc("register_fixed_payment", {
+      p_fixed_payment_id: body.id, p_account_id: body.accountId,
+      p_paid_on: body.paidOn, p_period_key: body.periodKey,
+    });
+    if (error) throw error;
+    return { status: 200, body: { success: true, ...data } };
+  }
   const validate = (partial: boolean) => {
     const patch: any = {};
     if (!partial || body.nombre !== undefined) {
