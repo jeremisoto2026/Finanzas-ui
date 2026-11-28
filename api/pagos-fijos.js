@@ -49,8 +49,10 @@ export default async function handler(req, res) {
           fechaPago: record.paid_on, monto: Number(record.amount || 0),
           transactionId: record.transaction_id, cuenta: record.accounts?.name || '',
         })).sort((a, b) => String(b.fechaPago).localeCompare(String(a.fechaPago)))
+        const todayMadrid = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Madrid' }).format(new Date())
         return { ...mapped, historialPagos: history,
-          pagadoPeriodo: history.some((record) => record.periodo === mapped.fechaInicio) }
+          pagadoPeriodo: history.some((record) => record.periodo === mapped.fechaInicio),
+          periodoBloqueado: history.length > 0 && Boolean(mapped.fechaInicio) && mapped.fechaInicio > todayMadrid }
       }))
     }
 
