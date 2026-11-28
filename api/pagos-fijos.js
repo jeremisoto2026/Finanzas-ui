@@ -37,16 +37,37 @@ export default async function handler(req, res) {
     if (req.method === 'GET') {
       const { data, error } = await supabase
         .from('fixed_payments')
-        .select('id, name, amount, payment_method, frequency, next_due_on, status, notification_enabled, notes, categories(name), accounts(name)')
+        .select('id, name, amount, payment_method, frequency, next_due_on, status, notification_enabled, notes, categories(name), accounts(name), fixed_payment_records(id, period_key, due_on, paid_on, amount, transaction_id, accounts(name))')
         .eq('user_id', user.id)
         .neq('status', 'cancelled')
         .order('next_due_on', { ascending: true })
       if (error) throw error
-      return res.status(200).json((data || []).map(fixedPaymentForUi))
+      return res.status(200).json((data || []).map((row) => {
+        const mapped = fixedPaymentForUi(row)
+        const history = (row.fixed_payment_records || []).map((record) => ({
+          id: record.id, periodo: record.period_key, vencimiento: record.due_on,
+          fechaPago: record.paid_on, monto: Number(record.amount || 0),
+          transactionId: record.transaction_id, cuenta: record.accounts?.name || '',
+        })).sort((a, b) => String(b.fechaPago).localeCompare(String(a.fechaPago)))
+        return { ...mapped, historialPagos: history,
+          pagadoPeriodo: history.some((record) => record.periodo === mapped.fechaInicio) }
+      }))
     }
 
     if (req.method === 'POST') {
       const body = req.body || {}
+      if (body.action === 'mark_paid') {
+        if (!body.id || !body.accountId || !/^\\d{4}-\\d{2}-\\d{2}$/.test(String(body.paidOn || '')) ||
+            !/^\\d{4}-\\d{2}-\\d{2}$/.test(String(body.periodKey || ''))) {
+          return res.status(400).json({ error: 'Selecciona la cuenta y la fecha real del pago.' })
+        }
+        const { data, error } = await supabase.rpc('register_fixed_payment', {
+          p_fixed_payment_id: body.id, p_account_id: body.accountId,
+          p_paid_on: body.paidOn, p_period_key: body.periodKey,
+        })
+        if (error) throw error
+        return res.status(200).json({ success: true, ...data })
+      }
       let patch
       try { patch = validateFixedPayment(body) } catch (error) {
         return res.status(400).json({ error: error.message })
