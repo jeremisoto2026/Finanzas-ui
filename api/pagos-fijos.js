@@ -57,8 +57,8 @@ export default async function handler(req, res) {
     if (req.method === 'POST') {
       const body = req.body || {}
       if (body.action === 'mark_paid') {
-        if (!body.id || !body.accountId || !/^\\d{4}-\\d{2}-\\d{2}$/.test(String(body.paidOn || '')) ||
-            !/^\\d{4}-\\d{2}-\\d{2}$/.test(String(body.periodKey || ''))) {
+        if (!body.id || !body.accountId || !/^\d{4}-\d{2}-\d{2}$/.test(String(body.paidOn || '')) ||
+            !/^\d{4}-\d{2}-\d{2}$/.test(String(body.periodKey || ''))) {
           return res.status(400).json({ error: 'Selecciona la cuenta y la fecha real del pago.' })
         }
         const { data, error } = await supabase.rpc('register_fixed_payment', {
